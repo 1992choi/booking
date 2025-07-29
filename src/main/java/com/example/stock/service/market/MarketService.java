@@ -34,10 +34,6 @@ public class MarketService {
 
     @Transactional
     public void executeBuy() {
-        if (tradeHistoryRepository.countByMarketCodeAndTradeDate("BTC", LocalDate.now()) > 0) {
-            return;
-        }
-
         // Fetches the current market price and stores it in the database.
         MarketPrice marketPrice = getMarketPrice();
         if (marketPrice == null) {
@@ -110,6 +106,8 @@ public class MarketService {
     }
 
     private boolean isBuyConditionMet(List<MarketPrice> recentPrices) {
+        log.info("recentPrices: {}", recentPrices);
+
         // 매수 후 매도하지 않았으면 Skip
         boolean hasUnfinishedTrade = tradeHistoryRepository.existsByIsSoldFalseAndMarketCode("BTC");
         if (hasUnfinishedTrade) {
@@ -118,7 +116,8 @@ public class MarketService {
 
         // TODO: 조건 수정 필요
         for (int i = 0; i < recentPrices.size() - 1; i++) {
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) > 0) {
+            // 상승장인지 판단
+            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) < 0) {
                 return false;
             }
         }
