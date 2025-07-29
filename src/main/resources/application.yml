@@ -13,10 +13,3 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
-
-springdoc:
-  api-docs:
-    path: /api-docs
-
-slack:
-  url: https://hooks.slack.com/services/{hook-url}
