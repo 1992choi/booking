@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -31,6 +32,7 @@ public class MarketService {
 
     private final TelegramService telegramService;
 
+    @Transactional
     public void executeBuy() {
         if (tradeHistoryRepository.countByMarketCodeAndTradeDate("BTC", LocalDate.now()) > 0) {
             return;
@@ -48,12 +50,13 @@ public class MarketService {
         List<MarketPrice> recentPrice = getRecentPrices("BTC");
 
         // Determines whether the conditions for buying are met.
-        if (isBuyConditionMet(recentPrice)) {
+        if (recentPrice.size() > 3 && isBuyConditionMet(recentPrice)) {
             buy(recentPrice.getFirst());
             telegramService.sendExecutionCompleted(recentPrice);
         }
     }
 
+    @Transactional
     public void executeSell() {
         MarketPrice marketPrice = getMarketPrice();
         if (marketPrice == null) {
@@ -107,6 +110,13 @@ public class MarketService {
     }
 
     private boolean isBuyConditionMet(List<MarketPrice> recentPrices) {
+        // 매수 후 매도하지 않았으면 Skip
+        boolean hasUnfinishedTrade = tradeHistoryRepository.existsByIsSoldFalseAndMarketCode("BTC");
+        if (hasUnfinishedTrade) {
+            return false;
+        }
+
+        // TODO: 조건 수정 필요
         for (int i = 0; i < recentPrices.size() - 1; i++) {
             if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
                 return false;
@@ -117,7 +127,7 @@ public class MarketService {
     }
 
     private void buy(MarketPrice recentMarketPrice) {
-        // TODO: 매수
+        // TODO: 실제 매수
 
         // Set trade history.
         TradeHistory tradeHistory = TradeHistory.builder()
@@ -133,17 +143,16 @@ public class MarketService {
         BigDecimal currentPrice = marketPrice.getMarketPrice();
 
         // TODO: 내 지갑에서 가져오도록 변경 필요.
-        TradeHistory tradeHistory = tradeHistoryRepository.findTopByMarketCodeAndTradeDateOrderByCreatedAtAsc("BTC", LocalDate.now());
-        if (tradeHistory == null) {
+        TradeHistory tradeHistory = tradeHistoryRepository
+                .findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc("BTC")
+                .orElse(null);
+        if (tradeHistory == null || Boolean.TRUE.equals(tradeHistory.getIsSold())) {
             return;
         }
 
         BigDecimal boughtPrice = tradeHistory.getTradePrice();
-
-        if (currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0 ||
-                currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.98))) < 0) {
-            // TODO: 매도
-
+        if (currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0 || currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.95))) < 0) {
+            tradeHistory.markAsSold(currentPrice);
             telegramService.sendExecutionSellCompleted(currentPrice, boughtPrice);
         }
     }

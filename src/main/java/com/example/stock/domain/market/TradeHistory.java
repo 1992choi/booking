@@ -33,6 +33,12 @@ public class TradeHistory {
     @Column(name = "TRADE_PRICE")
     private BigDecimal tradePrice;
 
+    @Column(name = "IS_SOLD")
+    private Boolean isSold = false;
+
+    @Column(name = "SOLD_PRICE")
+    private BigDecimal soldPrice;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -42,6 +48,12 @@ public class TradeHistory {
         this.tradeDate = tradeDate;
         this.marketCode = marketCode;
         this.tradePrice = tradePrice;
+        this.isSold = false;
+    }
+
+    public void markAsSold(BigDecimal soldPrice) {
+        this.isSold = true;
+        this.soldPrice = soldPrice;
     }
 
 }
