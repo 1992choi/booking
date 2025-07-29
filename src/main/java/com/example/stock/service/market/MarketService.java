@@ -50,7 +50,7 @@ public class MarketService {
         List<MarketPrice> recentPrice = getRecentPrices("BTC");
 
         // Determines whether the conditions for buying are met.
-        if (recentPrice.size() > 3 && isBuyConditionMet(recentPrice)) {
+        if (recentPrice.size() > 2 && isBuyConditionMet(recentPrice)) {
             buy(recentPrice.getFirst());
             telegramService.sendExecutionCompleted(recentPrice);
         }
@@ -118,7 +118,7 @@ public class MarketService {
 
         // TODO: 조건 수정 필요
         for (int i = 0; i < recentPrices.size() - 1; i++) {
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
+            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) > 0) {
                 return false;
             }
         }
