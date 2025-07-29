@@ -26,7 +26,9 @@ import java.util.List;
 public class MarketService {
 
     private final MarketPriceRepository marketPriceRepository;
+
     private final TradeHistoryRepository tradeHistoryRepository;
+
     private final TelegramService telegramService;
 
     public void executeBuy() {
