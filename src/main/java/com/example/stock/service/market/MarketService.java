@@ -49,6 +49,8 @@ public class MarketService {
     @Value("${coin.secret}")
     private String COIN_SECRET;
 
+    private final List<String> COIN_SYMBOLS = List.of("BTC", "XRP");
+
     private final MarketPriceRepository marketPriceRepository;
 
     private final TradeHistoryRepository tradeHistoryRepository;
@@ -58,7 +60,7 @@ public class MarketService {
     public void sendBalanceToTelegram() {
         ObjectMapper objectMapper = new ObjectMapper();
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
-        var payload = new Payload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), new String[]{"BTC", "XRP"});
+        var payload = new Payload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), COIN_SYMBOLS.toArray(new String[0]));
         var base64EncodedPayload = makeBase64EncodedPayload(payload);
         var signature = makeSignature(base64EncodedPayload);
 
@@ -96,38 +98,42 @@ public class MarketService {
 
     @Transactional
     public void executeBuy() {
-        // Fetches the current market price and stores it in the database.
-        MarketPrice marketPrice = getMarketPrice();
-        if (marketPrice == null) {
-            return;
-        }
+        for (String coinSymbol : COIN_SYMBOLS) {
+            // Fetches the current market price and stores it in the database.
+            MarketPrice marketPrice = getMarketPrice(coinSymbol);
+            if (marketPrice == null) {
+                return;
+            }
 
-        saveMarketPrice(marketPrice);
+            saveMarketPrice(marketPrice);
 
-        // Get recent price
-        List<MarketPrice> recentPrice = getRecentPrices("BTC");
+            // Get recent price
+            List<MarketPrice> recentPrice = getRecentPrices(coinSymbol);
 
-        // Determines whether the conditions for buying are met.
-        if (recentPrice.size() > 2 && isBuyConditionMet(recentPrice)) {
-            buy(recentPrice.getFirst());
-            telegramService.sendExecutionCompleted(recentPrice);
+            // Determines whether the conditions for buying are met.
+            if (recentPrice.size() > 2 && isBuyConditionMet(recentPrice, coinSymbol)) {
+                buy(recentPrice.getFirst());
+                telegramService.sendExecutionCompleted(recentPrice);
+            }
         }
     }
 
     @Transactional
     public void executeSell() {
-        MarketPrice marketPrice = getMarketPrice();
-        if (marketPrice == null) {
-            return;
-        }
+        for (String coinSymbol : COIN_SYMBOLS) {
+            MarketPrice marketPrice = getMarketPrice(coinSymbol);
+            if (marketPrice == null) {
+                return;
+            }
 
-        sell(marketPrice);
+            sell(marketPrice);
+        }
     }
 
-    private MarketPrice getMarketPrice() {
+    private MarketPrice getMarketPrice(String coinSymbol) {
         BufferedReader in = null;
         try {
-            URL obj = new URL("https://api.coinone.co.kr/public/v2/trades/KRW/BTC?size=100");
+            URL obj = new URL("https://api.coinone.co.kr/public/v2/trades/KRW/" + coinSymbol + "?size=100");
             HttpURLConnection con = (HttpURLConnection) obj.openConnection();
             con.setRequestMethod("GET");
             in = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8));
@@ -141,7 +147,7 @@ public class MarketService {
                     .divide(new BigDecimal(marketPriceResponse.getTransactions().size()), BigDecimal.ROUND_HALF_UP);
 
             return MarketPrice.builder()
-                    .marketCode("BTC")
+                    .marketCode(coinSymbol)
                     .marketPrice(averagePrice)
                     .build();
         } catch (Exception e) {
@@ -167,11 +173,11 @@ public class MarketService {
         return marketPriceRepository.findTop3ByMarketCodeOrderByCreatedAtDesc(marketCode);
     }
 
-    private boolean isBuyConditionMet(List<MarketPrice> recentPrices) {
+    private boolean isBuyConditionMet(List<MarketPrice> recentPrices, String coinSymbol) {
         log.info("recentPrices: {}", recentPrices);
 
         // 매수 후 매도하지 않았으면 Skip
-        boolean hasUnfinishedTrade = tradeHistoryRepository.existsByIsSoldFalseAndMarketCode("BTC");
+        boolean hasUnfinishedTrade = tradeHistoryRepository.existsByIsSoldFalseAndMarketCode(coinSymbol);
         if (hasUnfinishedTrade) {
             return false;
         }
@@ -179,7 +185,7 @@ public class MarketService {
         // TODO: 조건 수정 필요
         for (int i = 0; i < recentPrices.size() - 1; i++) {
             // 상승장인지 판단
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) < 0) {
+            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
                 return false;
             }
         }
@@ -205,7 +211,7 @@ public class MarketService {
 
         // TODO: 내 지갑에서 가져오도록 변경 필요.
         TradeHistory tradeHistory = tradeHistoryRepository
-                .findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc("BTC")
+                .findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc(marketPrice.getMarketCode())
                 .orElse(null);
         if (tradeHistory == null || Boolean.TRUE.equals(tradeHistory.getIsSold())) {
             return;
