@@ -27,6 +27,30 @@ public class TelegramService {
     @Value("${telegram.chat-id}")
     private String TELEGRAM_CHAT_ID;
 
+    public void sendSimpleMessage(String message) {
+        BufferedReader in = null;
+        try {
+            URL obj = new URL("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendmessage?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + URLEncoder.encode(message, "UTF-8"));
+            HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+            con.setRequestMethod("GET");
+            in = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+            String line;
+            while ((line = in.readLine()) != null) {
+                log.info("line={}", line);
+            }
+        } catch (Exception e) {
+            log.error("sendExecutionCompleted Err", e);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
+        }
+    }
+
     /**
      * 체결 알리미
      */

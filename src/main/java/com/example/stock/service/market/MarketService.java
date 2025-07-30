@@ -31,6 +31,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
@@ -54,8 +55,9 @@ public class MarketService {
 
     private final TelegramService telegramService;
 
-    public String getBalance() {
+    public void sendBalanceToTelegram() {
         ObjectMapper objectMapper = new ObjectMapper();
+        DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
         var payload = new Payload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), new String[]{"BTC", "XRP"});
         var base64EncodedPayload = makeBase64EncodedPayload(payload);
         var signature = makeSignature(base64EncodedPayload);
@@ -76,7 +78,7 @@ public class MarketService {
 
             Map<String, Object> responseMap = objectMapper.readValue(response.body(), Map.class);
             List<Map<String, Object>> balances = (List<Map<String, Object>>) responseMap.get("balances");
-            StringBuilder sb = new StringBuilder();
+            log.info("balances: {}", balances);
 
             for (Map<String, Object> balance : balances) {
                 String currency = (String) balance.get("currency");
@@ -84,11 +86,10 @@ public class MarketService {
                 BigDecimal available = new BigDecimal(balance.get("available").toString());
                 BigDecimal total = averagePrice.multiply(available).setScale(2, RoundingMode.HALF_UP);
 
-                sb.append(String.format("[%s] 평단가=%.0f, 잔액=%.2f%n", currency, averagePrice, total));
+                telegramService.sendSimpleMessage(String.format("[%s] 평단가=%s, 잔액=%s", currency, decimalFormat.format(averagePrice), decimalFormat.format(total)));
             }
-
-            return sb.toString();
         } catch (InterruptedException | IOException e) {
+            telegramService.sendSimpleMessage("잔액조회 오류");
             throw new RuntimeException(e);
         }
     }
