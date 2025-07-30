@@ -21,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -55,7 +56,7 @@ public class MarketService {
 
     public String getBalance() {
         ObjectMapper objectMapper = new ObjectMapper();
-        var payload = new Payload(accessKey, UUID.randomUUID().toString(), new String[]{"BTC"}); //"BTC", "ETH", "XRP"
+        var payload = new Payload(accessKey, UUID.randomUUID().toString(), new String[]{"BTC", "XRP"});
         var base64EncodedPayload = makeBase64EncodedPayload(payload);
         var signature = makeSignature(base64EncodedPayload);
 
@@ -74,12 +75,22 @@ public class MarketService {
             log.info("statusCode: {}", response.statusCode());
 
             Map<String, Object> responseMap = objectMapper.readValue(response.body(), Map.class);
-            log.info("responseMap: {}", responseMap);
+            List<Map<String, Object>> balances = (List<Map<String, Object>>) responseMap.get("balances");
+            StringBuilder sb = new StringBuilder();
+
+            for (Map<String, Object> balance : balances) {
+                String currency = (String) balance.get("currency");
+                BigDecimal averagePrice = new BigDecimal(balance.get("average_price").toString());
+                BigDecimal available = new BigDecimal(balance.get("available").toString());
+                BigDecimal total = averagePrice.multiply(available).setScale(2, RoundingMode.HALF_UP);
+
+                sb.append(String.format("[%s] 평단가=%.0f, 잔액=%.2f%n", currency, averagePrice, total));
+            }
+
+            return sb.toString();
         } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
-
-        return null;
     }
 
     @Transactional
