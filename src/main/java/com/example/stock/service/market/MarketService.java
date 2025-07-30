@@ -1,36 +1,86 @@
 package com.example.stock.service.market;
 
+import com.example.stock.domain.market.Payload;
 import com.example.stock.domain.market.MarketPrice;
 import com.example.stock.domain.market.MarketPriceResponse;
 import com.example.stock.domain.market.TradeHistory;
 import com.example.stock.repository.market.MarketPriceRepository;
 import com.example.stock.repository.market.TradeHistoryRepository;
 import com.example.stock.service.noti.TelegramService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MarketService {
 
+    @Value("${coin.access-key}")
+    private String accessKey;
+
+    @Value("${coin.secret}")
+    private String secret;
+
     private final MarketPriceRepository marketPriceRepository;
 
     private final TradeHistoryRepository tradeHistoryRepository;
 
     private final TelegramService telegramService;
+
+    public String getBalance() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        var payload = new Payload(accessKey, UUID.randomUUID().toString(), new String[]{"BTC"}); //"BTC", "ETH", "XRP"
+        var base64EncodedPayload = makeBase64EncodedPayload(payload);
+        var signature = makeSignature(base64EncodedPayload);
+
+        try {
+            var client = HttpClient.newBuilder().build();
+            var body = objectMapper.writeValueAsString(payload);
+            var request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.coinone.co.kr/v2.1/account/balance"))
+                    .header("Content-type", "application/json")
+                    .header("X-COINONE-PAYLOAD", base64EncodedPayload)
+                    .header("X-COINONE-SIGNATURE", signature)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("statusCode: {}", response.statusCode());
+
+            Map<String, Object> responseMap = objectMapper.readValue(response.body(), Map.class);
+            log.info("responseMap: {}", responseMap);
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return null;
+    }
 
     @Transactional
     public void executeBuy() {
@@ -153,6 +203,32 @@ public class MarketService {
         if (currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0 || currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.95))) < 0) {
             tradeHistory.markAsSold(currentPrice);
             telegramService.sendExecutionSellCompleted(currentPrice, boughtPrice);
+        }
+    }
+
+    private String makeBase64EncodedPayload(Payload balancePayload) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            var bytesPayload = objectMapper.writeValueAsBytes(balancePayload);
+            return Base64.getEncoder().encodeToString(bytesPayload);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String makeSignature(String base64EncodedPayload) {
+        try {
+            var mac = Mac.getInstance("HmacSHA512");
+            var keySpec = new SecretKeySpec(secret.getBytes(), "HmacSHA512");
+            mac.init(keySpec);
+            var messageDigest = mac.doFinal(base64EncodedPayload.getBytes());
+            var sb = new StringBuilder();
+            for (byte b : messageDigest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new RuntimeException(e);
         }
     }
 

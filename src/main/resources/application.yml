@@ -12,3 +12,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
+
+coin:
+  access-key: ***
+  secret: ***
