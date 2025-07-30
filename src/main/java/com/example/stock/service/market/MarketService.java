@@ -43,10 +43,10 @@ import java.util.UUID;
 public class MarketService {
 
     @Value("${coin.access-key}")
-    private String accessKey;
+    private String COIN_ACCESS_KEY;
 
     @Value("${coin.secret}")
-    private String secret;
+    private String COIN_SECRET;
 
     private final MarketPriceRepository marketPriceRepository;
 
@@ -56,7 +56,7 @@ public class MarketService {
 
     public String getBalance() {
         ObjectMapper objectMapper = new ObjectMapper();
-        var payload = new Payload(accessKey, UUID.randomUUID().toString(), new String[]{"BTC", "XRP"});
+        var payload = new Payload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), new String[]{"BTC", "XRP"});
         var base64EncodedPayload = makeBase64EncodedPayload(payload);
         var signature = makeSignature(base64EncodedPayload);
 
@@ -230,7 +230,7 @@ public class MarketService {
     private String makeSignature(String base64EncodedPayload) {
         try {
             var mac = Mac.getInstance("HmacSHA512");
-            var keySpec = new SecretKeySpec(secret.getBytes(), "HmacSHA512");
+            var keySpec = new SecretKeySpec(COIN_SECRET.getBytes(), "HmacSHA512");
             mac.init(keySpec);
             var messageDigest = mac.doFinal(base64EncodedPayload.getBytes());
             var sb = new StringBuilder();

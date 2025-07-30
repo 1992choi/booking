@@ -2,6 +2,7 @@ package com.example.stock.service.noti;
 
 import com.example.stock.domain.market.MarketPrice;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -20,8 +21,11 @@ import java.util.stream.Collectors;
 @Service
 public class TelegramService {
 
-    private final String TELEGRAM_TOKEN = "-";
-    private final String TELEGRAM_CHAT_ID = "-";
+    @Value("${telegram.token}")
+    private String TELEGRAM_TOKEN;
+
+    @Value("${telegram.chat-id}")
+    private String TELEGRAM_CHAT_ID;
 
     /**
      * 체결 알리미
