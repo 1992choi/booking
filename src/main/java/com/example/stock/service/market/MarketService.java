@@ -88,7 +88,27 @@ public class MarketService {
                 BigDecimal available = new BigDecimal(balance.get("available").toString());
                 BigDecimal total = averagePrice.multiply(available).setScale(2, RoundingMode.HALF_UP);
 
-                telegramService.sendSimpleMessage(String.format("[%s] 평단가=%s, 잔액=%s", currency, decimalFormat.format(averagePrice), decimalFormat.format(total)));
+                MarketPrice currentPrice = getMarketPrice(currency);
+
+                BigDecimal currentValue = currentPrice.getMarketPrice()
+                        .divide(averagePrice, 8, RoundingMode.HALF_UP)
+                        .multiply(total);
+
+                BigDecimal profitOrLoss = currentValue.subtract(total);
+
+                BigDecimal rate = profitOrLoss.divide(total, 6, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
+
+                telegramService.sendSimpleMessage(String.format(
+                        "[%s]\n현재가 = %s\n평단가 = %s\n보유금액 = %s\n평가금액 = %s\n손익 = %s (%s%%)",
+                        currency,
+                        decimalFormat.format(currentPrice.getMarketPrice()),
+                        decimalFormat.format(averagePrice),
+                        decimalFormat.format(total),
+                        decimalFormat.format(currentValue),
+                        decimalFormat.format(profitOrLoss),
+                        decimalFormat.format(rate)
+                ));
             }
         } catch (InterruptedException | IOException e) {
             telegramService.sendSimpleMessage("잔액조회 오류");
