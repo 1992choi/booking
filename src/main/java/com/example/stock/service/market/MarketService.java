@@ -49,7 +49,7 @@ public class MarketService {
     @Value("${coin.secret}")
     private String COIN_SECRET;
 
-    private final List<String> COIN_SYMBOLS = List.of("BTC", "XRP");
+    private final List<String> COIN_SYMBOLS = List.of("BTC", "XRP", "ETH");
 
     private final MarketPriceRepository marketPriceRepository;
 
