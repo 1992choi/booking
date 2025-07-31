@@ -51,9 +51,6 @@ public class TelegramService {
         }
     }
 
-    /**
-     * 체결 알리미
-     */
     public void sendExecutionCompleted(List<MarketPrice> recentPrice) {
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
 
@@ -61,7 +58,7 @@ public class TelegramService {
 
         // Set price info.
         StringBuffer sb = new StringBuffer();
-        sb.append("[체결 알림]").append("\n\n");
+        sb.append("[매수 채결]").append("\n\n");
         sb.append("금액 변동: ").append(recentPrice.stream().map(marketPrice -> decimalFormat.format(marketPrice.getMarketPrice())).collect(Collectors.joining("  >  ")));
 
         // Set price change percentage.
@@ -98,16 +95,13 @@ public class TelegramService {
         }
     }
 
-    /**
-     * 체결 알리미
-     */
     public void sendExecutionSellCompleted(BigDecimal currentPrice, BigDecimal boughtPrice) {
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
 
         StringBuffer sb = new StringBuffer();
-        sb.append("[체결 알림]").append("\n\n");
-        sb.append("구매가: ").append(decimalFormat.format(currentPrice)).append("\n");
-        sb.append("현재가: ").append(decimalFormat.format(boughtPrice));
+        sb.append("[매도 체결]").append("\n\n");
+        sb.append("구매가: ").append(decimalFormat.format(boughtPrice)).append("\n");
+        sb.append("현재가: ").append(decimalFormat.format(currentPrice));
 
         BufferedReader in = null;
         try {
