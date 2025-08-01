@@ -116,6 +116,33 @@ public class MarketService {
         }
     }
 
+    public void reportProfitAnalysis() {
+        DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
+
+        for (String coinSymbol : COIN_SYMBOLS) {
+            BigDecimal investment = BigDecimal.valueOf(500_000);
+            BigDecimal totalProfit = BigDecimal.ZERO;
+
+            List<TradeHistory> tradeHistories = tradeHistoryRepository.findByMarketCodeAndIsSold(coinSymbol, true);
+
+            for (TradeHistory history : tradeHistories) {
+                BigDecimal buyPrice = history.getTradePrice();
+                BigDecimal sellPrice = history.getSoldPrice();
+
+                // 수익률 계산
+                BigDecimal profitRate = sellPrice.subtract(buyPrice).divide(buyPrice, 10, RoundingMode.HALF_UP);
+
+                // 개별 거래 손익 = 수익률 × 투자금
+                BigDecimal profitAmount = investment.multiply(profitRate);
+
+                // 누적
+                totalProfit = totalProfit.add(profitAmount);
+            }
+
+            telegramService.sendSimpleMessage(String.format("[%s]\n손익 = %s", coinSymbol, decimalFormat.format(totalProfit)));
+        }
+    }
+
     @Transactional
     public void executeBuy() {
         for (String coinSymbol : COIN_SYMBOLS) {
