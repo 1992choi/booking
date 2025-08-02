@@ -123,11 +123,17 @@ public class MarketService {
             BigDecimal investment = BigDecimal.valueOf(500_000);
             BigDecimal totalProfit = BigDecimal.ZERO;
 
-            List<TradeHistory> tradeHistories = tradeHistoryRepository.findByMarketCodeAndIsSold(coinSymbol, true);
+            List<TradeHistory> tradeHistories = tradeHistoryRepository.findByMarketCode(coinSymbol);
 
             for (TradeHistory history : tradeHistories) {
                 BigDecimal buyPrice = history.getTradePrice();
-                BigDecimal sellPrice = history.getSoldPrice();
+                BigDecimal sellPrice;
+                if (history.getIsSold()) {
+                    sellPrice = history.getSoldPrice();
+                } else {
+                    MarketPrice marketPrice = getMarketPrice(coinSymbol);
+                    sellPrice = marketPrice.getMarketPrice();
+                }
 
                 // 수익률 계산
                 BigDecimal profitRate = sellPrice.subtract(buyPrice).divide(buyPrice, 10, RoundingMode.HALF_UP);

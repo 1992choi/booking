@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Long> {
 
-    List<TradeHistory> findByMarketCodeAndIsSold(String marketCode, boolean isSold);
+    List<TradeHistory> findByMarketCode(String marketCode);
 
     Optional<TradeHistory> findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc(String marketCode);
 
