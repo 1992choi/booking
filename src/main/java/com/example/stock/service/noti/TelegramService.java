@@ -51,26 +51,13 @@ public class TelegramService {
         }
     }
 
-    public void sendExecutionCompleted(List<MarketPrice> recentPrice) {
+    public void sendExecutionCompleted(MarketPrice marketPrice) {
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
-
-        recentPrice.sort(Comparator.comparing(MarketPrice::getMarketPrice));
 
         // Set price info.
         StringBuffer sb = new StringBuffer();
-        sb.append("[매수 채결]").append("\n\n");
-        sb.append("금액 변동: ").append(recentPrice.stream().map(marketPrice -> decimalFormat.format(marketPrice.getMarketPrice())).collect(Collectors.joining("  >  ")));
-
-        // Set price change percentage.
-        BigDecimal lastPrice = recentPrice.get(recentPrice.size() - 1).getMarketPrice();
-        BigDecimal prevLastPrice = recentPrice.get(recentPrice.size() - 2).getMarketPrice();
-
-        BigDecimal percentChange = lastPrice.subtract(prevLastPrice)
-                .divide(prevLastPrice, 10, RoundingMode.HALF_EVEN) // 10자리까지 유지
-                .multiply(BigDecimal.valueOf(100))
-                .setScale(4, RoundingMode.HALF_UP);
-
-        sb.append("\n등락율: ").append(percentChange).append("%");
+        sb.append("[매수 체결]").append("\n\n");
+        sb.append("금액: ").append(decimalFormat.format(marketPrice.getMarketPrice()));
 
         BufferedReader in = null;
         try {

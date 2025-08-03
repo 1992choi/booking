@@ -7,6 +7,6 @@ import java.util.List;
 
 public interface MarketPriceRepository extends JpaRepository<MarketPrice, Long> {
 
-    List<MarketPrice> findTop3ByMarketCodeOrderByCreatedAtDesc(String marketCode);
+    List<MarketPrice> findTop20ByMarketCodeOrderByCreatedAtDesc(String marketCode);
 
 }

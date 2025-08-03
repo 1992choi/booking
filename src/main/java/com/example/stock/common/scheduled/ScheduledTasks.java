@@ -13,10 +13,10 @@ public class ScheduledTasks {
 
     private final MarketService marketService;
 
-    @Scheduled(cron = "0 0 */3 * * *")
-    public void sendBalanceToTelegram() {
-        marketService.sendBalanceToTelegram();
-    }
+//    @Scheduled(cron = "0 0 */3 * * *")
+//    public void sendBalanceToTelegram() {
+//        marketService.sendBalanceToTelegram();
+//    }
 
     @Scheduled(cron = "0 0 */3 * * *")
     public void reportProfitAnalysis() {

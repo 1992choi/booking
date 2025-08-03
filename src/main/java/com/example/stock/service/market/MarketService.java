@@ -1,8 +1,8 @@
 package com.example.stock.service.market;
 
-import com.example.stock.domain.market.Payload;
 import com.example.stock.domain.market.MarketPrice;
 import com.example.stock.domain.market.MarketPriceResponse;
+import com.example.stock.domain.market.Payload;
 import com.example.stock.domain.market.TradeHistory;
 import com.example.stock.repository.market.MarketPriceRepository;
 import com.example.stock.repository.market.TradeHistoryRepository;
@@ -33,10 +33,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -164,9 +161,9 @@ public class MarketService {
             List<MarketPrice> recentPrice = getRecentPrices(coinSymbol);
 
             // Determines whether the conditions for buying are met.
-            if (recentPrice.size() > 2 && isBuyConditionMet(recentPrice, coinSymbol)) {
+            if (isBuyConditionMet(recentPrice, coinSymbol)) {
                 buy(recentPrice.getFirst());
-                telegramService.sendExecutionCompleted(recentPrice);
+                telegramService.sendExecutionCompleted(recentPrice.getFirst());
             }
         }
     }
@@ -223,11 +220,15 @@ public class MarketService {
     }
 
     private List<MarketPrice> getRecentPrices(String marketCode) {
-        return marketPriceRepository.findTop3ByMarketCodeOrderByCreatedAtDesc(marketCode);
+        return marketPriceRepository.findTop20ByMarketCodeOrderByCreatedAtDesc(marketCode);
     }
 
     private boolean isBuyConditionMet(List<MarketPrice> recentPrices, String coinSymbol) {
         log.info("recentPrices: {}", recentPrices);
+
+        if (recentPrices == null || recentPrices.size() < 20) {
+            return false;
+        }
 
         // 매수 후 매도하지 않았으면 Skip
         boolean hasUnfinishedTrade = tradeHistoryRepository.existsByIsSoldFalseAndMarketCode(coinSymbol);
@@ -235,15 +236,77 @@ public class MarketService {
             return false;
         }
 
-        // TODO: 조건 수정 필요
-        for (int i = 0; i < recentPrices.size() - 1; i++) {
-            // 상승장인지 판단
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
-                return false;
-            }
+        // 낙폭 대비 반등 전략
+        if (!checkDropAndRebound(recentPrices)) {
+            return false;
         }
 
-        return true;
+        // 변동성 필터링
+        if (!checkVolatility(recentPrices)) {
+            return false;
+        }
+
+        // 이동평균선 전략
+        if (checkMovingAverageStrategy(recentPrices)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // 낙폭 대비 반등 조건 (5% 이상 하락 후 3분 연속 상승)
+    private boolean checkDropAndRebound(List<MarketPrice> prices) {
+        BigDecimal highest = prices.stream()
+                .map(MarketPrice::getMarketPrice)
+                .max(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+
+        BigDecimal current = prices.getFirst().getMarketPrice();
+        BigDecimal dropRate = current.divide(highest, 4, RoundingMode.HALF_UP).subtract(BigDecimal.ONE);
+
+        if (dropRate.compareTo(BigDecimal.valueOf(-0.05)) <= 0) {
+            // 최근 3개 연속 상승 체크
+            for (int i = 0; i < 2; i++) {
+                if (prices.get(i).getMarketPrice().compareTo(prices.get(i + 1).getMarketPrice()) <= 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // 변동성 필터 (최근 20개 가격 범위 1% 이상이어야 활성장)
+    private boolean checkVolatility(List<MarketPrice> prices) {
+        BigDecimal max = prices.stream()
+                .map(MarketPrice::getMarketPrice)
+                .max(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+        BigDecimal min = prices.stream()
+                .map(MarketPrice::getMarketPrice)
+                .min(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+
+        BigDecimal rangeRate = max.subtract(min).divide(min, 4, RoundingMode.HALF_UP);
+        return rangeRate.compareTo(BigDecimal.valueOf(0.01)) >= 0; // 1% 이상 변동성 필요
+    }
+
+    // 이동평균선 계산
+    private BigDecimal movingAverage(List<MarketPrice> prices, int period) {
+        return prices.stream()
+                .limit(period)
+                .map(MarketPrice::getMarketPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(period), RoundingMode.HALF_UP);
+    }
+
+    // 이동평균선 전략 (단기 5, 장기 20)
+    private boolean checkMovingAverageStrategy(List<MarketPrice> prices) {
+        BigDecimal shortMA = movingAverage(prices, 5);
+        BigDecimal longMA = movingAverage(prices, 20);
+        BigDecimal current = prices.getFirst().getMarketPrice();
+
+        return shortMA.compareTo(longMA) > 0 && current.compareTo(shortMA) > 0;
     }
 
     private void buy(MarketPrice recentMarketPrice) {
