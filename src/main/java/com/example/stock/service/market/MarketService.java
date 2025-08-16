@@ -236,8 +236,8 @@ public class MarketService {
             return false;
         }
 
-        // 낙폭 대비 반등 전략
-        if (!checkDropAndRebound(recentPrices)) {
+        // 연속 상승 확인
+        if (!isThreeConsecutiveIncreases(recentPrices)) {
             return false;
         }
 
@@ -254,26 +254,14 @@ public class MarketService {
         return false;
     }
 
-    // 낙폭 대비 반등 조건 (5% 이상 하락 후 3분 연속 상승)
-    private boolean checkDropAndRebound(List<MarketPrice> prices) {
-        BigDecimal highest = prices.stream()
-                .map(MarketPrice::getMarketPrice)
-                .max(Comparator.naturalOrder())
-                .orElse(BigDecimal.ZERO);
-
-        BigDecimal current = prices.getFirst().getMarketPrice();
-        BigDecimal dropRate = current.divide(highest, 4, RoundingMode.HALF_UP).subtract(BigDecimal.ONE);
-
-        if (dropRate.compareTo(BigDecimal.valueOf(-0.05)) <= 0) {
-            // 최근 3개 연속 상승 체크
-            for (int i = 0; i < 2; i++) {
-                if (prices.get(i).getMarketPrice().compareTo(prices.get(i + 1).getMarketPrice()) <= 0) {
-                    return false;
-                }
+    // 3분 연속 상승
+    private boolean isThreeConsecutiveIncreases(List<MarketPrice> recentPrices) {
+        for (int i = 0; i < recentPrices.size() - 1; i++) {
+            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
+                return false;
             }
-            return true;
         }
-        return false;
+        return true;
     }
 
     // 변동성 필터 (최근 20개 가격 범위 1% 이상이어야 활성장)
