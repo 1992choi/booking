@@ -8,14 +8,10 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.DecimalFormat;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -56,7 +52,7 @@ public class TelegramService {
 
         // Set price info.
         StringBuffer sb = new StringBuffer();
-        sb.append("[매수 체결]").append("\n\n");
+        sb.append("[매수 체결] ").append(marketPrice.getMarketCode()).append("\n\n");
         sb.append("금액: ").append(decimalFormat.format(marketPrice.getMarketPrice()));
 
         BufferedReader in = null;
@@ -82,11 +78,11 @@ public class TelegramService {
         }
     }
 
-    public void sendExecutionSellCompleted(BigDecimal currentPrice, BigDecimal boughtPrice) {
+    public void sendExecutionSellCompleted(String marketCode, BigDecimal currentPrice, BigDecimal boughtPrice) {
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
 
         StringBuffer sb = new StringBuffer();
-        sb.append("[매도 체결]").append("\n\n");
+        sb.append("[매도 체결 ").append(marketCode).append("\n\n");
         sb.append("구매가: ").append(decimalFormat.format(boughtPrice)).append("\n");
         sb.append("현재가: ").append(decimalFormat.format(currentPrice));
 

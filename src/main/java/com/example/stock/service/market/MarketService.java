@@ -336,7 +336,7 @@ public class MarketService {
         BigDecimal boughtPrice = tradeHistory.getTradePrice();
         if (currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0 || currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.95))) < 0) {
             tradeHistory.markAsSold(currentPrice);
-            telegramService.sendExecutionSellCompleted(currentPrice, boughtPrice);
+            telegramService.sendExecutionSellCompleted(marketPrice.getMarketCode(), currentPrice, boughtPrice);
         }
     }
 
