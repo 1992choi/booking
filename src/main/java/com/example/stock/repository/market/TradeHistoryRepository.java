@@ -10,6 +10,8 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Long
 
     List<TradeHistory> findByMarketCode(String marketCode);
 
+    List<TradeHistory> findByIsSold(Boolean isSold);
+
     Optional<TradeHistory> findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc(String marketCode);
 
     boolean existsByIsSoldFalseAndMarketCode(String marketCode);
