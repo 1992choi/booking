@@ -82,7 +82,7 @@ public class TelegramService {
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
 
         StringBuffer sb = new StringBuffer();
-        sb.append("[매도 체결 ").append(marketCode).append("\n\n");
+        sb.append("[매도 체결] ").append(marketCode).append("\n\n");
         sb.append("구매가: ").append(decimalFormat.format(boughtPrice)).append("\n");
         sb.append("현재가: ").append(decimalFormat.format(currentPrice));
 

@@ -241,11 +241,6 @@ public class MarketService {
             return false;
         }
 
-        // 변동성 필터링
-        if (!checkVolatility(recentPrices)) {
-            return false;
-        }
-
         // 이동평균선 전략
         if (checkMovingAverageStrategy(recentPrices)) {
             return true;
@@ -264,19 +259,13 @@ public class MarketService {
         return true;
     }
 
-    // 변동성 필터 (최근 20개 가격 범위 1% 이상이어야 활성장)
-    private boolean checkVolatility(List<MarketPrice> prices) {
-        BigDecimal max = prices.stream()
-                .map(MarketPrice::getMarketPrice)
-                .max(Comparator.naturalOrder())
-                .orElse(BigDecimal.ZERO);
-        BigDecimal min = prices.stream()
-                .map(MarketPrice::getMarketPrice)
-                .min(Comparator.naturalOrder())
-                .orElse(BigDecimal.ZERO);
+    // 이동평균선 전략 (단기 5, 장기 20)
+    private boolean checkMovingAverageStrategy(List<MarketPrice> prices) {
+        BigDecimal shortMA = movingAverage(prices, 5);
+        BigDecimal longMA = movingAverage(prices, 20);
+        BigDecimal current = prices.getFirst().getMarketPrice();
 
-        BigDecimal rangeRate = max.subtract(min).divide(min, 4, RoundingMode.HALF_UP);
-        return rangeRate.compareTo(BigDecimal.valueOf(0.01)) >= 0; // 1% 이상 변동성 필요
+        return shortMA.compareTo(longMA) > 0 && current.compareTo(shortMA) > 0;
     }
 
     // 이동평균선 계산
@@ -286,15 +275,6 @@ public class MarketService {
                 .map(MarketPrice::getMarketPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(period), RoundingMode.HALF_UP);
-    }
-
-    // 이동평균선 전략 (단기 5, 장기 20)
-    private boolean checkMovingAverageStrategy(List<MarketPrice> prices) {
-        BigDecimal shortMA = movingAverage(prices, 5);
-        BigDecimal longMA = movingAverage(prices, 20);
-        BigDecimal current = prices.getFirst().getMarketPrice();
-
-        return shortMA.compareTo(longMA) > 0 && current.compareTo(shortMA) > 0;
     }
 
     private void buy(MarketPrice recentMarketPrice) {
