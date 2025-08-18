@@ -33,7 +33,10 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -236,31 +239,23 @@ public class MarketService {
             return false;
         }
 
-        // 연속 상승 확인
-        if (!isThreeConsecutiveIncreases(recentPrices)) {
-            return false;
-        }
-
-        // 이동평균선 전략
-        if (checkMovingAverageStrategy(recentPrices)) {
-            return true;
-        }
-
-        return false;
+        return isMostlyIncreasing(recentPrices, 5, 3) || isMovingAverageUptrend(recentPrices);
     }
 
-    // 3분 연속 상승
-    private boolean isThreeConsecutiveIncreases(List<MarketPrice> recentPrices) {
-        for (int i = 0; i < recentPrices.size() - 1; i++) {
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) <= 0) {
-                return false;
+    // 연속 상승 확인 (최근 5개 중 3개 이상 상승)
+    private boolean isMostlyIncreasing(List<MarketPrice> recentPrices, int windowSize, int minIncreases) {
+        int increases = 0;
+        for (int i = 0; i < windowSize - 1; i++) {
+            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) > 0) {
+                increases++;
             }
         }
-        return true;
+
+        return increases >= minIncreases;
     }
 
     // 이동평균선 전략 (단기 5, 장기 20)
-    private boolean checkMovingAverageStrategy(List<MarketPrice> prices) {
+    private boolean isMovingAverageUptrend(List<MarketPrice> prices) {
         BigDecimal shortMA = movingAverage(prices, 5);
         BigDecimal longMA = movingAverage(prices, 20);
         BigDecimal current = prices.getFirst().getMarketPrice();
