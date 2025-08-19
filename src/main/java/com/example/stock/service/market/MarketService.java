@@ -239,22 +239,33 @@ public class MarketService {
             return false;
         }
 
-        return isMostlyIncreasing(recentPrices, 5, 3) || isMovingAverageUptrend(recentPrices);
+        return isMostlyIncreasing(recentPrices) || isUpwardOverall(recentPrices) || isMovingAverageUptrend(recentPrices);
     }
 
-    // 연속 상승 확인 (최근 5개 중 3개 이상 상승)
-    private boolean isMostlyIncreasing(List<MarketPrice> recentPrices, int windowSize, int minIncreases) {
+    // 최근 5개 중 3개 이상 상승 (단기 상승 빈도)
+    private boolean isMostlyIncreasing(List<MarketPrice> recentPrices) {
         int increases = 0;
-        for (int i = 0; i < windowSize - 1; i++) {
-            if (recentPrices.get(i).getMarketPrice().compareTo(recentPrices.get(i + 1).getMarketPrice()) > 0) {
+        for (int i = 0; i < 4; i++) {
+            BigDecimal current = recentPrices.get(i).getMarketPrice();
+            BigDecimal next = recentPrices.get(i + 1).getMarketPrice();
+            if (current.compareTo(next) > 0) {
                 increases++;
             }
         }
-
-        return increases >= minIncreases;
+        return increases >= 3;
     }
 
-    // 이동평균선 전략 (단기 5, 장기 20)
+    // 최근 5개 전체 순상승 여부 (단기 우상향 확인)
+    private boolean isUpwardOverall(List<MarketPrice> recentPrices) {
+        List<MarketPrice> lastFive = recentPrices.subList(0, 5);
+
+        BigDecimal first = lastFive.getLast().getMarketPrice(); // 5개 중 가장 오래된 값
+        BigDecimal last = lastFive.getFirst().getMarketPrice(); // 5개 중 가장 최근 값
+
+        return last.compareTo(first) > 0; // 최근 값이 더 크면 우상향
+    }
+
+    // 이동평균선 기준 상승 추세 (단기 5, 장기 20)
     private boolean isMovingAverageUptrend(List<MarketPrice> prices) {
         BigDecimal shortMA = movingAverage(prices, 5);
         BigDecimal longMA = movingAverage(prices, 20);
@@ -263,7 +274,7 @@ public class MarketService {
         return shortMA.compareTo(longMA) > 0 && current.compareTo(shortMA) > 0;
     }
 
-    // 이동평균선 계산
+    // 이동평균 계산
     private BigDecimal movingAverage(List<MarketPrice> prices, int period) {
         return prices.stream()
                 .limit(period)
