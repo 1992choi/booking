@@ -299,7 +299,8 @@ public class MarketService {
     private void sell(MarketPrice marketPrice) {
         BigDecimal currentPrice = marketPrice.getMarketPrice();
 
-        // TODO: 내 지갑에서 가져오도록 변경 필요.
+        // 현재 미체결 매수 내역 조회
+        // TODO: 실제 지갑에서 가져오도록 변경필요.
         TradeHistory tradeHistory = tradeHistoryRepository
                 .findTopByMarketCodeAndIsSoldFalseOrderByCreatedAtAsc(marketPrice.getMarketCode())
                 .orElse(null);
@@ -308,7 +309,19 @@ public class MarketService {
         }
 
         BigDecimal boughtPrice = tradeHistory.getTradePrice();
-        if (currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0 || currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.95))) < 0) {
+
+        boolean isRisingSell = currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(1.012))) > 0;
+        boolean isFallingSell = currentPrice.compareTo(boughtPrice.multiply(BigDecimal.valueOf(0.95))) < 0;
+
+        // 매수조건을 만족할 때, 팔게될 경우 수수료만 나가는 케이스 발생
+        if (isRisingSell) {
+            List<MarketPrice> recentPrices = getRecentPrices(marketPrice.getMarketCode());
+            if (isBuyConditionMet(recentPrices, marketPrice.getMarketCode())) {
+                return;
+            }
+        }
+
+        if (isRisingSell || isFallingSell) {
             tradeHistory.markAsSold(currentPrice);
             telegramService.sendExecutionSellCompleted(marketPrice.getMarketCode(), currentPrice, boughtPrice);
         }
