@@ -2,7 +2,7 @@ package com.example.stock.service.market;
 
 import com.example.stock.domain.market.MarketPrice;
 import com.example.stock.domain.market.MarketPriceResponse;
-import com.example.stock.domain.market.Payload;
+import com.example.stock.domain.market.BalancePayload;
 import com.example.stock.domain.market.TradeHistory;
 import com.example.stock.repository.market.MarketPriceRepository;
 import com.example.stock.repository.market.TradeHistoryRepository;
@@ -60,7 +60,7 @@ public class MarketService {
     public void sendBalanceToTelegram() {
         ObjectMapper objectMapper = new ObjectMapper();
         DecimalFormat decimalFormat = new DecimalFormat("#,##0.00");
-        var payload = new Payload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), COIN_SYMBOLS.toArray(new String[0]));
+        var payload = new BalancePayload(COIN_ACCESS_KEY, UUID.randomUUID().toString(), COIN_SYMBOLS.toArray(new String[0]));
         var base64EncodedPayload = makeBase64EncodedPayload(payload);
         var signature = makeSignature(base64EncodedPayload);
 
@@ -327,7 +327,7 @@ public class MarketService {
         }
     }
 
-    private String makeBase64EncodedPayload(Payload balancePayload) {
+    private String makeBase64EncodedPayload(BalancePayload balancePayload) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             var bytesPayload = objectMapper.writeValueAsBytes(balancePayload);
