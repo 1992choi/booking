@@ -1,9 +1,6 @@
 package com.example.stock.service.market;
 
-import com.example.stock.domain.market.MarketPrice;
-import com.example.stock.domain.market.MarketPriceResponse;
-import com.example.stock.domain.market.BalancePayload;
-import com.example.stock.domain.market.TradeHistory;
+import com.example.stock.domain.market.*;
 import com.example.stock.repository.market.MarketPriceRepository;
 import com.example.stock.repository.market.TradeHistoryRepository;
 import com.example.stock.service.noti.TelegramService;
@@ -183,6 +180,31 @@ public class MarketService {
         }
     }
 
+    @Transactional
+    public void sell() {
+        var nonce = UUID.randomUUID().toString();
+        var payload = SellPayload.sellMarketOrder(COIN_ACCESS_KEY, nonce, "KRW", "DOGE", "20");
+        var base64EncodedPayload = makeBase64EncodedPayload(payload);
+        var signature = makeSignature(base64EncodedPayload);
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            var client = HttpClient.newBuilder().build();
+            var body = objectMapper.writeValueAsString(payload);
+            var request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.coinone.co.kr/v2.1/order"))
+                    .header("Content-type", "application/json")
+                    .header("X-COINONE-PAYLOAD", base64EncodedPayload)
+                    .header("X-COINONE-SIGNATURE", signature)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info(response.body());
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private MarketPrice getMarketPrice(String coinSymbol) {
         BufferedReader in = null;
         try {
@@ -331,6 +353,16 @@ public class MarketService {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             var bytesPayload = objectMapper.writeValueAsBytes(balancePayload);
+            return Base64.getEncoder().encodeToString(bytesPayload);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String makeBase64EncodedPayload(SellPayload sellPayload) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            var bytesPayload = objectMapper.writeValueAsBytes(sellPayload);
             return Base64.getEncoder().encodeToString(bytesPayload);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);

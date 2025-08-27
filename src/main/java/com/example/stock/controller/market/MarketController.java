@@ -37,4 +37,9 @@ public class MarketController {
         return tradeHistoryService.getTradeHistories();
     }
 
+    @PostMapping("/api/sell")
+    public void sell() {
+        marketService.sell();
+    }
+
 }

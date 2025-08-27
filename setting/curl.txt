@@ -24,4 +24,7 @@ curl -X POST "http://localhost:8080/api/trade-history" \
 curl -X DELETE "http://localhost:8080/api/trade-history"
 
 # 조회
-curl -X GET "http://localhost:8080/api/trade-histories"
+curl -X GET "http://localhost:8080/api/trade-histories
+
+# 매도
+curl -X POST "http://localhost:8080/api/sell"
