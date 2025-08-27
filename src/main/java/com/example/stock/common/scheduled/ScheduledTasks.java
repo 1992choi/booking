@@ -40,8 +40,7 @@ public class ScheduledTasks {
         marketService.executeSell();
     }
 
-    // @Scheduled(cron = "0 0/30 * * * *")
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0/30 * * * *")
     public void sendNotification() {
         if (isNotifyEnabled) {
             telegramService.sendSimpleMessage("Application is healthy.");
