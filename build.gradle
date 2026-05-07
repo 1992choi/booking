@@ -1,35 +1,40 @@
 plugins {
-    id 'java'
-    id 'org.springframework.boot' version '4.0.5'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '4.0.5' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
-group = 'com.example'
-version = '0.0.1-SNAPSHOT'
+allprojects {
+    group = 'com.example'
+    version = '0.0.1-SNAPSHOT'
 
-java {
-    sourceCompatibility = '25'
-}
-
-configurations {
-    compileOnly {
-        extendsFrom annotationProcessor
+    repositories {
+        mavenCentral()
     }
 }
 
-repositories {
-    mavenCentral()
-}
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
 
-dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
+    java {
+        sourceCompatibility = '25'
+    }
 
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-}
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
 
-tasks.named('test') {
-    useJUnitPlatform()
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
 }
