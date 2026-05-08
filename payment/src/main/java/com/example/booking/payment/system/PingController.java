@@ -1,4 +1,4 @@
-package com.example.booking.api.controller;
+package com.example.booking.payment.system;
 
 import com.example.booking.core.PingService;
 import com.example.booking.core.error.BusinessException;
@@ -19,6 +19,6 @@ public class PingController {
         if (fail) {
             throw new BusinessException(CommonErrorCode.BAD_REQUEST);
         }
-        return "[API] " + pingService.ping();
+        return "[PAYMENT] " + pingService.ping();
     }
 }

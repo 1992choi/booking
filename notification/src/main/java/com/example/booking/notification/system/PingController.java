@@ -1,4 +1,4 @@
-package com.example.booking.reservation.controller;
+package com.example.booking.notification.system;
 
 import com.example.booking.core.PingService;
 import com.example.booking.core.error.BusinessException;
@@ -19,6 +19,6 @@ public class PingController {
         if (fail) {
             throw new BusinessException(CommonErrorCode.BAD_REQUEST);
         }
-        return "[RESERVATION] " + pingService.ping();
+        return "[NOTIFICATION] " + pingService.ping();
     }
 }
