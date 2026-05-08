@@ -7,4 +7,5 @@ jar { enabled = true }
 
 dependencies {
     api 'org.springframework.boot:spring-boot-starter-web'
+    compileOnlyApi 'org.springframework.boot:spring-boot-starter-data-jpa'
 }
