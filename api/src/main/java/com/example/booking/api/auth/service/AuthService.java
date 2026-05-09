@@ -1,6 +1,9 @@
 package com.example.booking.api.auth.service;
 
+import com.example.booking.api.auth.JwtIssuer;
+import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
+import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.user.domain.Role;
 import com.example.booking.api.user.domain.User;
@@ -17,6 +20,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtIssuer jwtIssuer;
 
     @Transactional
     public User register(SignupRequest request) {
@@ -31,5 +35,18 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.USER)
                 .build());
+    }
+
+    @Transactional(readOnly = true)
+    public TokenResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BusinessException(ApiErrorCode.INVALID_CREDENTIALS));
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new BusinessException(ApiErrorCode.INVALID_CREDENTIALS);
+        }
+
+        String accessToken = jwtIssuer.issue(user.getId(), user.getRole());
+        return new TokenResponse(accessToken);
     }
 }

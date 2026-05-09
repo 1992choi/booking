@@ -1,6 +1,8 @@
 package com.example.booking.api.auth.controller;
 
+import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
+import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.auth.service.AuthService;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.dto.UserResponse;
@@ -23,5 +25,10 @@ public class AuthController {
     public UserResponse signup(@Valid @RequestBody SignupRequest request) {
         User user = authService.register(request);
         return UserResponse.from(user);
+    }
+
+    @PostMapping("/api/v1/auth/login")
+    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
     }
 }

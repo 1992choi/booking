@@ -1,5 +1,6 @@
 package com.example.booking.api.auth.controller;
 
+import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
@@ -113,5 +114,63 @@ class AuthControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("COMMON_400"))
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void login_success() throws Exception {
+        SignupRequest signup = new SignupRequest(
+                "Login",
+                "login@example.com",
+                "010-1234-5678",
+                "password123"
+        );
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(signup)))
+                .andExpect(status().isCreated());
+
+        LoginRequest login = new LoginRequest("login@example.com", "password123");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void login_invalid_credentials() throws Exception {
+        SignupRequest signup = new SignupRequest(
+                "WrongPw",
+                "wrongpw@example.com",
+                "010-1234-5678",
+                "password123"
+        );
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(signup)))
+                .andExpect(status().isCreated());
+
+        LoginRequest login = new LoginRequest("wrongpw@example.com", "wrongpassword");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_002"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void login_user_not_found() throws Exception {
+        LoginRequest login = new LoginRequest("nobody@example.com", "anypassword");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_002"))
+                .andExpect(jsonPath("$.status").value(401));
     }
 }
