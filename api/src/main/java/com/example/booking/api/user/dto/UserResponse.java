@@ -1,7 +1,7 @@
 package com.example.booking.api.user.dto;
 
-import com.example.booking.api.user.domain.Role;
 import com.example.booking.api.user.domain.User;
+import com.example.booking.core.auth.Role;
 
 import java.time.LocalDateTime;
 

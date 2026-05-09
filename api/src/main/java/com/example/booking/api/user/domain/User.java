@@ -1,5 +1,6 @@
 package com.example.booking.api.user.domain;
 
+import com.example.booking.core.auth.Role;
 import com.example.booking.core.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

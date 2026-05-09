@@ -1,6 +1,6 @@
 package com.example.booking.api.auth;
 
-import com.example.booking.api.user.domain.Role;
+import com.example.booking.core.auth.Role;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
