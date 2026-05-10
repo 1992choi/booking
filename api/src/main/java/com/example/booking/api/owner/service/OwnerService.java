@@ -4,6 +4,8 @@ import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.owner.domain.Owner;
 import com.example.booking.api.owner.domain.OwnerRepository;
 import com.example.booking.api.owner.dto.OwnerCreateRequest;
+import java.util.List;
+import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
 import com.example.booking.core.error.BusinessException;
@@ -18,6 +20,7 @@ public class OwnerService {
 
     private final OwnerRepository ownerRepository;
     private final UserRepository userRepository;
+    private final ResourceRepository resourceRepository;
 
     @Transactional
     public Owner register(Long userId, OwnerCreateRequest request) {
@@ -41,5 +44,16 @@ public class OwnerService {
     public Owner getByUserId(Long userId) {
         return ownerRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ApiErrorCode.OWNER_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public Owner getById(Long ownerId) {
+        return ownerRepository.findById(ownerId)
+                .orElseThrow(() -> new BusinessException(ApiErrorCode.OWNER_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Owner> getAll() {
+        return ownerRepository.findAll();
     }
 }

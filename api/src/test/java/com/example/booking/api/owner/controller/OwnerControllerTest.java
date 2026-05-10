@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
+import com.example.booking.api.resource.domain.ResourceRepository;
+import com.example.booking.api.resource.dto.ResourceCreateRequest;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,6 +43,9 @@ class OwnerControllerTest {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    ResourceRepository resourceRepository;
 
     MockMvc mockMvc;
 
@@ -168,6 +174,72 @@ class OwnerControllerTest {
         String token = signupAndLogin("owner4@example.com");
 
         mockMvc.perform(get("/api/v1/owners/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_004"));
+    }
+
+    @Test
+    void getOwners_success() throws Exception {
+        String token1 = signupAndLogin("owner7@example.com");
+        String token2 = signupAndLogin("owner8@example.com");
+
+        mockMvc.perform(post("/api/v1/owners")
+                        .header("Authorization", "Bearer " + token1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OwnerCreateRequest("Pension A", "02-1111-1111", OwnerType.PENSION))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/owners")
+                        .header("Authorization", "Bearer " + token2)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OwnerCreateRequest("Class B", "02-2222-2222", OwnerType.CLASS))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/owners")
+                        .header("Authorization", "Bearer " + token1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == 'Pension A')]").exists())
+                .andExpect(jsonPath("$[?(@.name == 'Class B')]").exists());
+    }
+
+    @Test
+    void getOwner_success() throws Exception {
+        String token = signupAndLogin("owner5@example.com");
+
+        String ownerResponse = mockMvc.perform(post("/api/v1/owners")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OwnerCreateRequest("Beach Pension", "02-7777-8888", OwnerType.PENSION))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long ownerId = objectMapper.readTree(ownerResponse).get("id").asLong();
+
+        ResourceCreateRequest resource = new ResourceCreateRequest("별채 A", "2인실", 100000L, 2);
+        mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", ownerId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resource)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/owners/{ownerId}", ownerId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ownerId))
+                .andExpect(jsonPath("$.name").value("Beach Pension"))
+                .andExpect(jsonPath("$.type").value("PENSION"))
+                .andExpect(jsonPath("$.resources.length()").value(1))
+                .andExpect(jsonPath("$.resources[0].name").value("별채 A"));
+    }
+
+    @Test
+    void getOwner_not_found() throws Exception {
+        String token = signupAndLogin("owner6@example.com");
+
+        mockMvc.perform(get("/api/v1/owners/{ownerId}", 9999L)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))

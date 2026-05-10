@@ -135,13 +135,27 @@ Response 201:
 }
 ```
 
-### 업체 조회
+### 업체 목록 조회
+```
+GET /api/v1/owners
+
+Response 200:
+[
+  {
+    "id": 1,
+    "name": "한옥 펜션",
+    "type": "PENSION"
+  }
+]
+```
+
+### 업체 상세 조회
 ```
 GET /api/v1/owners/{ownerId}
 
 Response 200:
 {
-  "ownerId": 1,
+  "id": 1,
   "name": "한옥 펜션",
   "type": "PENSION",
   "resources": []
