@@ -9,7 +9,7 @@
 | 포트 | 8081 |
 | DB | reservation_db |
 | 외부 노출 | O (path: `/reservations/**`) |
-| 의존 | core (라이브러리), Redis, Kafka |
+| 의존 | core (라이브러리) |
 | 호출하는 서비스 | api (REST, resource 검증) |
 
 ---
@@ -30,28 +30,26 @@ reservation/
     ├── controller/
     │   └── ReservationController.java
     ├── service/
-    │   ├── ReservationService.java
-    │   ├── ReservationValidator.java
-    │   └── ReservationCancelService.java
+    │   └── ReservationService.java
     ├── domain/
     │   ├── Reservation.java
-    │   └── ReservationRepository.java
+    │   ├── ReservationRepository.java
+    │   └── ReservationStatus.java
     ├── client/
-    │   └── ResourceClient.java          (api 서비스 REST 호출)
-    ├── event/
-    │   ├── ReservationEventPublisher.java
-    │   └── PaymentEventConsumer.java    (payment.failed 처리)
+    │   ├── ResourceClient.java          (api 서비스 REST 호출)
+    │   └── ResourceSnapshot.java
     ├── error/
     │   └── ReservationErrorCode.java
     ├── dto/
     │   ├── CreateReservationRequest.java
-    │   └── ReservationResponse.java
-    ├── internal/
-    │   └── controller/InternalController.java
+    │   ├── ReservationResponse.java
+    │   └── PageResponse.java
     └── config/
-        ├── RedissonConfig.java
-        └── KafkaConfig.java
+        ├── RestClientConfig.java
+        └── SecurityConfig.java
 ```
+
+> Redis 분산락, Kafka 연동은 개선 이슈로 미구현 (backlog).
 
 ---
 
@@ -64,79 +62,50 @@ reservation/
 @RequiredArgsConstructor
 public class ReservationService {
 
-    private final RedissonClient redisson;
-    private final ReservationRepository repository;
-    private final ReservationValidator validator;
+    private final ReservationRepository reservationRepository;
     private final ResourceClient resourceClient;
-    private final ApplicationEventPublisher events;
 
     @Transactional
-    public ReservationResponse create(Long userId, CreateReservationRequest req) {
+    public ReservationResponse create(Long userId, CreateReservationRequest request) {
+        // 1) api 서비스에 resource 검증 (가격/정원)
+        ResourceSnapshot resource = resourceClient.fetch(request.resourceId());
 
-        // 1) api 서비스에 resource 검증 (가격/정원/기간)
-        ResourceSnapshot resource = resourceClient.fetch(req.resourceId());
-        validator.validateCapacity(resource, req.headCount());
-
-        // 2) Redis 분산 락
-        String lockKey = "reservation:lock:" + req.resourceId();
-        RLock lock = redisson.getLock(lockKey);
-        try {
-            if (!lock.tryLock(3, 5, TimeUnit.SECONDS)) {
-                throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
-            }
-
-            // 3) 시간 겹침 체크 (DB 비관적 락)
-            validator.validateNoOverlap(req.resourceId(), req.startTime(), req.endTime());
-
-            // 4) 예약 생성 (price 는 snapshot)
-            Reservation reservation = Reservation.create(userId, req, resource.price());
-            repository.save(reservation);
-
-            // 5) 트랜잭션 커밋 후 Kafka publish (Outbox or AFTER_COMMIT 이벤트)
-            events.publishEvent(new ReservationCreatedDomainEvent(reservation));
-
-            return ReservationResponse.from(reservation, resource.name());
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
-        } finally {
-            if (lock.isHeldByCurrentThread()) lock.unlock();
-        }
-    }
-}
-```
-
-### ReservationValidator
-
-```java
-@Component
-@RequiredArgsConstructor
-public class ReservationValidator {
-
-    private final ReservationRepository repository;
-
-    public void validateCapacity(ResourceSnapshot resource, int headCount) {
-        if (headCount > resource.maxCapacity()) {
+        if (request.headCount() > resource.maxCapacity()) {
             throw new BusinessException(ReservationErrorCode.CAPACITY_EXCEEDED);
         }
-    }
 
-    public void validateNoOverlap(Long resourceId, LocalDateTime start, LocalDateTime end) {
-        List<Reservation> overlapping = repository.findOverlappingWithLock(resourceId, start, end);
-        if (!overlapping.isEmpty()) {
+        // 2) 시간 겹침 체크
+        boolean hasOverlap = !reservationRepository.findOverlapping(
+                request.resourceId(), request.startTime(), request.endTime()).isEmpty();
+        if (hasOverlap) {
             throw new BusinessException(ReservationErrorCode.CONFLICT);
         }
+
+        // 3) 예약 생성 (price, resourceName 은 snapshot)
+        Reservation reservation = Reservation.builder()
+                .userId(userId)
+                .resourceId(request.resourceId())
+                .resourceName(resource.name())
+                .startTime(request.startTime())
+                .endTime(request.endTime())
+                .status(ReservationStatus.PENDING)
+                .headCount(request.headCount())
+                .amount(resource.price())
+                .build();
+
+        reservationRepository.save(reservation);
+        return ReservationResponse.from(reservation);
     }
 }
 ```
+
+> Redis 분산락 + DB 비관적 락은 개선 이슈 (backlog).
 
 ### ReservationRepository — 시간 겹침 쿼리
 
 ```java
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT r FROM Reservation r
         WHERE r.resourceId = :resourceId
@@ -144,51 +113,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
           AND r.startTime < :end
           AND r.endTime > :start
     """)
-    List<Reservation> findOverlappingWithLock(
+    List<Reservation> findOverlapping(
         @Param("resourceId") Long resourceId,
         @Param("start") LocalDateTime start,
         @Param("end") LocalDateTime end);
 
     Page<Reservation> findByUserId(Long userId, Pageable pageable);
-}
-```
 
-### ReservationEventPublisher — Kafka (AFTER_COMMIT)
-
-```java
-@Component
-@RequiredArgsConstructor
-public class ReservationEventPublisher {
-
-    private final KafkaTemplate<String, Object> kafka;
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onCreated(ReservationCreatedDomainEvent e) {
-        kafka.send("reservation.created", ReservationCreatedKafkaEvent.from(e.reservation()));
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onCancelled(ReservationCancelledDomainEvent e) {
-        kafka.send("reservation.cancelled", ReservationCancelledKafkaEvent.from(e.reservation()));
-    }
-}
-```
-
-> 트랜잭션 커밋 후 발행하므로 DB 롤백 시 유령 이벤트 차단. 더 강한 보장이 필요하면 Outbox 패턴 도입.
-
-### PaymentEventConsumer — payment.failed 시 예약 취소
-
-```java
-@Component
-@RequiredArgsConstructor
-public class PaymentEventConsumer {
-
-    private final ReservationCancelService cancelService;
-
-    @KafkaListener(topics = "payment.failed", groupId = "reservation-group")
-    public void onPaymentFailed(PaymentFailedEvent event) {
-        cancelService.cancelByPaymentFailure(event.reservationId(), event.reason());
-    }
+    Page<Reservation> findByUserIdAndStatus(Long userId, ReservationStatus status, Pageable pageable);
 }
 ```
 
@@ -210,73 +142,17 @@ public enum ReservationErrorCode implements ErrorCode {
 }
 ```
 
-### InternalController — 서비스 간 호출 endpoint
-
-api 서비스의 admin 기능이 위임 호출하는 진입점. 외부 노출은 Gateway 단에서 차단된다.
-
-```java
-@RestController
-@RequestMapping("/api/v1/internal/reservations")
-@RequiredArgsConstructor
-public class InternalController {
-
-    private final ReservationQueryService queryService;
-    private final ReservationAdminService adminService;
-
-    // admin → reservation 위임: 전체 예약 조회 (필터/페이징)
-    @GetMapping
-    public PageResponse<ReservationSummary> search(
-            @RequestParam(required = false) LocalDate date,
-            @RequestParam(required = false) ReservationStatus status,
-            @RequestParam(required = false) Long resourceId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return queryService.search(date, status, resourceId, pageable);
-    }
-
-    // admin → reservation 위임: 캘린더 뷰
-    @GetMapping("/calendar")
-    public Map<LocalDate, List<ReservationCalendarItem>> calendar(
-            @RequestParam int year,
-            @RequestParam int month) {
-        return queryService.calendar(year, month);
-    }
-
-    // admin → reservation 위임: 단건 상세
-    @GetMapping("/{id}")
-    public ReservationDetail getOne(@PathVariable Long id) {
-        return queryService.getDetail(id);
-    }
-
-    // admin → reservation 위임: 수동 확정
-    @PutMapping("/{id}/confirm")
-    public ReservationResponse confirm(@PathVariable Long id) {
-        return adminService.forceConfirm(id);
-    }
-
-    // admin → reservation 위임: 수동 취소
-    @PutMapping("/{id}/cancel")
-    public ReservationResponse cancel(@PathVariable Long id, @RequestBody CancelRequest req) {
-        return adminService.forceCancel(id, req.reason());
-    }
-}
-```
-
-> SecurityConfig 에서 `/api/v1/internal/**` 은 내부 호출자(보안 그룹 또는 mTLS) 만 통과하도록 제한.
-
 ---
 
-## Kafka
+## Kafka (미구현 — 개선 이슈)
 
-### produce
-| 토픽 | 시점 | phase |
-|------|------|-------|
-| reservation.created | 예약 생성 완료 | AFTER_COMMIT |
-| reservation.cancelled | 예약 취소 | AFTER_COMMIT |
+| 방향 | 토픽 | 시점 |
+|------|------|------|
+| produce | reservation.created | 예약 생성 완료 후 AFTER_COMMIT |
+| produce | reservation.cancelled | 예약 취소 후 AFTER_COMMIT |
+| consume | payment.failed | 예약 상태 → CANCELLED |
 
-### consume
-| 토픽 | 처리 |
-|------|------|
-| payment.failed | 예약 상태 → CANCELLED |
+> Kafka 연동 완료 시 `@TransactionalEventListener(phase = AFTER_COMMIT)` 패턴 사용. 현재는 미연결.
 
 ---
 
@@ -294,8 +170,7 @@ dependencies {
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.redisson:redisson-spring-boot-starter'   // 도입 시점 최신
-    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'io.github.resilience4j:resilience4j-spring-boot3'
 
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -304,7 +179,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.testcontainers:mysql'
-    testImplementation 'org.testcontainers:kafka'
 }
+
+// 개선 이슈 도입 시 추가 예정:
+// implementation 'org.redisson:redisson-spring-boot-starter'
+// implementation 'org.springframework.kafka:spring-kafka'
 ```

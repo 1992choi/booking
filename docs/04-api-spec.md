@@ -46,11 +46,20 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | COMMON_001 | 404 | 리소스 없음 | core |
 | COMMON_400 | 400 | 잘못된 요청 | core |
 | COMMON_500 | 500 | 서버 오류 | core |
+| API_001 | 409 | 이메일 중복 | api |
+| API_002 | 401 | 이메일/비밀번호 불일치 | api |
+| API_003 | 409 | 업체 중복 등록 | api |
+| API_004 | 404 | 업체 없음 | api |
+| API_005 | 404 | 설비 없음 | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
+| RSV_004 | 404 | 예약 없음 | reservation |
+| RSV_005 | 403 | 본인 예약 아님 | reservation |
 | PAY_001 | 422 | 결제 실패 (비즈니스 결과) | payment |
 | PAY_002 | 409 | 환불 불가 상태 | payment |
+| PAY_003 | 404 | 결제 내역 없음 | payment |
+| NTF_001 | 404 | 알림 이력 없음 | notification |
 
 > 결제 실패는 5xx(서버 오류) 가 아니라 422(처리 가능하나 비즈니스 룰로 거절). 클라이언트가 인지하고 재시도/안내해야 함.
 
@@ -239,11 +248,12 @@ Request:
 
 Response 201:
 {
-  "reservationId": 1,
+  "id": 1,
   "status": "PENDING",
   "resourceName": "별채 A",
   "startTime": "2026-05-01T14:00:00",
   "endTime": "2026-05-01T15:00:00",
+  "headCount": 2,
   "amount": 150000
 }
 
@@ -265,7 +275,7 @@ GET /api/v1/reservations/{reservationId}
 
 Response 200:
 {
-  "reservationId": 1,
+  "id": 1,
   "status": "CONFIRMED",
   "resourceName": "별채 A",
   "startTime": "2026-05-01T14:00:00",
@@ -409,6 +419,32 @@ Response 200:
   "status": "CANCELLED"
 }
 ```
+
+---
+
+## Notification API (notification 서비스)
+
+### 내 알림 목록
+```
+GET /api/v1/notifications/me
+Authorization: Bearer {jwt}
+
+Response 200:
+[
+  {
+    "id": 1,
+    "reservationId": 1,
+    "type": "CONFIRMED",
+    "channel": "LOG",
+    "status": "SENT",
+    "sentAt": "2026-05-01T14:00:00"
+  }
+]
+```
+
+> type: `CONFIRMED` / `CANCELLED`
+> channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
+> status: `SENT` / `FAILED`
 
 ---
 

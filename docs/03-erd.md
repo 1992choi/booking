@@ -98,6 +98,7 @@ public abstract class BaseEntity {
 | id | BIGINT | PK |
 | user_id | BIGINT | api_db.User.id (FK X) |
 | resource_id | BIGINT | api_db.Resource.id (FK X) |
+| resource_name | VARCHAR | 예약 시점의 설비명 snapshot |
 | start_time | DATETIME | 예약 시작 |
 | end_time | DATETIME | 예약 종료 |
 | status | ENUM | PENDING / CONFIRMED / CANCELLED |

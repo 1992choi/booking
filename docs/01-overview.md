@@ -80,7 +80,7 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | Infrastructure | AWS (RDS, ElastiCache, MSK, ECS) |
 | Frontend | Next.js (React) |
 
-> **현재 상태**: 단일 모듈 스켈레톤 (`BookingApplication` 만 존재). 위 표는 **목표 상태**이며, 개발 순서에 따라 모듈/의존성이 점진적으로 추가된다.
+> **현재 상태**: 4개 서비스 기본 기능 구현 완료. Kafka 연동, Redis 분산락, 관리 API 등은 개선 이슈로 분리됨 (아래 개발 순서 참고).
 
 ---
 
@@ -110,11 +110,23 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 
 ## 개발 순서
 
-```
-1단계: core 라이브러리 (BaseEntity, ErrorCode 인터페이스, ProblemDetail 핸들러, JwtVerifier)
-2단계: api 서비스 (인증, User/Owner/Resource CRUD)
-3단계: reservation 서비스 (예약 도메인, Redis 분산 락, 동시성 처리)
-4단계: Kafka 도입 + payment 서비스 (Mock 결제)
-5단계: notification 서비스 (Mock 알림)
-6단계: 관리 API + 캘린더 뷰
-```
+### 완료
+
+| 단계 | 내용 |
+|------|------|
+| 1단계 | core 라이브러리 — BaseEntity, ErrorCode, GlobalExceptionHandler, JwtVerifier, JwtAuthenticationFilter |
+| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급, Owner/Resource/AvailableTime CRUD, Internal API |
+| 3단계 | reservation 서비스 — 예약 생성/조회/취소 (시간 중복 검사 포함) |
+| 4단계 | payment 서비스 — 결제 내역 조회, 환불 |
+| 5단계 | notification 서비스 — 알림 발송(Mock), 이력 조회 |
+
+### 개선 이슈 (미구현)
+
+| 항목 | 설명 |
+|------|------|
+| Refresh Token | api 서비스 `POST /auth/refresh` 미구현 |
+| Redis 분산락 | reservation 서비스 예약 생성 시 동시성 처리 미적용 (현재 시간 중복 검사만) |
+| DB 비관적 락 | reservation 서비스 `findOverlapping` 에 `@Lock` 미적용 |
+| Kafka 연동 | 서비스 간 이벤트 흐름 전체 미연결 — `reservation.created` → 결제, `payment.completed` / `reservation.cancelled` → 알림 |
+| 관리 API | api 서비스 `AdminController` + `ReservationClient` 미구현 |
+| 유저 동기화 | 각 서비스가 JWT 서명 검증만으로 유저를 신뢰하는 구조 → `user.created` / `user.deleted` Kafka 이벤트로 각 서비스 users 테이블 동기화 필요 |
