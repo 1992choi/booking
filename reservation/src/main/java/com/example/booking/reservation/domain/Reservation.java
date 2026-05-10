@@ -40,6 +40,9 @@ public class Reservation extends BaseEntity {
     private Long resourceId;
 
     @Column(nullable = false)
+    private String resourceName;
+
+    @Column(nullable = false)
     private LocalDateTime startTime;
 
     @Column(nullable = false)

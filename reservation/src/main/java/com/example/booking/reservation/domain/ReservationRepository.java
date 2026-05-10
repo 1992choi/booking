@@ -24,4 +24,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("end") LocalDateTime end);
 
     Page<Reservation> findByUserId(Long userId, Pageable pageable);
+
+    Page<Reservation> findByUserIdAndStatus(Long userId, ReservationStatus status, Pageable pageable);
 }

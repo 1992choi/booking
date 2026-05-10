@@ -15,11 +15,11 @@ public record ReservationResponse(
         Long amount
 ) {
 
-    public static ReservationResponse from(Reservation reservation, String resourceName) {
+    public static ReservationResponse from(Reservation reservation) {
         return new ReservationResponse(
                 reservation.getId(),
                 reservation.getStatus(),
-                resourceName,
+                reservation.getResourceName(),
                 reservation.getStartTime(),
                 reservation.getEndTime(),
                 reservation.getHeadCount(),
