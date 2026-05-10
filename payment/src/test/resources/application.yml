@@ -1,9 +1,4 @@
-server:
-  port: 8082
-
 spring:
-  application:
-    name: payment
   datasource:
     url: jdbc:mysql://localhost:3306/payment_db?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
     username: root
@@ -11,12 +6,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
+      ddl-auto: create-drop
+    show-sql: false
 
 booking:
   jwt:
-    secret: ${BOOKING_JWT_SECRET:dev-secret-must-be-at-least-32-bytes-long-for-hmac-sha256}
+    secret: dev-secret-must-be-at-least-32-bytes-long-for-hmac-sha256
