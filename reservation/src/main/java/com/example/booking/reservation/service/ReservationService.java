@@ -10,7 +10,10 @@ import com.example.booking.reservation.dto.CreateReservationRequest;
 import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.error.ReservationErrorCode;
+import com.example.booking.reservation.event.ReservationCancelledDomainEvent;
+import com.example.booking.reservation.event.ReservationCreatedDomainEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,7 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final ResourceClient resourceClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ReservationResponse create(Long userId, CreateReservationRequest request) {
@@ -48,6 +52,10 @@ public class ReservationService {
                 .build();
 
         reservationRepository.save(reservation);
+
+        eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
+                reservation.getId(), userId, request.resourceId(), resource.price()));
+
         return ReservationResponse.from(reservation);
     }
 
@@ -74,7 +82,17 @@ public class ReservationService {
         }
 
         reservation.cancel();
+        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(reservationId, userId));
         return ReservationResponse.from(reservation);
+    }
+
+    @Transactional
+    public void cancelByPaymentFailure(Long reservationId) {
+        reservationRepository.findById(reservationId).ifPresent(reservation -> {
+            reservation.cancel();
+            eventPublisher.publishEvent(
+                    new ReservationCancelledDomainEvent(reservationId, reservation.getUserId()));
+        });
     }
 
     private Reservation findOrThrow(Long reservationId) {

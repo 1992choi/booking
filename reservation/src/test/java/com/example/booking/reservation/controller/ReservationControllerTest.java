@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,6 +48,9 @@ class ReservationControllerTest {
 
     @MockitoBean
     JwtVerifier jwtVerifier;
+
+    @MockitoBean
+    KafkaTemplate<String, Object> kafkaTemplate;
 
     MockMvc mockMvc;
 

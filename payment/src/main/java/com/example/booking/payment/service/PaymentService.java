@@ -6,7 +6,11 @@ import com.example.booking.payment.domain.PaymentRepository;
 import com.example.booking.payment.domain.PaymentStatus;
 import com.example.booking.payment.dto.PaymentResponse;
 import com.example.booking.payment.error.PaymentErrorCode;
+import com.example.booking.payment.event.PaymentCompletedDomainEvent;
+import com.example.booking.payment.event.PaymentFailedDomainEvent;
+import com.example.booking.payment.event.ReservationCreatedKafkaEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,20 +19,27 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final MockPaymentGateway gateway;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public PaymentResponse process(Long reservationId, Long userId, Long amount) {
+    public void process(ReservationCreatedKafkaEvent event) {
         Payment payment = Payment.builder()
-                .reservationId(reservationId)
-                .userId(userId)
-                .amount(amount)
+                .reservationId(event.reservationId())
+                .userId(event.userId())
+                .amount(event.amount())
                 .status(PaymentStatus.PENDING)
                 .build();
         paymentRepository.save(payment);
 
-        // Mock: 항상 성공
-        payment.complete();
-        return PaymentResponse.from(payment);
+        try {
+            gateway.charge(payment);
+            payment.complete();
+            eventPublisher.publishEvent(new PaymentCompletedDomainEvent(payment));
+        } catch (PaymentDeclinedException e) {
+            payment.fail(e.getMessage());
+            eventPublisher.publishEvent(new PaymentFailedDomainEvent(payment));
+        }
     }
 
     @Transactional(readOnly = true)
