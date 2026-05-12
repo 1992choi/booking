@@ -9,7 +9,9 @@ import com.example.booking.api.resource.domain.Resource;
 import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
+import com.example.booking.api.resource.dto.ResourceUpdateRequest;
 import com.example.booking.core.error.BusinessException;
+import com.example.booking.core.error.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,9 +65,30 @@ public class ResourceService {
         return availableTimeRepository.findAllByResourceIdAndStartTimeBetween(resourceId, from, to);
     }
 
+    @Transactional
+    public Resource update(Long userId, Long resourceId, ResourceUpdateRequest request) {
+        Resource resource = getById(resourceId);
+        validateOwnership(userId, resource.getOwnerId());
+        resource.update(request.name(), request.description(), request.price(), request.maxCapacity());
+        return resource;
+    }
+
+    @Transactional
+    public void delete(Long userId, Long resourceId) {
+        Resource resource = getById(resourceId);
+        validateOwnership(userId, resource.getOwnerId());
+        resourceRepository.delete(resource);
+    }
+
     @Transactional(readOnly = true)
     public Resource getById(Long resourceId) {
         return resourceRepository.findById(resourceId)
                 .orElseThrow(() -> new BusinessException(ApiErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    private void validateOwnership(Long userId, Long ownerId) {
+        ownerRepository.findByUserId(userId)
+                .filter(owner -> owner.getId().equals(ownerId))
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
     }
 }

@@ -39,4 +39,10 @@ public class Owner extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OwnerType type;
+
+    public void update(String name, String phone, OwnerType type) {
+        this.name = name;
+        this.phone = phone;
+        this.type = type;
+    }
 }

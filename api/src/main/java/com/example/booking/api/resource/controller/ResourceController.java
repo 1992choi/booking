@@ -6,14 +6,19 @@ import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
 import com.example.booking.api.resource.dto.AvailableTimeResponse;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import com.example.booking.api.resource.dto.ResourceResponse;
+import com.example.booking.api.resource.dto.ResourceUpdateRequest;
+import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.api.resource.service.ResourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -42,6 +47,20 @@ public class ResourceController {
                                                   @Valid @RequestBody AvailableTimeCreateRequest request) {
         AvailableTime availableTime = resourceService.addAvailableTime(resourceId, request);
         return AvailableTimeResponse.from(availableTime);
+    }
+
+    @PutMapping("/api/v1/resources/{resourceId}")
+    public ResourceResponse update(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable Long resourceId,
+                                   @Valid @RequestBody ResourceUpdateRequest request) {
+        return ResourceResponse.from(resourceService.update(principal.userId(), resourceId, request));
+    }
+
+    @DeleteMapping("/api/v1/resources/{resourceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable Long resourceId) {
+        resourceService.delete(principal.userId(), resourceId);
     }
 
     @GetMapping("/api/v1/resources/{resourceId}/available-times")

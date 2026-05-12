@@ -5,6 +5,7 @@ import com.example.booking.api.owner.dto.OwnerCreateRequest;
 import com.example.booking.api.owner.dto.OwnerDetailResponse;
 import com.example.booking.api.owner.dto.OwnerResponse;
 import com.example.booking.api.owner.dto.OwnerSummaryResponse;
+import com.example.booking.api.owner.dto.OwnerUpdateRequest;
 import com.example.booking.api.owner.service.OwnerService;
 import com.example.booking.api.resource.domain.Resource;
 import com.example.booking.api.resource.domain.ResourceRepository;
@@ -16,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +37,12 @@ public class OwnerController {
                                   @Valid @RequestBody OwnerCreateRequest request) {
         Owner owner = ownerService.register(principal.userId(), request);
         return OwnerResponse.from(owner);
+    }
+
+    @PutMapping("/api/v1/owners/me")
+    public OwnerResponse update(@AuthenticationPrincipal AuthPrincipal principal,
+                                @Valid @RequestBody OwnerUpdateRequest request) {
+        return OwnerResponse.from(ownerService.update(principal.userId(), request));
     }
 
     @GetMapping("/api/v1/owners/me")

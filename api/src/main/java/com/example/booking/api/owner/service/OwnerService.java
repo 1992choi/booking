@@ -4,6 +4,7 @@ import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.owner.domain.Owner;
 import com.example.booking.api.owner.domain.OwnerRepository;
 import com.example.booking.api.owner.dto.OwnerCreateRequest;
+import com.example.booking.api.owner.dto.OwnerUpdateRequest;
 import java.util.List;
 import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.api.user.domain.User;
@@ -50,6 +51,14 @@ public class OwnerService {
     public Owner getById(Long ownerId) {
         return ownerRepository.findById(ownerId)
                 .orElseThrow(() -> new BusinessException(ApiErrorCode.OWNER_NOT_FOUND));
+    }
+
+    @Transactional
+    public Owner update(Long userId, OwnerUpdateRequest request) {
+        Owner owner = ownerRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ApiErrorCode.OWNER_NOT_FOUND));
+        owner.update(request.name(), request.phone(), request.type());
+        return owner;
     }
 
     @Transactional(readOnly = true)

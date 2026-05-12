@@ -21,9 +21,12 @@ import tools.jackson.databind.ObjectMapper;
 import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 
+import com.example.booking.api.owner.dto.OwnerUpdateRequest;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -243,6 +246,40 @@ class OwnerControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_004"));
+    }
+
+    @Test
+    void update_success() throws Exception {
+        String token = signupAndLogin("owner_update1@example.com");
+        mockMvc.perform(post("/api/v1/owners")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OwnerCreateRequest("Original Name", "02-1111-1111", OwnerType.PENSION))))
+                .andExpect(status().isCreated());
+
+        OwnerUpdateRequest update = new OwnerUpdateRequest("Updated Name", "02-9999-9999", OwnerType.CLASS);
+        mockMvc.perform(put("/api/v1/owners/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Name"))
+                .andExpect(jsonPath("$.phone").value("02-9999-9999"))
+                .andExpect(jsonPath("$.type").value("CLASS"));
+    }
+
+    @Test
+    void update_ownerNotFound() throws Exception {
+        String token = signupAndLogin("owner_update2@example.com");
+
+        OwnerUpdateRequest update = new OwnerUpdateRequest("Name", "02-1111-1111", OwnerType.PENSION);
+        mockMvc.perform(put("/api/v1/owners/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("API_004"));
     }
 

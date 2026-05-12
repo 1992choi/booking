@@ -7,6 +7,7 @@ import com.example.booking.api.owner.domain.OwnerType;
 import com.example.booking.api.owner.dto.OwnerCreateRequest;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
+import com.example.booking.api.resource.dto.ResourceUpdateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +22,10 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -173,6 +176,65 @@ class ResourceControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("API_005"));
+    }
+
+    @Test
+    void updateResource_success() throws Exception {
+        String token = signupAndLogin("resource_upd1@example.com");
+        Long ownerId = registerOwner(token, "Update Pension", OwnerType.PENSION);
+        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L);
+
+        ResourceUpdateRequest update = new ResourceUpdateRequest("별채 B", "리모델링 완료", 200000L, 4);
+        mockMvc.perform(put("/api/v1/resources/{resourceId}", resourceId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("별채 B"))
+                .andExpect(jsonPath("$.price").value(200000))
+                .andExpect(jsonPath("$.maxCapacity").value(4));
+    }
+
+    @Test
+    void updateResource_forbidden() throws Exception {
+        String ownerToken = signupAndLogin("resource_upd2@example.com");
+        Long ownerId = registerOwner(ownerToken, "Pension A", OwnerType.PENSION);
+        Long resourceId = registerResource(ownerToken, ownerId, "별채 A", 150000L);
+
+        String otherToken = signupAndLogin("resource_upd3@example.com");
+        registerOwner(otherToken, "Pension B", OwnerType.PENSION);
+
+        ResourceUpdateRequest update = new ResourceUpdateRequest("해킹 시도", null, 1L, 1);
+        mockMvc.perform(put("/api/v1/resources/{resourceId}", resourceId)
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteResource_success() throws Exception {
+        String token = signupAndLogin("resource_del1@example.com");
+        Long ownerId = registerOwner(token, "Delete Pension", OwnerType.PENSION);
+        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L);
+
+        mockMvc.perform(delete("/api/v1/resources/{resourceId}", resourceId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteResource_forbidden() throws Exception {
+        String ownerToken = signupAndLogin("resource_del2@example.com");
+        Long ownerId = registerOwner(ownerToken, "Pension A", OwnerType.PENSION);
+        Long resourceId = registerResource(ownerToken, ownerId, "별채 A", 150000L);
+
+        String otherToken = signupAndLogin("resource_del3@example.com");
+        registerOwner(otherToken, "Pension B", OwnerType.PENSION);
+
+        mockMvc.perform(delete("/api/v1/resources/{resourceId}", resourceId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
     }
 
     private String signupAndLogin(String email) throws Exception {

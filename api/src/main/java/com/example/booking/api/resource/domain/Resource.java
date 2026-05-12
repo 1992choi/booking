@@ -39,4 +39,11 @@ public class Resource extends BaseEntity {
 
     @Column(nullable = false)
     private Integer maxCapacity;
+
+    public void update(String name, String description, Long price, Integer maxCapacity) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.maxCapacity = maxCapacity;
+    }
 }
