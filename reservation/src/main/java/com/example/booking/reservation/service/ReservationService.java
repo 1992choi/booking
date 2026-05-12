@@ -6,6 +6,7 @@ import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.domain.Reservation;
 import com.example.booking.reservation.domain.ReservationRepository;
 import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.dto.CalendarReservationResponse;
 import com.example.booking.reservation.dto.CreateReservationRequest;
 import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
@@ -20,6 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -100,6 +105,19 @@ public class ReservationService {
                         : reservationRepository.findByDateRange(from, to, pageable)
                 ).map(ReservationResponse::from)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(int year, int month) {
+        LocalDateTime from = LocalDate.of(year, month, 1).atStartOfDay();
+        LocalDateTime to = from.plusMonths(1);
+
+        return reservationRepository.findByMonthRange(from, to).stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getStartTime().toLocalDate(),
+                        TreeMap::new,
+                        Collectors.mapping(CalendarReservationResponse::from, Collectors.toList())
+                ));
     }
 
     @Transactional

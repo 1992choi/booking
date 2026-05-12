@@ -1,6 +1,7 @@
 package com.example.booking.reservation.controller;
 
 import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.dto.CalendarReservationResponse;
 import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.service.ReservationService;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal/reservations")
@@ -27,5 +30,12 @@ public class InternalReservationController {
             @RequestParam(required = false) ReservationStatus status,
             @PageableDefault(size = 10) Pageable pageable) {
         return reservationService.getAll(date, status, pageable);
+    }
+
+    @GetMapping("/calendar")
+    public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(
+            @RequestParam int year,
+            @RequestParam int month) {
+        return reservationService.getCalendar(year, month);
     }
 }

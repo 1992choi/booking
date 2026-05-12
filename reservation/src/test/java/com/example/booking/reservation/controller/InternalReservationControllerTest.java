@@ -122,6 +122,43 @@ class InternalReservationControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void getCalendar_groupedByDate() throws Exception {
+        createReservation(LocalDateTime.of(2026, 8, 1, 10, 0), LocalDateTime.of(2026, 8, 1, 11, 0));
+        createReservation(LocalDateTime.of(2026, 8, 1, 14, 0), LocalDateTime.of(2026, 8, 1, 15, 0));
+        createReservation(LocalDateTime.of(2026, 8, 3, 10, 0), LocalDateTime.of(2026, 8, 3, 11, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/calendar")
+                        .header("Authorization", "Bearer test-token")
+                        .param("year", "2026")
+                        .param("month", "8"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['2026-08-01'].length()").value(2))
+                .andExpect(jsonPath("$['2026-08-03'].length()").value(1))
+                .andExpect(jsonPath("$['2026-08-01'][0].startTime").value("10:00"))
+                .andExpect(jsonPath("$['2026-08-01'][0].resourceName").value("별채 A"));
+    }
+
+    @Test
+    void getCalendar_otherMonthExcluded() throws Exception {
+        createReservation(LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 1, 11, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/calendar")
+                        .header("Authorization", "Bearer test-token")
+                        .param("year", "2026")
+                        .param("month", "8"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void getCalendar_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/reservations/calendar")
+                        .param("year", "2026")
+                        .param("month", "8"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private void createReservation(LocalDateTime start, LocalDateTime end) throws Exception {
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
