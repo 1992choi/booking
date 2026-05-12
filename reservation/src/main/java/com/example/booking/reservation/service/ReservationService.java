@@ -18,6 +18,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
@@ -84,6 +87,19 @@ public class ReservationService {
         reservation.cancel();
         eventPublisher.publishEvent(new ReservationCancelledDomainEvent(reservationId, userId));
         return ReservationResponse.from(reservation);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ReservationResponse> getAll(LocalDate date, ReservationStatus status, Pageable pageable) {
+        LocalDateTime from = date.atStartOfDay();
+        LocalDateTime to = date.plusDays(1).atStartOfDay();
+
+        return PageResponse.from(
+                (status != null
+                        ? reservationRepository.findByDateRangeAndStatus(from, to, status, pageable)
+                        : reservationRepository.findByDateRange(from, to, pageable)
+                ).map(ReservationResponse::from)
+        );
     }
 
     @Transactional

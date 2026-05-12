@@ -1,0 +1,31 @@
+package com.example.booking.reservation.controller;
+
+import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.dto.PageResponse;
+import com.example.booking.reservation.dto.ReservationResponse;
+import com.example.booking.reservation.service.ReservationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+
+@RestController
+@RequestMapping("/api/v1/internal/reservations")
+@RequiredArgsConstructor
+public class InternalReservationController {
+
+    private final ReservationService reservationService;
+
+    @GetMapping
+    public PageResponse<ReservationResponse> getAll(
+            @RequestParam LocalDate date,
+            @RequestParam(required = false) ReservationStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return reservationService.getAll(date, status, pageable);
+    }
+}
