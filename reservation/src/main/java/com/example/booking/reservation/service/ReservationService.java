@@ -121,6 +121,21 @@ public class ReservationService {
     }
 
     @Transactional
+    public ReservationResponse confirm(Long reservationId) {
+        Reservation reservation = findOrThrow(reservationId);
+        reservation.confirm();
+        return ReservationResponse.from(reservation);
+    }
+
+    @Transactional
+    public ReservationResponse adminCancel(Long reservationId) {
+        Reservation reservation = findOrThrow(reservationId);
+        reservation.cancel();
+        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(reservationId, reservation.getUserId()));
+        return ReservationResponse.from(reservation);
+    }
+
+    @Transactional
     public void cancelByPaymentFailure(Long reservationId) {
         reservationRepository.findById(reservationId).ifPresent(reservation -> {
             reservation.cancel();

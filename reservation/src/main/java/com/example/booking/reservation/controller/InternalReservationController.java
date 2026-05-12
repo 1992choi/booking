@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,5 +44,15 @@ public class InternalReservationController {
     @GetMapping("/{reservationId}")
     public ReservationResponse getById(@PathVariable Long reservationId) {
         return reservationService.getById(reservationId);
+    }
+
+    @PutMapping("/{reservationId}/confirm")
+    public ReservationResponse confirm(@PathVariable Long reservationId) {
+        return reservationService.confirm(reservationId);
+    }
+
+    @PutMapping("/{reservationId}/cancel")
+    public ReservationResponse cancel(@PathVariable Long reservationId) {
+        return reservationService.adminCancel(reservationId);
     }
 }
