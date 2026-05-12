@@ -159,12 +159,38 @@ class InternalReservationControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void getById_success() throws Exception {
+        String response = createReservationAndGetBody(
+                LocalDateTime.of(2026, 10, 1, 10, 0), LocalDateTime.of(2026, 10, 1, 11, 0));
+        Long reservationId = objectMapper.readTree(response).get("id").asLong();
+
+        mockMvc.perform(get("/api/v1/internal/reservations/{id}", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(reservationId))
+                .andExpect(jsonPath("$.resourceName").value("별채 A"));
+    }
+
+    @Test
+    void getById_notFound() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/reservations/{id}", 9999L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RSV_004"));
+    }
+
     private void createReservation(LocalDateTime start, LocalDateTime end) throws Exception {
-        mockMvc.perform(post("/api/v1/reservations")
+        createReservationAndGetBody(start, end);
+    }
+
+    private String createReservationAndGetBody(LocalDateTime start, LocalDateTime end) throws Exception {
+        return mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new CreateReservationRequest(1L, start, end, 1))))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
     }
 }
