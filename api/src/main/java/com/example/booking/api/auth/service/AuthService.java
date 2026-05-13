@@ -2,13 +2,17 @@ package com.example.booking.api.auth.service;
 
 import com.example.booking.api.auth.JwtIssuer;
 import com.example.booking.api.auth.dto.LoginRequest;
+import com.example.booking.api.auth.dto.RefreshRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
+import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.Role;
 import com.example.booking.core.error.BusinessException;
+import com.example.booking.core.error.CommonErrorCode;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,17 @@ public class AuthService {
         }
 
         String accessToken = jwtIssuer.issue(user.getId(), user.getRole());
-        return new TokenResponse(accessToken);
+        String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), user.getRole());
+        return TokenResponse.ofLogin(accessToken, refreshToken, jwtIssuer.accessTokenTtlSeconds());
+    }
+
+    public TokenResponse refresh(RefreshRequest request) {
+        try {
+            AuthPrincipal principal = jwtIssuer.verifyRefreshToken(request.refreshToken());
+            String newAccessToken = jwtIssuer.issue(principal.userId(), principal.role());
+            return TokenResponse.ofRefresh(newAccessToken, jwtIssuer.accessTokenTtlSeconds());
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
     }
 }

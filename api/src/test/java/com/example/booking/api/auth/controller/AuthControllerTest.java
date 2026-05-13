@@ -1,7 +1,9 @@
 package com.example.booking.api.auth.controller;
 
 import com.example.booking.api.auth.dto.LoginRequest;
+import com.example.booking.api.auth.dto.RefreshRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
+import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -178,5 +180,83 @@ class AuthControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("API_002"))
                 .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void login_returnsRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SignupRequest("User", "refresh1@example.com", "010-0000-0000", "password123"))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("refresh1@example.com", "password123"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.refreshToken").exists())
+                .andExpect(jsonPath("$.expiresIn").value(3600));
+    }
+
+    @Test
+    void refresh_success() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SignupRequest("User", "refresh2@example.com", "010-0000-0000", "password123"))))
+                .andExpect(status().isCreated());
+
+        String loginBody = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("refresh2@example.com", "password123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String refreshToken = objectMapper.readValue(loginBody, TokenResponse.class).refreshToken();
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RefreshRequest(refreshToken))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.expiresIn").value(3600));
+    }
+
+    @Test
+    void refresh_invalidToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RefreshRequest("invalid.token.here"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_001"));
+    }
+
+    @Test
+    void refresh_accessTokenRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SignupRequest("User", "refresh3@example.com", "010-0000-0000", "password123"))))
+                .andExpect(status().isCreated());
+
+        String loginBody = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("refresh3@example.com", "password123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // access token을 refresh endpoint에 사용하면 거절
+        String accessToken = objectMapper.readValue(loginBody, TokenResponse.class).accessToken();
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RefreshRequest(accessToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_001"));
     }
 }
