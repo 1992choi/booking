@@ -105,6 +105,8 @@ Response 200:
 }
 ```
 
+> refreshToken은 Stateless JWT (type=refresh claim). 서버에 저장하지 않음.
+
 ### 토큰 갱신
 ```
 POST /api/v1/auth/refresh
@@ -118,6 +120,12 @@ Response 200:
 {
   "accessToken": "eyJhbGci...",
   "expiresIn": 3600
+}
+
+Error 401 (refresh token이 유효하지 않거나 access token을 사용한 경우):
+{
+  "status": 401,
+  "code": "AUTH_001"
 }
 ```
 
@@ -171,6 +179,26 @@ Response 200:
 }
 ```
 
+### 업체 수정
+```
+PUT /api/v1/owners/me
+Authorization: Bearer {jwt}
+
+Request:
+{
+  "name": "한옥 펜션 (리뉴얼)",
+  "phone": "010-9999-8888",
+  "type": "PENSION"
+}
+
+Response 200:
+{
+  "id": 1,
+  "name": "한옥 펜션 (리뉴얼)",
+  "type": "PENSION"
+}
+```
+
 ---
 
 ## Resource API (api 서비스)
@@ -212,6 +240,39 @@ Response 201:
   "endTime": "2026-05-01T15:00:00",
   "status": "OPEN"
 }
+```
+
+### 예약 대상 수정
+```
+PUT /api/v1/resources/{resourceId}
+Authorization: Bearer {jwt}  (Owner만 가능 — 본인 소유 resource)
+
+Request:
+{
+  "name": "별채 B",
+  "description": "리모델링 완료",
+  "price": 200000,
+  "maxCapacity": 4
+}
+
+Response 200:
+{
+  "resourceId": 1,
+  "name": "별채 B",
+  "price": 200000
+}
+
+Error 403: 본인 소유가 아닌 resource 수정 시도
+```
+
+### 예약 대상 삭제
+```
+DELETE /api/v1/resources/{resourceId}
+Authorization: Bearer {jwt}  (Owner만 가능 — 본인 소유 resource)
+
+Response 204
+
+Error 403: 본인 소유가 아닌 resource 삭제 시도
 ```
 
 ### 가능 시간 조회
@@ -450,10 +511,21 @@ Response 200:
 
 ## 내부 API (서비스 간 호출 전용)
 
-`/api/v1/internal/**` 는 외부 노출 X (보안 그룹 / Gateway 에서 차단). 호출 시 서비스 간 mTLS 또는 내부 토큰 사용.
+`/api/v1/internal/**` 는 외부 노출 X (보안 그룹 / Gateway 에서 차단). JWT 토큰을 서비스 간 전달하여 검증.
+
+### api 서비스 내부 API
 
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
 | `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
 | `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
-| `GET /api/v1/internal/reservations/{id}` | api (admin), payment | 예약 상세 |
+
+### reservation 서비스 내부 API
+
+| Endpoint | 호출자 | 용도 |
+|----------|--------|------|
+| `GET /api/v1/internal/reservations?date=&status=` | api (admin) | 전체 예약 목록 |
+| `GET /api/v1/internal/reservations/calendar?year=&month=` | api (admin) | 캘린더 뷰 |
+| `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
+| `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |
+| `PUT /api/v1/internal/reservations/{id}/cancel` | api (admin) | 수동 취소 |

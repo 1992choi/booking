@@ -33,33 +33,18 @@ api/
     ├── auth/
     │   ├── controller/AuthController.java
     │   ├── service/AuthService.java
-    │   ├── service/JwtIssuer.java          (토큰 발급 — api 서비스 단독)
-    │   ├── domain/                          (RefreshToken 등)
+    │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
     │   └── dto/
     ├── user/
-    │   ├── controller/UserController.java
-    │   ├── service/UserService.java
-    │   ├── domain/User.java
-    │   ├── domain/UserRepository.java
-    │   └── dto/
     ├── owner/
-    │   ├── controller/OwnerController.java
-    │   ├── service/OwnerService.java
-    │   ├── domain/
-    │   └── dto/
     ├── resource/
-    │   ├── controller/ResourceController.java
-    │   ├── service/ResourceService.java
-    │   ├── domain/Resource.java
-    │   ├── domain/AvailableTime.java
-    │   └── dto/
     ├── admin/
     │   ├── controller/AdminController.java   (reservation 서비스 위임)
     │   └── client/ReservationClient.java     (RestClient)
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
     ├── error/
-    │   └── ApiErrorCode.java                  (api 도메인 ErrorCode)
+    │   └── ApiErrorCode.java
     └── config/
         ├── SecurityConfig.java
         └── RestClientConfig.java
@@ -79,164 +64,36 @@ Client → POST /auth/login → AuthService
                             ← {accessToken, refreshToken}
 
 [API call]
-Client → /users/me  (Bearer token)
+Client → Bearer token
        → JwtAuthenticationFilter (core 제공)
            ↓ JwtVerifier.verify(token)
            ↓ SecurityContext 에 AuthPrincipal 저장
-       → UserController
+       → Controller
 ```
 
-### JwtIssuer (api 서비스 단독)
+> Refresh Token은 Stateless JWT — 서버에 저장하지 않음. `type` claim(`access` / `refresh`)으로 구분.
+> `/auth/refresh` 에 access token 을 넘기면 401 반환.
 
-```java
-@Component
-public class JwtIssuer {
+### 접근 제어 (SecurityConfig)
 
-    private final SecretKey key;
-    private final long accessTokenTtl;
-
-    public String issue(Long userId, AuthPrincipal.Role role) {
-        return Jwts.builder()
-            .subject(userId.toString())
-            .claim("role", role.name())
-            .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + accessTokenTtl))
-            .signWith(key)
-            .compact();
-    }
-}
+```
+/api/v1/auth/**                             → permitAll
+GET /api/v1/resources/*/available-times     → permitAll
+/api/v1/admin/**                            → hasRole("OWNER")
+그 외                                        → authenticated
 ```
 
-> 검증은 core 의 `JwtVerifier` 를 모든 서비스가 공유. 발급은 api 만.
-
-### SecurityConfig
-
-```java
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-
-    @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
-        return http
-            .csrf(c -> c.disable())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/resources/*/available-times").permitAll()
-                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/v1/internal/**").access(internalCallerOnly())
-                .anyRequest().authenticated())
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-            .build();
-    }
-}
-```
-
-### Controller 에서 사용자 추출
-
-```java
-@GetMapping("/users/me")
-public UserResponse getMe(@AuthenticationPrincipal AuthPrincipal principal) {
-    return userService.getById(principal.userId());
-}
-```
-
-### ApiErrorCode
-
-```java
-@Getter
-@RequiredArgsConstructor
-public enum ApiErrorCode implements ErrorCode {
-    EMAIL_DUPLICATED(HttpStatus.CONFLICT, "API_001", "이미 사용 중인 이메일입니다."),
-    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "API_002", "이메일 또는 비밀번호가 일치하지 않습니다."),
-    OWNER_ALREADY_EXISTS(HttpStatus.CONFLICT, "API_003", "이미 등록된 업체가 있습니다."),
-    OWNER_NOT_FOUND(HttpStatus.NOT_FOUND, "API_004", "업체를 찾을 수 없습니다."),
-    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "API_005", "예약 대상을 찾을 수 없습니다.");
-
-    private final HttpStatus status;
-    private final String code;
-    private final String message;
-}
-```
+> `JwtAuthenticationFilter` 가 권한을 `ROLE_{role}` 형태로 등록하므로 `hasRole("OWNER")` 사용.
 
 ### Admin → reservation 위임
 
-```java
-@RestController
-@RequestMapping("/api/v1/admin/reservations")
-@RequiredArgsConstructor
-public class AdminController {
+`/api/v1/admin/reservations/**` 는 api 서비스가 진입점이지만, `ReservationClient` 를 통해 reservation 서비스의 `/api/v1/internal/reservations/**` 에 위임한다. `Authorization` 헤더를 그대로 전달하고 각 서비스가 JWT 를 독립 검증한다.
 
-    private final ReservationClient reservationClient;
+### Internal API
 
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public PageResponse<ReservationSummary> list(@RequestParam Map<String, String> params) {
-        return reservationClient.search(params);
-    }
-}
+`/api/v1/internal/**` 는 서비스 간 호출 전용 — 외부 노출 금지 (보안 그룹 / Gateway 차단).
 
-@Component
-@RequiredArgsConstructor
-public class ReservationClient {
-
-    private final RestClient restClient;  // resilience4j 적용
-
-    public PageResponse<ReservationSummary> search(Map<String, String> params) {
-        return restClient.get()
-            .uri(uri -> uri.path("/api/v1/internal/reservations").queryParams(toMap(params)).build())
-            .retrieve()
-            .body(new ParameterizedTypeReference<>() {});
-    }
-}
-```
-
-### Internal API (서비스 간 호출용)
-
-```java
-@RestController
-@RequestMapping("/api/v1/internal")
-public class InternalController {
-
-    @GetMapping("/resources/{id}")
-    public ResourceSnapshot getResource(@PathVariable Long id) {
-        // reservation 서비스가 예약 시 검증용으로 호출
-    }
-
-    @GetMapping("/users/{id}")
-    public UserSnapshot getUser(@PathVariable Long id) {
-        // payment / notification 이 사용자 정보 조회용
-    }
-}
-```
-
-`/api/v1/internal/**` 은 외부 노출 금지 (보안 그룹 / Gateway 차단).
-
----
-
-## 의존성 (build.gradle)
-
-```groovy
-plugins {
-    id 'java'
-    id 'org.springframework.boot'
-    id 'io.spring.dependency-management'
-}
-
-dependencies {
-    implementation project(':core')
-
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
-
-    runtimeOnly 'com.mysql:mysql-connector-j'
-
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-}
-```
+| Endpoint | 호출자 | 용도 |
+|----------|--------|------|
+| `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
+| `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 |

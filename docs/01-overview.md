@@ -119,14 +119,14 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | 3단계 | reservation 서비스 — 예약 생성/조회/취소 (시간 중복 검사 포함) |
 | 4단계 | payment 서비스 — 결제 내역 조회, 환불 |
 | 5단계 | notification 서비스 — 알림 발송(Mock), 이력 조회 |
+| 6단계 | Kafka 연동 — `reservation.created` → 결제, `payment.completed` / `reservation.cancelled` → 알림, `payment.failed` → 예약 취소 |
+| 7단계 | 관리 API — `AdminController` + `ReservationClient` (api), `InternalReservationController` (reservation) |
+| 8단계 | Owner 수정, Resource 수정/삭제, Refresh Token (Stateless JWT) |
 
 ### 개선 이슈 (미구현)
 
 | 항목 | 설명 |
 |------|------|
-| Refresh Token | api 서비스 `POST /auth/refresh` 미구현 |
 | Redis 분산락 | reservation 서비스 예약 생성 시 동시성 처리 미적용 (현재 시간 중복 검사만) |
 | DB 비관적 락 | reservation 서비스 `findOverlapping` 에 `@Lock` 미적용 |
-| Kafka 연동 | 서비스 간 이벤트 흐름 전체 미연결 — `reservation.created` → 결제, `payment.completed` / `reservation.cancelled` → 알림 |
-| 관리 API | api 서비스 `AdminController` + `ReservationClient` 미구현 |
 | 유저 동기화 | 각 서비스가 JWT 서명 검증만으로 유저를 신뢰하는 구조 → `user.created` / `user.deleted` Kafka 이벤트로 각 서비스 users 테이블 동기화 필요 |

@@ -44,162 +44,27 @@ core/
 
 ---
 
-## 주요 클래스
+## 에러 처리
 
-### BaseEntity
-```java
-@MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
-@Getter
-public abstract class BaseEntity {
+각 서비스의 도메인 에러는 `ErrorCode` 인터페이스를 구현한 enum 으로 정의한다 (`ApiErrorCode`, `ReservationErrorCode` 등). `throw new BusinessException(errorCode)` 하면 `GlobalExceptionHandler` 가 RFC 9457 `application/problem+json` 으로 변환해 응답한다.
 
-    @CreatedDate
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+`CommonErrorCode` 는 서비스 경계를 넘는 횡단 코드만 담는다 (`AUTH_001`, `AUTH_002`, `COMMON_001`, `COMMON_400`, `COMMON_500`). 도메인 에러 코드는 각 서비스 enum 에만 정의한다.
 
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
-}
-```
-
-### ErrorCode (인터페이스)
-```java
-public interface ErrorCode {
-    HttpStatus status();
-    String code();
-    String message();
-}
-```
-
-### CommonErrorCode (횡단 공통)
-```java
-@Getter
-@RequiredArgsConstructor
-public enum CommonErrorCode implements ErrorCode {
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED,    "AUTH_001",   "인증이 필요합니다."),
-    FORBIDDEN(HttpStatus.FORBIDDEN,          "AUTH_002",   "권한이 없습니다."),
-    NOT_FOUND(HttpStatus.NOT_FOUND,          "COMMON_001", "리소스를 찾을 수 없습니다."),
-    BAD_REQUEST(HttpStatus.BAD_REQUEST,      "COMMON_400", "잘못된 요청입니다."),
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 오류가 발생했습니다.");
-
-    private final HttpStatus status;
-    private final String code;
-    private final String message;
-}
-```
-
-### BusinessException
-```java
-@Getter
-public class BusinessException extends RuntimeException {
-    private final ErrorCode errorCode;
-
-    public BusinessException(ErrorCode errorCode) {
-        super(errorCode.message());
-        this.errorCode = errorCode;
-    }
-}
-```
-
-### GlobalExceptionHandler (RFC 9457 ProblemDetail)
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ProblemDetail> handle(BusinessException e) {
-        ErrorCode ec = e.getErrorCode();
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(ec.status(), ec.message());
-        pd.setProperty("code", ec.code());
-        return ResponseEntity.status(ec.status()).body(pd);
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException e) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-            HttpStatus.BAD_REQUEST,
-            e.getBindingResult().getAllErrors().getFirst().getDefaultMessage()
-        );
-        pd.setProperty("code", CommonErrorCode.BAD_REQUEST.code());
-        return ResponseEntity.badRequest().body(pd);
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnknown(Exception e) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-            HttpStatus.INTERNAL_SERVER_ERROR,
-            CommonErrorCode.INTERNAL_ERROR.message()
-        );
-        pd.setProperty("code", CommonErrorCode.INTERNAL_ERROR.code());
-        return ResponseEntity.internalServerError().body(pd);
-    }
-}
-```
-
-> 성공 응답은 envelope 없이 DTO 자체를 반환한다. HTTP status 가 진실의 원천.
-
-### JwtVerifier
-```java
-@Component
-public class JwtVerifier {
-
-    private final SecretKey key;
-
-    public JwtVerifier(@Value("${booking.jwt.secret}") String secret) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-    }
-
-    public AuthPrincipal verify(String token) {
-        Claims claims = Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
-        return new AuthPrincipal(
-            Long.parseLong(claims.getSubject()),
-            Role.valueOf(claims.get("role", String.class))
-        );
-    }
-}
-```
-
-> 토큰 발급은 api 서비스만 한다. 다른 서비스는 검증만.
-
-### AuthPrincipal
-```java
-public record AuthPrincipal(Long userId, Role role) {
-
-    public enum Role { USER, OWNER, ADMIN }
-}
-```
+에러 코드 전체 목록은 `04-api-spec.md` 참고.
 
 ---
 
-## 의존성 (build.gradle)
+## JWT
 
-```groovy
-plugins {
-    id 'java-library'
-}
+토큰 **검증**은 `JwtVerifier` (core) 를 모든 서비스가 공유한다. 토큰 **발급**은 api 서비스 `JwtIssuer` 만 담당한다.
 
-bootJar { enabled = false }
-jar { enabled = true }
+`JwtAuthenticationFilter` 가 매 요청마다 `Authorization: Bearer {token}` 을 파싱해 `AuthPrincipal` 을 `SecurityContext` 에 저장한다.
 
-dependencies {
-    api 'org.springframework.boot:spring-boot-starter-web'
-    api 'org.springframework.boot:spring-boot-starter-data-jpa'
-    api 'org.springframework.boot:spring-boot-starter-security'
-    api 'io.jsonwebtoken:jjwt-api'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson'
-
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+```java
+public record AuthPrincipal(Long userId, Role role) {
+    public enum Role { USER, OWNER, ADMIN }
 }
 ```
-
-> 라이브러리이므로 `bootJar` 비활성. 의존성은 `api` 스코프로 선언해 임베드한 서비스에 전이됨.
-> jjwt 버전은 도입 시점 최신 안정(0.12.x 이상) 사용.
 
 ---
 
