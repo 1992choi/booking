@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,13 +17,12 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/admin/reservations")
 @RequiredArgsConstructor
 public class AdminController {
 
     private final ReservationClient reservationClient;
 
-    @GetMapping
+    @GetMapping("/api/v1/admin/reservations")
     public AdminReservationPageResponse getAll(
             @RequestParam LocalDate date,
             @RequestParam(required = false) String status,
@@ -34,7 +32,7 @@ public class AdminController {
         return reservationClient.getAll(date, status, page, size, request.getHeader("Authorization"));
     }
 
-    @GetMapping("/calendar")
+    @GetMapping("/api/v1/admin/reservations/calendar")
     public Map<LocalDate, List<AdminCalendarEntry>> getCalendar(
             @RequestParam int year,
             @RequestParam int month,
@@ -42,14 +40,14 @@ public class AdminController {
         return reservationClient.getCalendar(year, month, request.getHeader("Authorization"));
     }
 
-    @PutMapping("/{reservationId}/confirm")
+    @PutMapping("/api/v1/admin/reservations/{reservationId}/confirm")
     public AdminReservationResponse confirm(
             @PathVariable Long reservationId,
             HttpServletRequest request) {
         return reservationClient.confirm(reservationId, request.getHeader("Authorization"));
     }
 
-    @PutMapping("/{reservationId}/cancel")
+    @PutMapping("/api/v1/admin/reservations/{reservationId}/cancel")
     public AdminReservationResponse cancel(
             @PathVariable Long reservationId,
             HttpServletRequest request) {

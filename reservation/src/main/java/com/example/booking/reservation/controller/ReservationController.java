@@ -17,31 +17,29 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
 public class ReservationController {
 
     private final ReservationService reservationService;
 
-    @PostMapping
+    @PostMapping("/api/v1/reservations")
     @ResponseStatus(HttpStatus.CREATED)
     public ReservationResponse create(@AuthenticationPrincipal AuthPrincipal principal,
                                       @Valid @RequestBody CreateReservationRequest request) {
         return reservationService.create(principal.userId(), request);
     }
 
-    @GetMapping("/{reservationId}")
+    @GetMapping("/api/v1/reservations/{reservationId}")
     public ReservationResponse getById(@PathVariable Long reservationId) {
         return reservationService.getById(reservationId);
     }
 
-    @GetMapping("/me")
+    @GetMapping("/api/v1/reservations/me")
     public PageResponse<ReservationResponse> getMyReservations(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(required = false, defaultValue = "PENDING") ReservationStatus status,
@@ -49,7 +47,7 @@ public class ReservationController {
         return reservationService.getMyReservations(principal.userId(), status, pageable);
     }
 
-    @PutMapping("/{reservationId}/cancel")
+    @PutMapping("/api/v1/reservations/{reservationId}/cancel")
     public ReservationResponse cancel(@AuthenticationPrincipal AuthPrincipal principal,
                                       @PathVariable Long reservationId) {
         return reservationService.cancel(principal.userId(), reservationId);

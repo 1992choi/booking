@@ -6,22 +6,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @GetMapping("/{reservationId}")
+    @GetMapping("/api/v1/payments/{reservationId}")
     public PaymentResponse getByReservationId(@PathVariable Long reservationId) {
         return paymentService.getByReservationId(reservationId);
     }
 
-    @PostMapping("/{reservationId}/refund")
+    @PostMapping("/api/v1/payments/{reservationId}/refund")
     public PaymentResponse refund(@PathVariable Long reservationId) {
         return paymentService.refund(reservationId);
     }
