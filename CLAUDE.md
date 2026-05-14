@@ -34,7 +34,7 @@ Services communicate via:
 - **Synchronous**: Spring 6 `RestClient` + Resilience4j (e.g., `reservation → api` for resource validation)
 - **Asynchronous**: Kafka (`reservation.created`, `payment.completed`, `payment.failed`, `reservation.cancelled`)
 
-Database-per-service: each service owns its own DB (`api_db`, `reservation_db`, `payment_db`, `notification_db`). **No cross-service FK constraints** — other services' identifiers are stored as plain `BIGINT` columns.
+Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, `db_payment`, `db_notification`). **No cross-service FK constraints** — other services' identifiers are stored as plain `BIGINT` columns.
 
 ## Conventions that bite if missed
 

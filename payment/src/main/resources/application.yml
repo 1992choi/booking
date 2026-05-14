@@ -5,7 +5,7 @@ spring:
   application:
     name: payment
   datasource:
-    url: jdbc:mysql://localhost:3306/payment_db?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/db_payment?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver

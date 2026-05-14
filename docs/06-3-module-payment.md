@@ -7,7 +7,7 @@
 | 항목 | 값 |
 |------|-----|
 | 포트 | 8082 |
-| DB | payment_db |
+| DB | db_payment |
 | 외부 노출 | O (path: `/payments/**`) |
 | 의존 | core (라이브러리), Kafka |
 | 호출하는 서비스 | api (REST, 사용자 정보) |

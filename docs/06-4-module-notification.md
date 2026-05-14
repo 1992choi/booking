@@ -7,7 +7,7 @@
 | 항목 | 값 |
 |------|-----|
 | 포트 | 8083 |
-| DB | notification_db |
+| DB | db_notification |
 | 외부 노출 | △ (이력 조회만. 발송은 Kafka 트리거) |
 | 의존 | core (라이브러리), Kafka |
 | 호출하는 서비스 | api (REST, 사용자 정보) |

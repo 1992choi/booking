@@ -3,10 +3,10 @@
 MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 다른 서비스 데이터는 REST 호출 또는 Kafka 이벤트 페이로드로 받는다.
 
 ```
-api_db          ← User, Owner, Resource, AvailableTime
-reservation_db  ← Reservation
-payment_db      ← Payment
-notification_db ← Notification
+db_api          ← User, Owner, Resource, AvailableTime
+db_reservation  ← Reservation
+db_payment      ← Payment
+db_notification ← Notification
 ```
 
 > 다른 서비스 도메인의 식별자(예: `user_id`, `resource_id`)는 단순 BIGINT 컬럼으로 보유한다. **FK 제약은 걸지 않는다** — 물리적으로 다른 DB이기 때문.
@@ -33,7 +33,7 @@ public abstract class BaseEntity {
 
 ---
 
-## api_db (api 서비스 소유)
+## db_api (api 서비스 소유)
 
 ### User (예약자 / 일반 사용자)
 | 컬럼 | 타입 | 설명 |
@@ -86,18 +86,18 @@ public abstract class BaseEntity {
 | updated_at | DATETIME | |
 
 > reservation 서비스가 예약 시 api 서비스의 `/api/internal/resources/{id}/check` REST 로 가용성 검증.
-> AvailableTime.status 는 운영자가 임의로 시간대를 막을 때(`BLOCKED`) 사용. 실제 예약 점유는 reservation_db 의 Reservation 으로 판단.
+> AvailableTime.status 는 운영자가 임의로 시간대를 막을 때(`BLOCKED`) 사용. 실제 예약 점유는 db_reservation 의 Reservation 으로 판단.
 
 ---
 
-## reservation_db (reservation 서비스 소유)
+## db_reservation (reservation 서비스 소유)
 
 ### Reservation
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| user_id | BIGINT | api_db.User.id (FK X) |
-| resource_id | BIGINT | api_db.Resource.id (FK X) |
+| user_id | BIGINT | db_api.User.id (FK X) |
+| resource_id | BIGINT | db_api.Resource.id (FK X) |
 | resource_name | VARCHAR | 예약 시점의 설비명 snapshot |
 | start_time | DATETIME | 예약 시작 |
 | end_time | DATETIME | 예약 종료 |
@@ -116,14 +116,14 @@ public abstract class BaseEntity {
 
 ---
 
-## payment_db (payment 서비스 소유)
+## db_payment (payment 서비스 소유)
 
 ### Payment
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| reservation_id | BIGINT | reservation_db.Reservation.id (FK X), UNIQUE |
-| user_id | BIGINT | api_db.User.id (FK X) |
+| reservation_id | BIGINT | db_reservation.Reservation.id (FK X), UNIQUE |
+| user_id | BIGINT | db_api.User.id (FK X) |
 | amount | BIGINT | **실제 결제 시도/완료된 금액** (Reservation.amount 와 같지 않을 수 있음 — 할인/부분 결제 등) |
 | status | ENUM | PENDING / COMPLETED / FAILED / REFUNDED |
 | paid_at | DATETIME | 결제 시각 |
@@ -133,14 +133,14 @@ public abstract class BaseEntity {
 
 ---
 
-## notification_db (notification 서비스 소유)
+## db_notification (notification 서비스 소유)
 
 ### Notification
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| user_id | BIGINT | api_db.User.id (FK X) |
-| reservation_id | BIGINT | reservation_db.Reservation.id (FK X) |
+| user_id | BIGINT | db_api.User.id (FK X) |
+| reservation_id | BIGINT | db_reservation.Reservation.id (FK X) |
 | type | ENUM | CONFIRMED / CANCELLED |
 | channel | ENUM | EMAIL / SMS / KAKAO / LOG |
 | status | ENUM | SENT / FAILED |

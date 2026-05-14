@@ -7,7 +7,7 @@
 | 항목 | 값 |
 |------|-----|
 | 포트 | 8081 |
-| DB | reservation_db |
+| DB | db_reservation |
 | 외부 노출 | O (path: `/reservations/**`) |
 | 의존 | core (라이브러리) |
 | 호출하는 서비스 | api (REST, resource 검증) |

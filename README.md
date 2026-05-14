@@ -15,19 +15,28 @@
 | Java | 25 |
 | Docker / Docker Compose | 최신 |
 
-### 2. 인프라 기동 (MySQL)
+### 2. 인프라 기동 (MySQL + Kafka)
 
 ```bash
 docker compose up -d
 ```
 
-- `booking-mysql` 컨테이너가 3306 포트로 떠 있음
-- 기본 DB: `api_db` / 계정: `root` / `root`
-- 데이터는 `booking-mysql-data` 볼륨에 영속
+| 컨테이너 | 포트 | 비고 |
+|----------|------|------|
+| `booking-mysql` | 3306 | 계정 `root` / `root` |
+| `booking-kafka` | 9092 | KRaft 모드 (단일 브로커) |
+
+초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
 
 상태 확인:
 ```bash
 docker compose ps
+```
+
+DB 초기화가 필요할 때:
+```bash
+docker compose down -v   # 볼륨까지 삭제 후 재기동
+docker compose up -d
 ```
 
 ### 3. 빌드

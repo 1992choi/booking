@@ -26,7 +26,7 @@
        │                            │              │
        ▼             ▼              ▼              ▼
    ┌────────┐  ┌──────────────┐ ┌─────────┐  ┌──────────────┐
-   │ api_db │  │reservation_db│ │payment_db│ │notification_db│
+   │ db_api │  │db_reservation│ │db_payment│ │db_notification│
    └────────┘  └──────────────┘ └─────────┘  └──────────────┘
 
                   ┌────────────────────────┐
@@ -81,10 +81,10 @@ notification ─── core
 
 | 서비스 | 책임 | DB |
 |--------|------|----|
-| api | 인증, 회원, 업체, 리소스, 가능시간 CRUD. 관리 API 의 진입점 | api_db |
-| reservation | 예약 생성/조회/취소, 동시성 처리(Redis 분산 락 + DB 락) | reservation_db |
-| payment | Mock 결제 처리. 결제 이력 조회/환불 | payment_db |
-| notification | Mock 알림 발송. 발송 이력 저장 | notification_db |
+| api | 인증, 회원, 업체, 리소스, 가능시간 CRUD. 관리 API 의 진입점 | db_api |
+| reservation | 예약 생성/조회/취소, 동시성 처리(Redis 분산 락 + DB 락) | db_reservation |
+| payment | Mock 결제 처리. 결제 이력 조회/환불 | db_payment |
+| notification | Mock 알림 발송. 발송 이력 저장 | db_notification |
 
 ---
 
@@ -221,10 +221,10 @@ List<Reservation> findOverlappingWithLock(...);
        /reservations/* → reservation, ...)
    ↓
 [ECS Cluster]
-   ├── api task           (api_db RDS)
-   ├── reservation task   (reservation_db RDS, ElastiCache Redis)
-   ├── payment task       (payment_db RDS)
-   └── notification task  (notification_db RDS)
+   ├── api task           (db_api RDS)
+   ├── reservation task   (db_reservation RDS, ElastiCache Redis)
+   ├── payment task       (db_payment RDS)
+   └── notification task  (db_notification RDS)
        ↑↓
    [MSK Kafka]
 ```
