@@ -302,21 +302,22 @@ Authorization: Bearer {jwt}
 Request:
 {
   "resourceId": 1,
-  "startTime": "2026-05-01T14:00:00",
-  "endTime": "2026-05-01T15:00:00",
+  "availableTimeIds": [1, 2],
   "headCount": 2
 }
 
-Response 201:
-{
-  "id": 1,
-  "status": "PENDING",
-  "resourceName": "별채 A",
-  "startTime": "2026-05-01T14:00:00",
-  "endTime": "2026-05-01T15:00:00",
-  "headCount": 2,
-  "amount": 150000
-}
+Response 201 (슬롯당 1개 생성, 배열 반환):
+[
+  {
+    "id": 1,
+    "status": "PENDING",
+    "resourceName": "별채 A",
+    "startTime": "2026-05-01T14:00:00",
+    "endTime": "2026-05-01T15:00:00",
+    "headCount": 2,
+    "amount": 150000
+  }
+]
 
 Error 409 (application/problem+json):
 {
@@ -328,7 +329,7 @@ Error 409 (application/problem+json):
 }
 ```
 
-> reservation 서비스는 예약 생성 전 api 서비스에 `GET /api/v1/internal/resources/{id}` 로 resource 검증 (가격, max_capacity).
+> reservation 서비스는 예약 생성 전 api 서비스에 `GET /api/v1/internal/resources/{id}` 로 resource 검증 (가격, max_capacity), `GET /api/v1/internal/available-times?ids=` 로 슬롯 상태 및 소속 resource 검증.
 
 ### 예약 상세 조회
 ```
@@ -518,6 +519,7 @@ Response 200:
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
 | `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
+| `GET /api/v1/internal/available-times?ids=` | reservation | 슬롯 상태 및 resource 귀속 검증 |
 | `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
 
 ### reservation 서비스 내부 API

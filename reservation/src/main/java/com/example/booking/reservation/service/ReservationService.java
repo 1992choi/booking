@@ -1,6 +1,7 @@
 package com.example.booking.reservation.service;
 
 import com.example.booking.core.error.BusinessException;
+import com.example.booking.reservation.client.AvailableTimeSnapshot;
 import com.example.booking.reservation.client.ResourceClient;
 import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.domain.Reservation;
@@ -35,36 +36,49 @@ public class ReservationService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public ReservationResponse create(Long userId, CreateReservationRequest request) {
+    public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
         ResourceSnapshot resource = resourceClient.fetch(request.resourceId());
 
         if (request.headCount() > resource.maxCapacity()) {
             throw new BusinessException(ReservationErrorCode.CAPACITY_EXCEEDED);
         }
 
-        boolean hasOverlap = !reservationRepository.findOverlapping(
-                request.resourceId(), request.startTime(), request.endTime()).isEmpty();
-        if (hasOverlap) {
-            throw new BusinessException(ReservationErrorCode.CONFLICT);
+        List<AvailableTimeSnapshot> slots = resourceClient.fetchAvailableTimes(request.availableTimeIds());
+
+        for (AvailableTimeSnapshot slot : slots) {
+            if (!slot.resourceId().equals(request.resourceId())) {
+                throw new BusinessException(ReservationErrorCode.CONFLICT);
+            }
+            if (!"OPEN".equals(slot.status())) {
+                throw new BusinessException(ReservationErrorCode.CONFLICT);
+            }
+            boolean hasOverlap = !reservationRepository.findOverlapping(
+                    request.resourceId(), slot.startTime(), slot.endTime()).isEmpty();
+            if (hasOverlap) {
+                throw new BusinessException(ReservationErrorCode.CONFLICT);
+            }
         }
 
-        Reservation reservation = Reservation.builder()
-                .userId(userId)
-                .resourceId(request.resourceId())
-                .resourceName(resource.name())
-                .startTime(request.startTime())
-                .endTime(request.endTime())
-                .status(ReservationStatus.PENDING)
-                .headCount(request.headCount())
-                .amount(resource.price())
-                .build();
+        List<Reservation> reservations = slots.stream()
+                .map(slot -> Reservation.builder()
+                        .userId(userId)
+                        .resourceId(request.resourceId())
+                        .resourceName(resource.name())
+                        .startTime(slot.startTime())
+                        .endTime(slot.endTime())
+                        .status(ReservationStatus.PENDING)
+                        .headCount(request.headCount())
+                        .amount(resource.price())
+                        .build())
+                .toList();
 
-        reservationRepository.save(reservation);
+        reservationRepository.saveAll(reservations);
 
-        eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
-                reservation.getId(), userId, request.resourceId(), resource.price()));
+        reservations.forEach(reservation ->
+                eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
+                        reservation.getId(), userId, request.resourceId(), resource.price())));
 
-        return ReservationResponse.from(reservation);
+        return reservations.stream().map(ReservationResponse::from).toList();
     }
 
     @Transactional(readOnly = true)

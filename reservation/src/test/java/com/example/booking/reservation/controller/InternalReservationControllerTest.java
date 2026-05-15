@@ -3,6 +3,7 @@ package com.example.booking.reservation.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
+import com.example.booking.reservation.client.AvailableTimeSnapshot;
 import com.example.booking.reservation.client.ResourceClient;
 import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.dto.CreateReservationRequest;
@@ -20,6 +21,7 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -163,7 +165,7 @@ class InternalReservationControllerTest {
     void getById_success() throws Exception {
         String response = createReservationAndGetBody(
                 LocalDateTime.of(2026, 10, 1, 10, 0), LocalDateTime.of(2026, 10, 1, 11, 0));
-        Long reservationId = objectMapper.readTree(response).get("id").asLong();
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
 
         mockMvc.perform(get("/api/v1/internal/reservations/{id}", reservationId)
                         .header("Authorization", "Bearer test-token"))
@@ -185,11 +187,14 @@ class InternalReservationControllerTest {
     }
 
     private String createReservationAndGetBody(LocalDateTime start, LocalDateTime end) throws Exception {
+        given(resourceClient.fetchAvailableTimes(any()))
+                .willReturn(List.of(new AvailableTimeSnapshot(1L, 1L, start, end, "OPEN")));
+
         return mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, start, end, 1))))
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
     }

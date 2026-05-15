@@ -3,6 +3,7 @@ package com.example.booking.reservation.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
+import com.example.booking.reservation.client.AvailableTimeSnapshot;
 import com.example.booking.reservation.client.ResourceClient;
 import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.dto.CreateReservationRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -56,6 +58,12 @@ class ReservationControllerTest {
 
     static final ResourceSnapshot RESOURCE = new ResourceSnapshot(1L, "별채 A", 150000L, 2, 10L);
 
+    static final AvailableTimeSnapshot SLOT = new AvailableTimeSnapshot(
+            1L, 1L,
+            LocalDateTime.of(2026, 6, 1, 14, 0),
+            LocalDateTime.of(2026, 6, 1, 15, 0),
+            "OPEN");
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
@@ -64,35 +72,28 @@ class ReservationControllerTest {
 
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
         given(resourceClient.fetch(1L)).willReturn(RESOURCE);
+        given(resourceClient.fetchAvailableTimes(any())).willReturn(List.of(SLOT));
     }
 
     @Test
     void create_success() throws Exception {
-        CreateReservationRequest request = new CreateReservationRequest(
-                1L,
-                LocalDateTime.of(2026, 6, 1, 14, 0),
-                LocalDateTime.of(2026, 6, 1, 15, 0),
-                2);
+        CreateReservationRequest request = new CreateReservationRequest(1L, List.of(1L), 2);
 
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.resourceName").value("별채 A"))
-                .andExpect(jsonPath("$.amount").value(150000))
-                .andExpect(jsonPath("$.headCount").value(2));
+                .andExpect(jsonPath("$[0].id").exists())
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].resourceName").value("별채 A"))
+                .andExpect(jsonPath("$[0].amount").value(150000))
+                .andExpect(jsonPath("$[0].headCount").value(2));
     }
 
     @Test
     void create_capacityExceeded() throws Exception {
-        CreateReservationRequest request = new CreateReservationRequest(
-                1L,
-                LocalDateTime.of(2026, 6, 1, 14, 0),
-                LocalDateTime.of(2026, 6, 1, 15, 0),
-                3);
+        CreateReservationRequest request = new CreateReservationRequest(1L, List.of(1L), 3);
 
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
@@ -104,26 +105,27 @@ class ReservationControllerTest {
 
     @Test
     void create_timeConflict() throws Exception {
-        CreateReservationRequest first = new CreateReservationRequest(
-                1L,
-                LocalDateTime.of(2026, 6, 1, 14, 0),
-                LocalDateTime.of(2026, 6, 1, 15, 0),
-                1);
+        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
+                new AvailableTimeSnapshot(1L, 1L,
+                        LocalDateTime.of(2026, 6, 1, 14, 0),
+                        LocalDateTime.of(2026, 6, 1, 15, 0), "OPEN")));
+        given(resourceClient.fetchAvailableTimes(List.of(2L))).willReturn(List.of(
+                new AvailableTimeSnapshot(2L, 1L,
+                        LocalDateTime.of(2026, 6, 1, 14, 30),
+                        LocalDateTime.of(2026, 6, 1, 15, 30), "OPEN")));
+
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(first)))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated());
 
-        CreateReservationRequest overlap = new CreateReservationRequest(
-                1L,
-                LocalDateTime.of(2026, 6, 1, 14, 30),
-                LocalDateTime.of(2026, 6, 1, 15, 30),
-                1);
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(overlap)))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(2L), 1))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("RSV_001"));
     }
@@ -133,15 +135,12 @@ class ReservationControllerTest {
         String response = mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateReservationRequest(
-                                1L,
-                                LocalDateTime.of(2026, 6, 2, 10, 0),
-                                LocalDateTime.of(2026, 6, 2, 11, 0),
-                                1))))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        Long reservationId = objectMapper.readTree(response).get("id").asLong();
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
 
         mockMvc.perform(get("/api/v1/reservations/{id}", reservationId)
                         .header("Authorization", "Bearer test-token"))
@@ -163,11 +162,8 @@ class ReservationControllerTest {
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateReservationRequest(
-                                1L,
-                                LocalDateTime.of(2026, 6, 3, 10, 0),
-                                LocalDateTime.of(2026, 6, 3, 11, 0),
-                                1))))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/reservations/me")
@@ -183,15 +179,12 @@ class ReservationControllerTest {
         String response = mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateReservationRequest(
-                                1L,
-                                LocalDateTime.of(2026, 6, 4, 10, 0),
-                                LocalDateTime.of(2026, 6, 4, 11, 0),
-                                1))))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        Long reservationId = objectMapper.readTree(response).get("id").asLong();
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
 
         mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
                         .header("Authorization", "Bearer test-token"))
@@ -204,17 +197,13 @@ class ReservationControllerTest {
         String response = mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateReservationRequest(
-                                1L,
-                                LocalDateTime.of(2026, 6, 5, 10, 0),
-                                LocalDateTime.of(2026, 6, 5, 11, 0),
-                                1))))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        Long reservationId = objectMapper.readTree(response).get("id").asLong();
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
 
-        // 다른 유저로 취소 시도
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(999L, Role.USER));
 
         mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
@@ -227,11 +216,8 @@ class ReservationControllerTest {
     void create_unauthorized() throws Exception {
         mockMvc.perform(post("/api/v1/reservations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CreateReservationRequest(
-                                1L,
-                                LocalDateTime.of(2026, 6, 1, 14, 0),
-                                LocalDateTime.of(2026, 6, 1, 15, 0),
-                                1))))
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isUnauthorized());
     }
 }

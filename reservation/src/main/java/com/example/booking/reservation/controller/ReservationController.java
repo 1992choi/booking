@@ -5,6 +5,8 @@ import com.example.booking.reservation.domain.ReservationStatus;
 import com.example.booking.reservation.dto.CreateReservationRequest;
 import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
+
+import java.util.List;
 import com.example.booking.reservation.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +31,8 @@ public class ReservationController {
 
     @PostMapping("/api/v1/reservations")
     @ResponseStatus(HttpStatus.CREATED)
-    public ReservationResponse create(@AuthenticationPrincipal AuthPrincipal principal,
-                                      @Valid @RequestBody CreateReservationRequest request) {
+    public List<ReservationResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @Valid @RequestBody CreateReservationRequest request) {
         return reservationService.create(principal.userId(), request);
     }
 

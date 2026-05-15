@@ -95,6 +95,22 @@ class InternalControllerTest {
     }
 
     @Test
+    void getAvailableTimes_success() throws Exception {
+        String token = signupAndLogin("internal5@example.com");
+        Long ownerId = registerOwner(token, "Test Pension", OwnerType.PENSION);
+        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L, 2);
+        Long availableTimeId = registerAvailableTime(token, resourceId);
+
+        mockMvc.perform(get("/api/v1/internal/available-times")
+                        .param("ids", String.valueOf(availableTimeId))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(availableTimeId))
+                .andExpect(jsonPath("$[0].resourceId").value(resourceId))
+                .andExpect(jsonPath("$[0].status").value("OPEN"));
+    }
+
+    @Test
     void internal_unauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/internal/resources/{id}", 1L))
                 .andExpect(status().isUnauthorized());
@@ -133,6 +149,17 @@ class InternalControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(response).get("id").asLong();
+    }
+
+    private Long registerAvailableTime(String token, Long resourceId) throws Exception {
+        String body = "{\"startTime\":\"2026-06-01T14:00:00\",\"endTime\":\"2026-06-01T15:00:00\"}";
+        String response = mockMvc.perform(post("/api/v1/resources/{resourceId}/available-times", resourceId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).get("id").asLong();
