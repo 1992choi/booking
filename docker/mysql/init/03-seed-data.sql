@@ -4,13 +4,13 @@ USE db_api;
 
 -- =============================================
 -- 1. Owner 유저 생성
---    password: test1234! (BCrypt)
+--    password: 12341234 (BCrypt)
 -- =============================================
 INSERT INTO users (name, email, phone, password, role, created_at, updated_at) VALUES
-  ('테스터',       'user@test.com',     '010-9999-0000', '$2a$10$ECiFrzFn7T3B/93FOj/SPeqb6ofcDY2U7BOkkNGEOCwmMhaizilGK', 'USER',  NOW(), NOW()),
-  ('한강뷰펜션',   'pension@test.com',  '010-1111-2222', '$2a$10$ECiFrzFn7T3B/93FOj/SPeqb6ofcDY2U7BOkkNGEOCwmMhaizilGK', 'OWNER', NOW(), NOW()),
-  ('서울쿠킹클래스', 'class@test.com',    '010-3333-4444', '$2a$10$ECiFrzFn7T3B/93FOj/SPeqb6ofcDY2U7BOkkNGEOCwmMhaizilGK', 'OWNER', NOW(), NOW()),
-  ('강남피트니스',   'facility@test.com', '010-5555-6666', '$2a$10$ECiFrzFn7T3B/93FOj/SPeqb6ofcDY2U7BOkkNGEOCwmMhaizilGK', 'OWNER', NOW(), NOW());
+  ('테스터',       'user@test.com',     '010-9999-0000', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'USER',  NOW(), NOW()),
+  ('한강뷰펜션',   'pension@test.com',  '010-1111-2222', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'OWNER', NOW(), NOW()),
+  ('서울쿠킹클래스', 'class@test.com',    '010-3333-4444', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'OWNER', NOW(), NOW()),
+  ('강남피트니스',   'facility@test.com', '010-5555-6666', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'OWNER', NOW(), NOW());
 
 -- =============================================
 -- 2. Owner 3개 생성 (PENSION / CLASS / FACILITY)
