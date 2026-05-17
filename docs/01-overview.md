@@ -123,6 +123,45 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | 7단계 | 관리 API — `AdminController` + `ReservationClient` (api), `InternalReservationController` (reservation) |
 | 8단계 | Owner 수정, Resource 수정/삭제, Refresh Token (Stateless JWT) |
 
+### 구조 변경
+
+현재 api 서비스는 인증(User/JWT)과 예약 카탈로그(Owner/Resource/AvailableTime)를 함께 담당한다.
+관심사 기준으로 경계를 다시 그리면 아래 구조가 더 올바르다.
+
+**현재 구조의 문제**
+
+api 서비스가 두 개의 서로 다른 관심사를 혼재:
+- 인증 관심사 — User, 로그인, JWT 발급
+- 예약 도메인 관심사 — Owner, Resource, AvailableTime
+
+Owner · Resource · AvailableTime은 "무엇을, 언제 예약할 수 있는가"를 정의하는 예약 도메인의 구성원이다.
+Reservation과 같은 bounded context에 속하므로 reservation 서비스가 소유하는 것이 맞다.
+
+현재 구조에서는 reservation 서비스가 예약 생성 시 api 서비스를 REST로 호출해 Resource/AvailableTime을 검증하고,
+예약 상태 변경 시 api 서비스 소유 데이터(AvailableTime.status)를 역으로 수정하는 anti-pattern이 발생한다.
+
+**올바른 구조**
+
+```
+auth-service        → User, JWT 발급/갱신
+reservation-service → Owner, Resource, AvailableTime, Reservation
+payment-service     → Payment
+notification-service → Notification
+```
+
+| 서비스 | 관심사 |
+|--------|--------|
+| auth | 당신이 누구인가 (인증/신원) |
+| reservation | 무엇을 언제 예약할 수 있는가 + 예약 행위 (예약 도메인 전체) |
+| payment | 결제 |
+| notification | 알림 |
+
+**변경 시 개선되는 점**
+
+- reservation 서비스가 Resource/AvailableTime을 직접 소유 → 검증을 위한 cross-service REST 호출 제거
+- AvailableTime.status를 reservation 서비스가 역으로 수정하는 anti-pattern 제거
+- auth-service는 인증만, reservation-service는 예약 도메인 전체를 담당하는 단일 책임 구조
+
 ### 개선 이슈 (미구현)
 
 | 항목 | 설명 |
