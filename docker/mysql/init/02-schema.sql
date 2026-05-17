@@ -47,17 +47,18 @@ CREATE TABLE IF NOT EXISTS available_times (
 USE db_reservation;
 
 CREATE TABLE IF NOT EXISTS reservations (
-    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id        BIGINT       NOT NULL,
-    resource_id    BIGINT       NOT NULL,
-    resource_name  VARCHAR(255) NOT NULL,
-    start_time     DATETIME(6)  NOT NULL,
-    end_time       DATETIME(6)  NOT NULL,
-    status         VARCHAR(50)  NOT NULL,
-    head_count     INT          NOT NULL,
-    amount         BIGINT       NOT NULL,
-    created_at     DATETIME(6),
-    updated_at     DATETIME(6),
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    available_time_id BIGINT       NOT NULL,
+    user_id           BIGINT       NOT NULL,
+    resource_id       BIGINT       NOT NULL,
+    resource_name     VARCHAR(255) NOT NULL,
+    start_time        DATETIME(6)  NOT NULL,
+    end_time          DATETIME(6)  NOT NULL,
+    status            VARCHAR(50)  NOT NULL,
+    head_count        INT          NOT NULL,
+    amount            BIGINT       NOT NULL,
+    created_at        DATETIME(6),
+    updated_at        DATETIME(6),
     INDEX idx_reservation_resource_time (resource_id, start_time, end_time),
     INDEX idx_reservation_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

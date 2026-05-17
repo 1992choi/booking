@@ -33,6 +33,9 @@ public class Reservation extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "available_time_id", nullable = false)
+    private Long availableTimeId;
+
     @Column(name = "user_id", nullable = false)
     private Long userId;
 

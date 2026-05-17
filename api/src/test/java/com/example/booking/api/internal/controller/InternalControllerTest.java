@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -107,6 +108,52 @@ class InternalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(availableTimeId))
                 .andExpect(jsonPath("$[0].resourceId").value(resourceId))
+                .andExpect(jsonPath("$[0].status").value("OPEN"));
+    }
+
+    @Test
+    void blockAvailableTimes_success() throws Exception {
+        String token = signupAndLogin("internal6@example.com");
+        Long ownerId = registerOwner(token, "Block Test Pension", OwnerType.PENSION);
+        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L, 2);
+        Long availableTimeId = registerAvailableTime(token, resourceId);
+
+        mockMvc.perform(put("/api/v1/internal/available-times/block")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + availableTimeId + "]"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/internal/available-times")
+                        .param("ids", String.valueOf(availableTimeId))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("BLOCKED"));
+    }
+
+    @Test
+    void releaseAvailableTimes_success() throws Exception {
+        String token = signupAndLogin("internal7@example.com");
+        Long ownerId = registerOwner(token, "Release Test Pension", OwnerType.PENSION);
+        Long resourceId = registerResource(token, ownerId, "별채 B", 150000L, 2);
+        Long availableTimeId = registerAvailableTime(token, resourceId);
+
+        mockMvc.perform(put("/api/v1/internal/available-times/block")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + availableTimeId + "]"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(put("/api/v1/internal/available-times/release")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + availableTimeId + "]"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/internal/available-times")
+                        .param("ids", String.valueOf(availableTimeId))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("OPEN"));
     }
 

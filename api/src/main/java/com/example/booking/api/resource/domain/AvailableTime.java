@@ -41,4 +41,12 @@ public class AvailableTime extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AvailableTimeStatus status;
+
+    public void block() {
+        this.status = AvailableTimeStatus.BLOCKED;
+    }
+
+    public void release() {
+        this.status = AvailableTimeStatus.OPEN;
+    }
 }

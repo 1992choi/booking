@@ -3,6 +3,7 @@ package com.example.booking.reservation.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
+import com.example.booking.reservation.client.AvailableTimeClient;
 import com.example.booking.reservation.client.AvailableTimeSnapshot;
 import com.example.booking.reservation.client.ResourceClient;
 import com.example.booking.reservation.client.ResourceSnapshot;
@@ -47,6 +48,9 @@ class ReservationControllerTest {
 
     @MockitoBean
     ResourceClient resourceClient;
+
+    @MockitoBean
+    AvailableTimeClient availableTimeClient;
 
     @MockitoBean
     JwtVerifier jwtVerifier;

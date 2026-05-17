@@ -61,6 +61,7 @@ public class ReservationService {
 
         List<Reservation> reservations = slots.stream()
                 .map(slot -> Reservation.builder()
+                        .availableTimeId(slot.id())
                         .userId(userId)
                         .resourceId(request.resourceId())
                         .resourceName(resource.name())
@@ -76,7 +77,8 @@ public class ReservationService {
 
         reservations.forEach(reservation ->
                 eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
-                        reservation.getId(), userId, request.resourceId(), resource.price())));
+                        reservation.getId(), userId, request.resourceId(), resource.price(),
+                        reservation.getAvailableTimeId())));
 
         return reservations.stream().map(ReservationResponse::from).toList();
     }
@@ -104,7 +106,8 @@ public class ReservationService {
         }
 
         reservation.cancel();
-        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(reservationId, userId));
+        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
+                reservationId, userId, reservation.getAvailableTimeId()));
         return ReservationResponse.from(reservation);
     }
 
@@ -145,7 +148,8 @@ public class ReservationService {
     public ReservationResponse adminCancel(Long reservationId) {
         Reservation reservation = findOrThrow(reservationId);
         reservation.cancel();
-        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(reservationId, reservation.getUserId()));
+        eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
+                reservationId, reservation.getUserId(), reservation.getAvailableTimeId()));
         return ReservationResponse.from(reservation);
     }
 
@@ -153,8 +157,8 @@ public class ReservationService {
     public void cancelByPaymentFailure(Long reservationId) {
         reservationRepository.findById(reservationId).ifPresent(reservation -> {
             reservation.cancel();
-            eventPublisher.publishEvent(
-                    new ReservationCancelledDomainEvent(reservationId, reservation.getUserId()));
+            eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
+                    reservationId, reservation.getUserId(), reservation.getAvailableTimeId()));
         });
     }
 

@@ -4,5 +4,6 @@ public record ReservationCreatedDomainEvent(
         Long reservationId,
         Long userId,
         Long resourceId,
-        Long amount
+        Long amount,
+        Long availableTimeId
 ) {}
