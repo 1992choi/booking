@@ -56,7 +56,7 @@ public abstract class BaseEntity {
 | user_id | BIGINT | FK → User (업체 운영자 계정) |
 | name | VARCHAR | 업체명 |
 | phone | VARCHAR | 전화번호 |
-| type | ENUM | PENSION / CLASS / FACILITY / CONSULTING |
+| type | ENUM | PENSION / CLASS / FACILITY |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 

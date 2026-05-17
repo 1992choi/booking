@@ -18,7 +18,7 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 
 ### 업체(Owner) (api 서비스)
 - 업체를 등록, 수정, 조회할 수 있다
-- 업체 타입은 PENSION / CLASS / FACILITY / CONSULTING 이다
+- 업체 타입은 PENSION / CLASS / FACILITY 이다
 
 ### 예약 대상(Resource) (api 서비스)
 - 업체는 예약 대상(객실, 수업 등)을 등록, 수정, 삭제할 수 있다
