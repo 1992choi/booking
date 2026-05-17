@@ -24,8 +24,6 @@ public class NotificationService {
 
     @Transactional
     public void send(Long userId, Long reservationId, NotificationType type) {
-        UserSnapshot user = userClient.fetch(userId);
-
         Notification notification = Notification.builder()
                 .userId(userId)
                 .reservationId(reservationId)
@@ -35,6 +33,7 @@ public class NotificationService {
                 .build();
 
         try {
+            UserSnapshot user = userClient.fetch(userId);
             notificationSender.send(userId, user.email(), type);
             notification.markSent();
         } catch (Exception e) {
