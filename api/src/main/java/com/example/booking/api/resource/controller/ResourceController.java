@@ -33,11 +33,11 @@ public class ResourceController {
 
     private final ResourceService resourceService;
 
-    @PostMapping("/api/v1/owners/{ownerId}/resources")
+    @PostMapping("/api/v1/merchants/{merchantId}/resources")
     @ResponseStatus(HttpStatus.CREATED)
-    public ResourceResponse register(@PathVariable Long ownerId,
+    public ResourceResponse register(@PathVariable Long merchantId,
                                      @Valid @RequestBody ResourceCreateRequest request) {
-        Resource resource = resourceService.register(ownerId, request);
+        Resource resource = resourceService.register(merchantId, request);
         return ResourceResponse.from(resource);
     }
 

@@ -5,7 +5,7 @@
 | Path 패턴 | 라우팅 대상 서비스 |
 |-----------|---------------------|
 | `/api/v1/auth/**` | api |
-| `/api/v1/users/**`, `/api/v1/owners/**`, `/api/v1/resources/**` | api |
+| `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/resources/**` | api |
 | `/api/v1/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
 | `/api/v1/admin/reservations/**` | api → (REST) reservation |
@@ -48,9 +48,8 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | COMMON_500 | 500 | 서버 오류 | core |
 | API_001 | 409 | 이메일 중복 | api |
 | API_002 | 401 | 이메일/비밀번호 불일치 | api |
-| API_003 | 409 | 업체 중복 등록 | api |
-| API_004 | 404 | 업체 없음 | api |
-| API_005 | 404 | 설비 없음 | api |
+| API_003 | 404 | 업체 없음 | api |
+| API_004 | 404 | 설비 없음 | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
@@ -131,11 +130,12 @@ Error 401 (refresh token이 유효하지 않거나 access token을 사용한 경
 
 ---
 
-## Owner API (api 서비스)
+## Merchant API (api 서비스)
 
 ### 업체 등록
 ```
-POST /api/v1/owners
+POST /api/v1/merchants
+Authorization: Bearer {jwt}
 
 Request:
 {
@@ -146,15 +146,38 @@ Request:
 
 Response 201:
 {
-  "ownerId": 1,
+  "id": 1,
+  "userId": 10,
   "name": "한옥 펜션",
-  "type": "PENSION"
+  "phone": "010-1234-5678",
+  "type": "PENSION",
+  "createdAt": "2026-05-01T10:00:00"
 }
 ```
 
-### 업체 목록 조회
+> 한 User 가 여러 업체를 등록할 수 있음 (1:N). 중복 등록 제한 없음.
+
+### 내 업체 목록 조회
 ```
-GET /api/v1/owners
+GET /api/v1/merchants/me
+Authorization: Bearer {jwt}
+
+Response 200:
+[
+  {
+    "id": 1,
+    "userId": 10,
+    "name": "한옥 펜션",
+    "phone": "010-1234-5678",
+    "type": "PENSION",
+    "createdAt": "2026-05-01T10:00:00"
+  }
+]
+```
+
+### 전체 업체 목록 조회
+```
+GET /api/v1/merchants
 
 Response 200:
 [
@@ -168,7 +191,7 @@ Response 200:
 
 ### 업체 상세 조회
 ```
-GET /api/v1/owners/{ownerId}
+GET /api/v1/merchants/{merchantId}
 
 Response 200:
 {
@@ -181,7 +204,7 @@ Response 200:
 
 ### 업체 수정
 ```
-PUT /api/v1/owners/me
+PUT /api/v1/merchants/{merchantId}
 Authorization: Bearer {jwt}
 
 Request:
@@ -197,6 +220,9 @@ Response 200:
   "name": "한옥 펜션 (리뉴얼)",
   "type": "PENSION"
 }
+
+Error 403: 본인 소유가 아닌 업체 수정 시도
+Error 404 (API_003): 업체 없음
 ```
 
 ---
@@ -205,7 +231,7 @@ Response 200:
 
 ### 예약 대상 등록
 ```
-POST /api/v1/owners/{ownerId}/resources
+POST /api/v1/merchants/{merchantId}/resources
 
 Request:
 {
@@ -245,7 +271,7 @@ Response 201:
 ### 예약 대상 수정
 ```
 PUT /api/v1/resources/{resourceId}
-Authorization: Bearer {jwt}  (Owner만 가능 — 본인 소유 resource)
+Authorization: Bearer {jwt}  (업체 소유자(MERCHANT 역할)만 가능 — 본인 소유 resource)
 
 Request:
 {
@@ -268,7 +294,7 @@ Error 403: 본인 소유가 아닌 resource 수정 시도
 ### 예약 대상 삭제
 ```
 DELETE /api/v1/resources/{resourceId}
-Authorization: Bearer {jwt}  (Owner만 가능 — 본인 소유 resource)
+Authorization: Bearer {jwt}  (업체 소유자(MERCHANT 역할)만 가능 — 본인 소유 resource)
 
 Response 204
 

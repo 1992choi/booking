@@ -13,7 +13,7 @@ public enum ReservationErrorCode implements ErrorCode {
     LOCK_FAILED(HttpStatus.CONFLICT, "RSV_002", "잠시 후 다시 시도해주세요."),
     CAPACITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "RSV_003", "최대 수용 인원을 초과했습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "RSV_004", "예약을 찾을 수 없습니다."),
-    NOT_OWNER(HttpStatus.FORBIDDEN, "RSV_005", "본인 예약만 취소할 수 있습니다.");
+    NOT_MY_RESERVATION(HttpStatus.FORBIDDEN, "RSV_005", "본인 예약만 취소할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;

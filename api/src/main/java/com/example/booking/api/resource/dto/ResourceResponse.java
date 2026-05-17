@@ -4,7 +4,7 @@ import com.example.booking.api.resource.domain.Resource;
 
 public record ResourceResponse(
         Long id,
-        Long ownerId,
+        Long merchantId,
         String name,
         String description,
         Long price,
@@ -14,7 +14,7 @@ public record ResourceResponse(
     public static ResourceResponse from(Resource resource) {
         return new ResourceResponse(
                 resource.getId(),
-                resource.getOwnerId(),
+                resource.getMerchantId(),
                 resource.getName(),
                 resource.getDescription(),
                 resource.getPrice(),

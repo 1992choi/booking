@@ -3,8 +3,8 @@ package com.example.booking.api.internal.controller;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
-import com.example.booking.api.owner.domain.OwnerType;
-import com.example.booking.api.owner.dto.OwnerCreateRequest;
+import com.example.booking.api.merchant.domain.MerchantType;
+import com.example.booking.api.merchant.dto.MerchantCreateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,8 +49,8 @@ class InternalControllerTest {
     @Test
     void getResource_success() throws Exception {
         String token = signupAndLogin("internal1@example.com");
-        Long ownerId = registerOwner(token, "My Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L, 2);
+        Long merchantId = registerMerchant(token, "My Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
 
         mockMvc.perform(get("/api/v1/internal/resources/{id}", resourceId)
                         .header("Authorization", "Bearer " + token))
@@ -59,7 +59,7 @@ class InternalControllerTest {
                 .andExpect(jsonPath("$.name").value("별채 A"))
                 .andExpect(jsonPath("$.price").value(150000))
                 .andExpect(jsonPath("$.maxCapacity").value(2))
-                .andExpect(jsonPath("$.ownerId").value(ownerId));
+                .andExpect(jsonPath("$.merchantId").value(merchantId));
     }
 
     @Test
@@ -69,7 +69,7 @@ class InternalControllerTest {
         mockMvc.perform(get("/api/v1/internal/resources/{id}", 9999L)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("API_005"));
+                .andExpect(jsonPath("$.code").value("API_004"));
     }
 
     @Test
@@ -98,8 +98,8 @@ class InternalControllerTest {
     @Test
     void getAvailableTimes_success() throws Exception {
         String token = signupAndLogin("internal5@example.com");
-        Long ownerId = registerOwner(token, "Test Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L, 2);
+        Long merchantId = registerMerchant(token, "Test Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
         Long availableTimeId = registerAvailableTime(token, resourceId);
 
         mockMvc.perform(get("/api/v1/internal/available-times")
@@ -114,8 +114,8 @@ class InternalControllerTest {
     @Test
     void blockAvailableTimes_success() throws Exception {
         String token = signupAndLogin("internal6@example.com");
-        Long ownerId = registerOwner(token, "Block Test Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L, 2);
+        Long merchantId = registerMerchant(token, "Block Test Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
         Long availableTimeId = registerAvailableTime(token, resourceId);
 
         mockMvc.perform(put("/api/v1/internal/available-times/block")
@@ -134,8 +134,8 @@ class InternalControllerTest {
     @Test
     void releaseAvailableTimes_success() throws Exception {
         String token = signupAndLogin("internal7@example.com");
-        Long ownerId = registerOwner(token, "Release Test Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 B", 150000L, 2);
+        Long merchantId = registerMerchant(token, "Release Test Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 B", 150000L, 2);
         Long availableTimeId = registerAvailableTime(token, resourceId);
 
         mockMvc.perform(put("/api/v1/internal/available-times/block")
@@ -179,9 +179,9 @@ class InternalControllerTest {
         return objectMapper.readValue(response, TokenResponse.class).accessToken();
     }
 
-    private Long registerOwner(String token, String name, OwnerType type) throws Exception {
-        OwnerCreateRequest request = new OwnerCreateRequest(name, "02-1234-5678", type);
-        String response = mockMvc.perform(post("/api/v1/owners")
+    private Long registerMerchant(String token, String name, MerchantType type) throws Exception {
+        MerchantCreateRequest request = new MerchantCreateRequest(name, "02-1234-5678", type);
+        String response = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -190,9 +190,9 @@ class InternalControllerTest {
         return objectMapper.readTree(response).get("id").asLong();
     }
 
-    private Long registerResource(String token, Long ownerId, String name, Long price, Integer maxCapacity) throws Exception {
+    private Long registerResource(String token, Long merchantId, String name, Long price, Integer maxCapacity) throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest(name, "설명", price, maxCapacity);
-        String response = mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", ownerId)
+        String response = mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

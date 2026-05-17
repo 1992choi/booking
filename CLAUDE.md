@@ -23,7 +23,7 @@ Gradle wrapper is pinned to **9.4.1**; toolchain is **Java 25**; Spring Boot **4
 Four independent Spring Boot services + one shared library:
 
 ```
-api (8080)          ─ HTTP entry point, auth (JWT issuance), User/Owner/Resource/AvailableTime CRUD
+api (8080)          ─ HTTP entry point, auth (JWT issuance), User/Merchant/Resource/AvailableTime CRUD
 reservation (8081)  ─ Reservation domain, Redis distributed lock, DB pessimistic lock
 payment (8082)      ─ Mock payment processing
 notification (8083) ─ Mock notification dispatch

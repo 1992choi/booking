@@ -44,7 +44,7 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Role role;
 
-    public void promoteToOwner() {
-        this.role = Role.OWNER;
+    public void promoteToMerchant() {
+        this.role = Role.MERCHANT;
     }
 }

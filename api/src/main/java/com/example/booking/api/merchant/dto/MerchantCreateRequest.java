@@ -1,10 +1,10 @@
-package com.example.booking.api.owner.dto;
+package com.example.booking.api.merchant.dto;
 
-import com.example.booking.api.owner.domain.OwnerType;
+import com.example.booking.api.merchant.domain.MerchantType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record OwnerCreateRequest(
+public record MerchantCreateRequest(
 
         @NotBlank(message = "업체명은 필수입니다.")
         String name,
@@ -13,6 +13,5 @@ public record OwnerCreateRequest(
         String phone,
 
         @NotNull(message = "업체 타입은 필수입니다.")
-        OwnerType type
-) {
-}
+        MerchantType type
+) {}

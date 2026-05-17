@@ -3,7 +3,7 @@
 MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 다른 서비스 데이터는 REST 호출 또는 Kafka 이벤트 페이로드로 받는다.
 
 ```
-db_api          ← User, Owner, Resource, AvailableTime
+db_api          ← User, Merchant, Resource, AvailableTime
 db_reservation  ← Reservation
 db_payment      ← Payment
 db_notification ← Notification
@@ -43,30 +43,30 @@ public abstract class BaseEntity {
 | email | VARCHAR | 이메일 (UNIQUE) |
 | phone | VARCHAR | 전화번호 |
 | password | VARCHAR | bcrypt 해시 |
-| role | ENUM | USER / OWNER / ADMIN |
+| role | ENUM | USER / MERCHANT / ADMIN |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 
 > `role` 은 JWT 클레임에 포함되어 각 서비스로 전파됨.
 
-### Owner (업체/호스트)
+### Merchant (업체/호스트)
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| user_id | BIGINT | FK → User (업체 운영자 계정) |
+| user_id | BIGINT | FK → User (업체 운영자 계정, UNIQUE 제약 없음) |
 | name | VARCHAR | 업체명 |
 | phone | VARCHAR | 전화번호 |
 | type | ENUM | PENSION / CLASS / FACILITY |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 
-> Owner 는 별도 로그인 주체가 아니라 User(role=OWNER) 와 1:1 매핑.
+> Merchant 는 별도 로그인 주체가 아니라 User(role=MERCHANT) 에 속함. 한 User 가 여러 Merchant 를 소유할 수 있음 (1:N).
 
 ### Resource (예약 대상)
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| owner_id | BIGINT | FK → Owner |
+| merchant_id | BIGINT | FK → Merchant |
 | name | VARCHAR | 대상명 |
 | description | TEXT | 설명 |
 | price | BIGINT | 가격 |
@@ -159,9 +159,9 @@ User (api)
   └─ 1:N → Reservation (reservation)
   └─ 1:N → Payment (payment)
   └─ 1:N → Notification (notification)
-  └─ 1:1 → Owner (api)
+  └─ 1:N → Merchant (api)
 
-Owner (api)
+Merchant (api)
   └─ 1:N → Resource (api)
 
 Resource (api)

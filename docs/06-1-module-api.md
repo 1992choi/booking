@@ -2,7 +2,7 @@
 
 ## 역할
 
-외부 HTTP 요청의 진입점 + 사용자/업체/리소스 도메인 소유 + 인증(JWT 발급) + 관리 API 의 진입점.
+외부 HTTP 요청의 진입점 + 사용자/업체(Merchant)/리소스 도메인 소유 + 인증(JWT 발급) + 관리 API 의 진입점.
 
 | 항목 | 값 |
 |------|-----|
@@ -18,7 +18,7 @@
 
 api 서비스가 자체 DB 에 소유하는 엔티티:
 - User (회원)
-- Owner (업체)
+- Merchant (업체, 1:N 관계 — 한 User 가 여러 Merchant 소유 가능)
 - Resource (예약 대상)
 - AvailableTime (가능 시간대)
 
@@ -36,7 +36,7 @@ api/
     │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
     │   └── dto/
     ├── user/
-    ├── owner/
+    ├── merchant/
     ├── resource/
     ├── admin/
     │   ├── controller/AdminController.java   (reservation 서비스 위임)
@@ -79,11 +79,13 @@ Client → Bearer token
 ```
 /api/v1/auth/**                             → permitAll
 GET /api/v1/resources/*/available-times     → permitAll
-/api/v1/admin/**                            → hasRole("OWNER")
+GET /api/v1/merchants                       → permitAll
+GET /api/v1/merchants/{id}                  → permitAll
+/api/v1/admin/**                            → hasRole("MERCHANT")
 그 외                                        → authenticated
 ```
 
-> `JwtAuthenticationFilter` 가 권한을 `ROLE_{role}` 형태로 등록하므로 `hasRole("OWNER")` 사용.
+> `JwtAuthenticationFilter` 가 권한을 `ROLE_{role}` 형태로 등록하므로 `hasRole("MERCHANT")` 사용.
 
 ### Admin → reservation 위임
 

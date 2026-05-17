@@ -1,4 +1,4 @@
-package com.example.booking.api.owner.domain;
+package com.example.booking.api.merchant.domain;
 
 import com.example.booking.core.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -16,18 +16,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "owners")
+@Table(name = "merchants")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Owner extends BaseEntity {
+public class Merchant extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false, unique = true)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
     @Column(nullable = false)
@@ -38,9 +38,9 @@ public class Owner extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OwnerType type;
+    private MerchantType type;
 
-    public void update(String name, String phone, OwnerType type) {
+    public void update(String name, String phone, MerchantType type) {
         this.name = name;
         this.phone = phone;
         this.type = type;

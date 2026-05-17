@@ -62,7 +62,7 @@ core/
 
 ```java
 public record AuthPrincipal(Long userId, Role role) {
-    public enum Role { USER, OWNER, ADMIN }
+    public enum Role { USER, MERCHANT, ADMIN }
 }
 ```
 

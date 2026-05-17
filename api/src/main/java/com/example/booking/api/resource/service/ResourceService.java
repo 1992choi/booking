@@ -1,7 +1,7 @@
 package com.example.booking.api.resource.service;
 
 import com.example.booking.api.error.ApiErrorCode;
-import com.example.booking.api.owner.domain.OwnerRepository;
+import com.example.booking.api.merchant.domain.MerchantRepository;
 import com.example.booking.api.resource.domain.AvailableTime;
 import com.example.booking.api.resource.domain.AvailableTimeRepository;
 import com.example.booking.api.resource.domain.AvailableTimeStatus;
@@ -26,15 +26,15 @@ public class ResourceService {
 
     private final ResourceRepository resourceRepository;
     private final AvailableTimeRepository availableTimeRepository;
-    private final OwnerRepository ownerRepository;
+    private final MerchantRepository merchantRepository;
 
     @Transactional
-    public Resource register(Long ownerId, ResourceCreateRequest request) {
-        if (!ownerRepository.existsById(ownerId)) {
-            throw new BusinessException(ApiErrorCode.OWNER_NOT_FOUND);
+    public Resource register(Long merchantId, ResourceCreateRequest request) {
+        if (!merchantRepository.existsById(merchantId)) {
+            throw new BusinessException(ApiErrorCode.MERCHANT_NOT_FOUND);
         }
         return resourceRepository.save(Resource.builder()
-                .ownerId(ownerId)
+                .merchantId(merchantId)
                 .name(request.name())
                 .description(request.description())
                 .price(request.price())
@@ -68,7 +68,7 @@ public class ResourceService {
     @Transactional
     public Resource update(Long userId, Long resourceId, ResourceUpdateRequest request) {
         Resource resource = getById(resourceId);
-        validateOwnership(userId, resource.getOwnerId());
+        validateMerchantAccess(userId, resource.getMerchantId());
         resource.update(request.name(), request.description(), request.price(), request.maxCapacity());
         return resource;
     }
@@ -76,7 +76,7 @@ public class ResourceService {
     @Transactional
     public void delete(Long userId, Long resourceId) {
         Resource resource = getById(resourceId);
-        validateOwnership(userId, resource.getOwnerId());
+        validateMerchantAccess(userId, resource.getMerchantId());
         resourceRepository.delete(resource);
     }
 
@@ -86,9 +86,11 @@ public class ResourceService {
                 .orElseThrow(() -> new BusinessException(ApiErrorCode.RESOURCE_NOT_FOUND));
     }
 
-    private void validateOwnership(Long userId, Long ownerId) {
-        ownerRepository.findByUserId(userId)
-                .filter(owner -> owner.getId().equals(ownerId))
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
+    private void validateMerchantAccess(Long userId, Long merchantId) {
+        boolean hasMerchantAccess = merchantRepository.findAllByUserId(userId).stream()
+                .anyMatch(m -> m.getId().equals(merchantId));
+        if (!hasMerchantAccess) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
     }
 }

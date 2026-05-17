@@ -197,7 +197,7 @@ class ReservationControllerTest {
     }
 
     @Test
-    void cancel_notOwner() throws Exception {
+    void cancel_notMyReservation() throws Exception {
         String response = mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)

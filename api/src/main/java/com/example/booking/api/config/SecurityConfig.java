@@ -35,7 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/resources/*/available-times").permitAll()
                         .requestMatchers("/ping").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("OWNER")
+                        .requestMatchers("/api/v1/admin/**").hasRole("MERCHANT")
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

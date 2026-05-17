@@ -102,7 +102,7 @@ public class ReservationService {
         Reservation reservation = findOrThrow(reservationId);
 
         if (!reservation.getUserId().equals(userId)) {
-            throw new BusinessException(ReservationErrorCode.NOT_OWNER);
+            throw new BusinessException(ReservationErrorCode.NOT_MY_RESERVATION);
         }
 
         reservation.cancel();

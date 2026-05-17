@@ -7,8 +7,8 @@ import com.example.booking.api.admin.dto.AdminReservationResponse;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
-import com.example.booking.api.owner.domain.OwnerType;
-import com.example.booking.api.owner.dto.OwnerCreateRequest;
+import com.example.booking.api.merchant.domain.MerchantType;
+import com.example.booking.api.merchant.dto.MerchantCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,11 +63,11 @@ class AdminControllerTest {
     }
 
     @Test
-    void getAll_ownerSuccess() throws Exception {
+    void getAll_merchantSuccess() throws Exception {
         given(reservationClient.getAll(any(), any(), anyInt(), anyInt(), anyString()))
                 .willReturn(new AdminReservationPageResponse(List.of(), 0, 10, 0L, 0));
 
-        String token = signupAsOwner("admin1@example.com");
+        String token = signupAsMerchant("admin1@example.com");
 
         mockMvc.perform(get("/api/v1/admin/reservations")
                         .header("Authorization", "Bearer " + token)
@@ -78,14 +78,14 @@ class AdminControllerTest {
     }
 
     @Test
-    void getCalendar_ownerSuccess() throws Exception {
+    void getCalendar_merchantSuccess() throws Exception {
         given(reservationClient.getCalendar(anyInt(), anyInt(), anyString()))
                 .willReturn(Map.of(
                         LocalDate.of(2026, 7, 1),
                         List.of(new AdminCalendarEntry(1L, "별채 A", "14:00", "15:00", "CONFIRMED"))
                 ));
 
-        String token = signupAsOwner("admin2@example.com");
+        String token = signupAsMerchant("admin2@example.com");
 
         mockMvc.perform(get("/api/v1/admin/reservations/calendar")
                         .header("Authorization", "Bearer " + token)
@@ -96,11 +96,11 @@ class AdminControllerTest {
     }
 
     @Test
-    void confirm_ownerSuccess() throws Exception {
+    void confirm_merchantSuccess() throws Exception {
         given(reservationClient.confirm(anyLong(), anyString()))
                 .willReturn(new AdminReservationResponse(1L, "CONFIRMED", "별채 A", null, null, 1, 150000L));
 
-        String token = signupAsOwner("admin3@example.com");
+        String token = signupAsMerchant("admin3@example.com");
 
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 1L)
                         .header("Authorization", "Bearer " + token))
@@ -109,11 +109,11 @@ class AdminControllerTest {
     }
 
     @Test
-    void cancel_ownerSuccess() throws Exception {
+    void cancel_merchantSuccess() throws Exception {
         given(reservationClient.cancel(anyLong(), anyString()))
                 .willReturn(new AdminReservationResponse(1L, "CANCELLED", "별채 A", null, null, 1, 150000L));
 
-        String token = signupAsOwner("admin4@example.com");
+        String token = signupAsMerchant("admin4@example.com");
 
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 1L)
                         .header("Authorization", "Bearer " + token))
@@ -138,17 +138,17 @@ class AdminControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    private String signupAsOwner(String email) throws Exception {
+    private String signupAsMerchant(String email) throws Exception {
         String token = signupAndLogin(email);
 
-        mockMvc.perform(post("/api/v1/owners")
+        mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new OwnerCreateRequest("테스트 업체", "02-1234-5678", OwnerType.PENSION))))
+                                new MerchantCreateRequest("테스트 업체", "02-1234-5678", MerchantType.PENSION))))
                 .andExpect(status().isCreated());
 
-        // Owner 등록 후 재로그인하여 OWNER 역할이 담긴 토큰 획득
+        // Merchant 등록 후 재로그인하여 MERCHANT 역할이 담긴 토큰 획득
         return login(email);
     }
 

@@ -3,8 +3,8 @@ package com.example.booking.api.resource.controller;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
-import com.example.booking.api.owner.domain.OwnerType;
-import com.example.booking.api.owner.dto.OwnerCreateRequest;
+import com.example.booking.api.merchant.domain.MerchantType;
+import com.example.booking.api.merchant.dto.MerchantCreateRequest;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import com.example.booking.api.resource.dto.ResourceUpdateRequest;
@@ -55,37 +55,37 @@ class ResourceControllerTest {
     @Test
     void registerResource_success() throws Exception {
         String token = signupAndLogin("resource1@example.com");
-        Long ownerId = registerOwner(token, "Test Pension", OwnerType.PENSION);
+        Long merchantId = registerMerchant(token, "Test Pension", MerchantType.PENSION);
 
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "별채 A", "2인실 독채", 150000L, 2);
 
-        mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", ownerId)
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.ownerId").value(ownerId))
+                .andExpect(jsonPath("$.merchantId").value(merchantId))
                 .andExpect(jsonPath("$.name").value("별채 A"))
                 .andExpect(jsonPath("$.price").value(150000))
                 .andExpect(jsonPath("$.maxCapacity").value(2));
     }
 
     @Test
-    void registerResource_ownerNotFound() throws Exception {
+    void registerResource_merchantNotFound() throws Exception {
         String token = signupAndLogin("resource2@example.com");
 
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "별채 A", "설명", 100000L, 2);
 
-        mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", 9999L)
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", 9999L)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value("API_004"));
+                .andExpect(jsonPath("$.code").value("API_003"));
     }
 
     @Test
@@ -93,7 +93,7 @@ class ResourceControllerTest {
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "별채 A", "설명", 100000L, 2);
 
-        mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", 1L)
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
@@ -102,8 +102,8 @@ class ResourceControllerTest {
     @Test
     void addAvailableTime_success() throws Exception {
         String token = signupAndLogin("resource3@example.com");
-        Long ownerId = registerOwner(token, "My Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 B", 100000L);
+        Long merchantId = registerMerchant(token, "My Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 B", 100000L);
 
         AvailableTimeCreateRequest request = new AvailableTimeCreateRequest(
                 LocalDateTime.of(2026, 6, 1, 14, 0),
@@ -134,14 +134,14 @@ class ResourceControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value("API_005"));
+                .andExpect(jsonPath("$.code").value("API_004"));
     }
 
     @Test
     void getAvailableTimes_success() throws Exception {
         String token = signupAndLogin("resource5@example.com");
-        Long ownerId = registerOwner(token, "Class Center", OwnerType.CLASS);
-        Long resourceId = registerResource(token, ownerId, "강의실 A", 50000L);
+        Long merchantId = registerMerchant(token, "Class Center", MerchantType.CLASS);
+        Long resourceId = registerResource(token, merchantId, "강의실 A", 50000L);
 
         AvailableTimeCreateRequest t1 = new AvailableTimeCreateRequest(
                 LocalDateTime.of(2026, 6, 10, 10, 0),
@@ -175,14 +175,14 @@ class ResourceControllerTest {
                         .param("date", "2026-06-10"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value("API_005"));
+                .andExpect(jsonPath("$.code").value("API_004"));
     }
 
     @Test
     void updateResource_success() throws Exception {
         String token = signupAndLogin("resource_upd1@example.com");
-        Long ownerId = registerOwner(token, "Update Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L);
+        Long merchantId = registerMerchant(token, "Update Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L);
 
         ResourceUpdateRequest update = new ResourceUpdateRequest("별채 B", "리모델링 완료", 200000L, 4);
         mockMvc.perform(put("/api/v1/resources/{resourceId}", resourceId)
@@ -197,12 +197,12 @@ class ResourceControllerTest {
 
     @Test
     void updateResource_forbidden() throws Exception {
-        String ownerToken = signupAndLogin("resource_upd2@example.com");
-        Long ownerId = registerOwner(ownerToken, "Pension A", OwnerType.PENSION);
-        Long resourceId = registerResource(ownerToken, ownerId, "별채 A", 150000L);
+        String merchantToken = signupAndLogin("resource_upd2@example.com");
+        Long merchantId = registerMerchant(merchantToken, "Pension A", MerchantType.PENSION);
+        Long resourceId = registerResource(merchantToken, merchantId, "별채 A", 150000L);
 
         String otherToken = signupAndLogin("resource_upd3@example.com");
-        registerOwner(otherToken, "Pension B", OwnerType.PENSION);
+        registerMerchant(otherToken, "Pension B", MerchantType.PENSION);
 
         ResourceUpdateRequest update = new ResourceUpdateRequest("해킹 시도", null, 1L, 1);
         mockMvc.perform(put("/api/v1/resources/{resourceId}", resourceId)
@@ -215,8 +215,8 @@ class ResourceControllerTest {
     @Test
     void deleteResource_success() throws Exception {
         String token = signupAndLogin("resource_del1@example.com");
-        Long ownerId = registerOwner(token, "Delete Pension", OwnerType.PENSION);
-        Long resourceId = registerResource(token, ownerId, "별채 A", 150000L);
+        Long merchantId = registerMerchant(token, "Delete Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L);
 
         mockMvc.perform(delete("/api/v1/resources/{resourceId}", resourceId)
                         .header("Authorization", "Bearer " + token))
@@ -225,12 +225,12 @@ class ResourceControllerTest {
 
     @Test
     void deleteResource_forbidden() throws Exception {
-        String ownerToken = signupAndLogin("resource_del2@example.com");
-        Long ownerId = registerOwner(ownerToken, "Pension A", OwnerType.PENSION);
-        Long resourceId = registerResource(ownerToken, ownerId, "별채 A", 150000L);
+        String merchantToken = signupAndLogin("resource_del2@example.com");
+        Long merchantId = registerMerchant(merchantToken, "Pension A", MerchantType.PENSION);
+        Long resourceId = registerResource(merchantToken, merchantId, "별채 A", 150000L);
 
         String otherToken = signupAndLogin("resource_del3@example.com");
-        registerOwner(otherToken, "Pension B", OwnerType.PENSION);
+        registerMerchant(otherToken, "Pension B", MerchantType.PENSION);
 
         mockMvc.perform(delete("/api/v1/resources/{resourceId}", resourceId)
                         .header("Authorization", "Bearer " + otherToken))
@@ -255,9 +255,9 @@ class ResourceControllerTest {
         return objectMapper.readValue(response, TokenResponse.class).accessToken();
     }
 
-    private Long registerOwner(String token, String name, OwnerType type) throws Exception {
-        OwnerCreateRequest request = new OwnerCreateRequest(name, "02-1234-5678", type);
-        String response = mockMvc.perform(post("/api/v1/owners")
+    private Long registerMerchant(String token, String name, MerchantType type) throws Exception {
+        MerchantCreateRequest request = new MerchantCreateRequest(name, "02-1234-5678", type);
+        String response = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -268,9 +268,9 @@ class ResourceControllerTest {
         return objectMapper.readTree(response).get("id").asLong();
     }
 
-    private Long registerResource(String token, Long ownerId, String name, Long price) throws Exception {
+    private Long registerResource(String token, Long merchantId, String name, Long price) throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest(name, "설명", price, 4);
-        String response = mockMvc.perform(post("/api/v1/owners/{ownerId}/resources", ownerId)
+        String response = mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

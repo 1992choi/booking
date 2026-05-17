@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface ResourceRepository extends JpaRepository<Resource, Long> {
 
-    List<Resource> findAllByOwnerId(Long ownerId);
+    List<Resource> findAllByMerchantId(Long merchantId);
 }

@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at  DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS owners (
+CREATE TABLE IF NOT EXISTS merchants (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id     BIGINT       NOT NULL UNIQUE,
+    user_id     BIGINT       NOT NULL,
     name        VARCHAR(255) NOT NULL,
     phone       VARCHAR(255) NOT NULL,
     type        VARCHAR(50)  NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS owners (
 
 CREATE TABLE IF NOT EXISTS resources (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
-    owner_id      BIGINT       NOT NULL,
+    merchant_id   BIGINT       NOT NULL,
     name          VARCHAR(255) NOT NULL,
     description   TEXT,
     price         BIGINT       NOT NULL,

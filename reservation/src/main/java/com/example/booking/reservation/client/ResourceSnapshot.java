@@ -5,6 +5,6 @@ public record ResourceSnapshot(
         String name,
         Long price,
         Integer maxCapacity,
-        Long ownerId
+        Long merchantId
 ) {
 }

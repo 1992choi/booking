@@ -7,7 +7,7 @@ public record ResourceSnapshot(
         String name,
         Long price,
         Integer maxCapacity,
-        Long ownerId
+        Long merchantId
 ) {
 
     public static ResourceSnapshot from(Resource resource) {
@@ -16,7 +16,7 @@ public record ResourceSnapshot(
                 resource.getName(),
                 resource.getPrice(),
                 resource.getMaxCapacity(),
-                resource.getOwnerId()
+                resource.getMerchantId()
         );
     }
 }

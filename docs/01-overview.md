@@ -16,8 +16,9 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 - JWT 기반 인증을 사용한다
 - Access Token 만료 시 Refresh Token 으로 갱신할 수 있다
 
-### 업체(Owner) (api 서비스)
+### 업체(Merchant) (api 서비스)
 - 업체를 등록, 수정, 조회할 수 있다
+- 한 사용자가 여러 업체를 등록할 수 있다 (1:N)
 - 업체 타입은 PENSION / CLASS / FACILITY 이다
 
 ### 예약 대상(Resource) (api 서비스)
@@ -90,7 +91,7 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 [Client]
    ↓
 ┌──────────────┐
-│ api          │ 외부 진입점, 인증, 사용자/업체/리소스 CRUD
+│ api          │ 외부 진입점, 인증, 사용자/업체(Merchant)/리소스 CRUD
 └──────────────┘
    ↓ REST / Kafka
 ┌──────────────┐
@@ -115,26 +116,26 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | 단계 | 내용 |
 |------|------|
 | 1단계 | core 라이브러리 — BaseEntity, ErrorCode, GlobalExceptionHandler, JwtVerifier, JwtAuthenticationFilter |
-| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급, Owner/Resource/AvailableTime CRUD, Internal API |
+| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급, Merchant/Resource/AvailableTime CRUD, Internal API |
 | 3단계 | reservation 서비스 — 예약 생성/조회/취소 (시간 중복 검사 포함) |
 | 4단계 | payment 서비스 — 결제 내역 조회, 환불 |
 | 5단계 | notification 서비스 — 알림 발송(Mock), 이력 조회 |
 | 6단계 | Kafka 연동 — `reservation.created` → 결제, `payment.completed` / `reservation.cancelled` → 알림, `payment.failed` → 예약 취소 |
 | 7단계 | 관리 API — `AdminController` + `ReservationClient` (api), `InternalReservationController` (reservation) |
-| 8단계 | Owner 수정, Resource 수정/삭제, Refresh Token (Stateless JWT) |
+| 8단계 | Merchant 수정, Resource 수정/삭제, Refresh Token (Stateless JWT) |
 
 ### 구조 변경
 
-현재 api 서비스는 인증(User/JWT)과 예약 카탈로그(Owner/Resource/AvailableTime)를 함께 담당한다.
+현재 api 서비스는 인증(User/JWT)과 예약 카탈로그(Merchant/Resource/AvailableTime)를 함께 담당한다.
 관심사 기준으로 경계를 다시 그리면 아래 구조가 더 올바르다.
 
 **현재 구조의 문제**
 
 api 서비스가 두 개의 서로 다른 관심사를 혼재:
 - 인증 관심사 — User, 로그인, JWT 발급
-- 예약 도메인 관심사 — Owner, Resource, AvailableTime
+- 예약 도메인 관심사 — Merchant, Resource, AvailableTime
 
-Owner · Resource · AvailableTime은 "무엇을, 언제 예약할 수 있는가"를 정의하는 예약 도메인의 구성원이다.
+Merchant · Resource · AvailableTime은 "무엇을, 언제 예약할 수 있는가"를 정의하는 예약 도메인의 구성원이다.
 Reservation과 같은 bounded context에 속하므로 reservation 서비스가 소유하는 것이 맞다.
 
 현재 구조에서는 reservation 서비스가 예약 생성 시 api 서비스를 REST로 호출해 Resource/AvailableTime을 검증하고,
@@ -144,7 +145,7 @@ Reservation과 같은 bounded context에 속하므로 reservation 서비스가 �
 
 ```
 auth-service        → User, JWT 발급/갱신
-reservation-service → Owner, Resource, AvailableTime, Reservation
+reservation-service → Merchant, Resource, AvailableTime, Reservation
 payment-service     → Payment
 notification-service → Notification
 ```
@@ -158,7 +159,7 @@ notification-service → Notification
 
 **변경 시 개선되는 점**
 
-- reservation 서비스가 Resource/AvailableTime을 직접 소유 → 검증을 위한 cross-service REST 호출 제거
+- reservation 서비스가 Merchant/Resource/AvailableTime을 직접 소유 → 검증을 위한 cross-service REST 호출 제거
 - AvailableTime.status를 reservation 서비스가 역으로 수정하는 anti-pattern 제거
 - auth-service는 인증만, reservation-service는 예약 도메인 전체를 담당하는 단일 책임 구조
 
