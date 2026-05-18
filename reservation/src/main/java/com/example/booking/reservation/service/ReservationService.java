@@ -153,6 +153,16 @@ public class ReservationService {
         return ReservationResponse.from(reservation);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<ReservationResponse> getByResourceIds(List<Long> resourceIds, ReservationStatus status, Pageable pageable) {
+        return PageResponse.from(
+                (status != null
+                        ? reservationRepository.findByResourceIdInAndStatus(resourceIds, status, pageable)
+                        : reservationRepository.findByResourceIdIn(resourceIds, pageable)
+                ).map(ReservationResponse::from)
+        );
+    }
+
     @Transactional
     public void cancelByPaymentFailure(Long reservationId) {
         reservationRepository.findById(reservationId).ifPresent(reservation -> {

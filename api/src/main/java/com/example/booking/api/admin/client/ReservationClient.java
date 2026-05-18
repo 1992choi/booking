@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -55,5 +56,20 @@ public class ReservationClient {
                 .header("Authorization", token)
                 .retrieve()
                 .body(AdminReservationResponse.class);
+    }
+
+    public AdminReservationPageResponse getByMerchant(List<Long> resourceIds, String status, int page, int size, String token) {
+        return reservationRestClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/api/v1/internal/reservations/by-merchant")
+                            .queryParam("resourceIds", resourceIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                            .queryParam("page", page)
+                            .queryParam("size", size);
+                    if (status != null) builder.queryParam("status", status);
+                    return builder.build();
+                })
+                .header("Authorization", token)
+                .retrieve()
+                .body(AdminReservationPageResponse.class);
     }
 }

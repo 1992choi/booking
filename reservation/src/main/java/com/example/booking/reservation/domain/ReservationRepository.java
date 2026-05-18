@@ -35,4 +35,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Query("SELECT r FROM Reservation r WHERE r.startTime >= :from AND r.startTime < :to")
     List<Reservation> findByMonthRange(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    Page<Reservation> findByResourceIdIn(List<Long> resourceIds, Pageable pageable);
+
+    Page<Reservation> findByResourceIdInAndStatus(List<Long> resourceIds, ReservationStatus status, Pageable pageable);
 }

@@ -53,4 +53,12 @@ public class InternalReservationController {
     public ReservationResponse cancel(@PathVariable Long reservationId) {
         return reservationService.adminCancel(reservationId);
     }
+
+    @GetMapping("/api/v1/internal/reservations/by-merchant")
+    public PageResponse<ReservationResponse> getByMerchant(
+            @RequestParam List<Long> resourceIds,
+            @RequestParam(required = false) ReservationStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return reservationService.getByResourceIds(resourceIds, status, pageable);
+    }
 }

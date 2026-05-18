@@ -1,5 +1,7 @@
 package com.example.booking.api.merchant.controller;
 
+import com.example.booking.api.admin.client.ReservationClient;
+import com.example.booking.api.admin.dto.AdminReservationPageResponse;
 import com.example.booking.api.merchant.domain.Merchant;
 import com.example.booking.api.merchant.dto.MerchantCreateRequest;
 import com.example.booking.api.merchant.dto.MerchantDetailResponse;
@@ -7,8 +9,12 @@ import com.example.booking.api.merchant.dto.MerchantResponse;
 import com.example.booking.api.merchant.dto.MerchantSummaryResponse;
 import com.example.booking.api.merchant.dto.MerchantUpdateRequest;
 import com.example.booking.api.merchant.service.MerchantService;
+import com.example.booking.api.resource.domain.Resource;
 import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.core.auth.AuthPrincipal;
+import com.example.booking.core.error.BusinessException;
+import com.example.booking.core.error.CommonErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +36,7 @@ public class MerchantController {
 
     private final MerchantService merchantService;
     private final ResourceRepository resourceRepository;
+    private final ReservationClient reservationClient;
 
     @PostMapping("/api/v1/merchants")
     @ResponseStatus(HttpStatus.CREATED)
@@ -62,5 +70,26 @@ public class MerchantController {
     public MerchantDetailResponse getMerchant(@PathVariable Long merchantId) {
         Merchant merchant = merchantService.getById(merchantId);
         return MerchantDetailResponse.from(merchant, resourceRepository.findAllByMerchantId(merchantId));
+    }
+
+    @GetMapping("/api/v1/merchants/{merchantId}/reservations")
+    public AdminReservationPageResponse getMerchantReservations(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long merchantId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        Merchant merchant = merchantService.getById(merchantId);
+        if (!merchant.getUserId().equals(principal.userId())) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+        List<Long> resourceIds = resourceRepository.findAllByMerchantId(merchantId).stream()
+                .map(Resource::getId)
+                .toList();
+        if (resourceIds.isEmpty()) {
+            return new AdminReservationPageResponse(List.of(), page, size, 0L, 0);
+        }
+        return reservationClient.getByMerchant(resourceIds, status, page, size, request.getHeader("Authorization"));
     }
 }
