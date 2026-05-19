@@ -61,4 +61,12 @@ public class InternalReservationController {
             @PageableDefault(size = 10) Pageable pageable) {
         return reservationService.getByResourceIds(resourceIds, status, pageable);
     }
+
+    @GetMapping("/api/v1/internal/reservations/by-resources")
+    public PageResponse<ReservationResponse> getByResources(
+            @RequestParam List<Long> resourceIds,
+            @RequestParam(required = false) ReservationStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return reservationService.getByResourceIds(resourceIds, status, pageable);
+    }
 }

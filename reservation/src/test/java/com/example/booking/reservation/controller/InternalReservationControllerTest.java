@@ -182,6 +182,63 @@ class InternalReservationControllerTest {
                 .andExpect(jsonPath("$.code").value("RSV_004"));
     }
 
+    @Test
+    void getByResources_withoutStatusFilter() throws Exception {
+        createReservation(LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 11, 0));
+        createReservation(LocalDateTime.of(2026, 11, 1, 14, 0), LocalDateTime.of(2026, 11, 1, 15, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+                        .header("Authorization", "Bearer test-token")
+                        .param("resourceIds", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    void getByResources_withStatusFilter() throws Exception {
+        createReservation(LocalDateTime.of(2026, 11, 2, 10, 0), LocalDateTime.of(2026, 11, 2, 11, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+                        .header("Authorization", "Bearer test-token")
+                        .param("resourceIds", "1")
+                        .param("status", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("PENDING"));
+    }
+
+    @Test
+    void getByResources_statusFilterNoMatch() throws Exception {
+        createReservation(LocalDateTime.of(2026, 11, 3, 10, 0), LocalDateTime.of(2026, 11, 3, 11, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+                        .header("Authorization", "Bearer test-token")
+                        .param("resourceIds", "1")
+                        .param("status", "CONFIRMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void getByResources_resourceNotInList_excluded() throws Exception {
+        createReservation(LocalDateTime.of(2026, 11, 4, 10, 0), LocalDateTime.of(2026, 11, 4, 11, 0));
+
+        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+                        .header("Authorization", "Bearer test-token")
+                        .param("resourceIds", "9999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0));
+    }
+
+    @Test
+    void getByResources_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+                        .param("resourceIds", "1"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private void createReservation(LocalDateTime start, LocalDateTime end) throws Exception {
         createReservationAndGetBody(start, end);
     }

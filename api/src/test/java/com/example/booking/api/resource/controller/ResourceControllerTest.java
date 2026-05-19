@@ -6,6 +6,7 @@ import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.merchant.domain.MerchantType;
 import com.example.booking.api.merchant.dto.MerchantCreateRequest;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
+import com.example.booking.api.resource.dto.AvailableTimeUpdateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import com.example.booking.api.resource.dto.ResourceUpdateRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -237,6 +238,122 @@ class ResourceControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void updateAvailableTime_success() throws Exception {
+        String token = signupAndLogin("at_upd1@example.com");
+        Long merchantId = registerMerchant(token, "Update Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(token, resourceId,
+                LocalDateTime.of(2026, 7, 1, 10, 0), LocalDateTime.of(2026, 7, 1, 11, 0));
+
+        AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
+                LocalDateTime.of(2026, 7, 1, 14, 0), LocalDateTime.of(2026, 7, 1, 15, 0));
+
+        mockMvc.perform(put("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(availableTimeId))
+                .andExpect(jsonPath("$.startTime").value("2026-07-01T14:00:00"))
+                .andExpect(jsonPath("$.endTime").value("2026-07-01T15:00:00"))
+                .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
+    void updateAvailableTime_forbidden() throws Exception {
+        String ownerToken = signupAndLogin("at_upd2@example.com");
+        Long merchantId = registerMerchant(ownerToken, "Owner Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(ownerToken, merchantId, "별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(ownerToken, resourceId,
+                LocalDateTime.of(2026, 7, 2, 10, 0), LocalDateTime.of(2026, 7, 2, 11, 0));
+
+        String otherToken = signupAndLogin("at_upd3@example.com");
+        registerMerchant(otherToken, "Other Pension", MerchantType.PENSION);
+
+        AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
+                LocalDateTime.of(2026, 7, 2, 14, 0), LocalDateTime.of(2026, 7, 2, 15, 0));
+
+        mockMvc.perform(put("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateAvailableTime_notFound() throws Exception {
+        String token = signupAndLogin("at_upd4@example.com");
+
+        AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
+                LocalDateTime.of(2026, 7, 1, 14, 0), LocalDateTime.of(2026, 7, 1, 15, 0));
+
+        mockMvc.perform(put("/api/v1/available-times/{id}", 9999L)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_005"));
+    }
+
+    @Test
+    void updateAvailableTime_unauthorized() throws Exception {
+        AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
+                LocalDateTime.of(2026, 7, 1, 14, 0), LocalDateTime.of(2026, 7, 1, 15, 0));
+
+        mockMvc.perform(put("/api/v1/available-times/{id}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteAvailableTime_success() throws Exception {
+        String token = signupAndLogin("at_del1@example.com");
+        Long merchantId = registerMerchant(token, "Delete Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(token, resourceId,
+                LocalDateTime.of(2026, 7, 3, 10, 0), LocalDateTime.of(2026, 7, 3, 11, 0));
+
+        mockMvc.perform(delete("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteAvailableTime_forbidden() throws Exception {
+        String ownerToken = signupAndLogin("at_del2@example.com");
+        Long merchantId = registerMerchant(ownerToken, "Owner Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(ownerToken, merchantId, "별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(ownerToken, resourceId,
+                LocalDateTime.of(2026, 7, 4, 10, 0), LocalDateTime.of(2026, 7, 4, 11, 0));
+
+        String otherToken = signupAndLogin("at_del3@example.com");
+        registerMerchant(otherToken, "Other Pension", MerchantType.PENSION);
+
+        mockMvc.perform(delete("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteAvailableTime_notFound() throws Exception {
+        String token = signupAndLogin("at_del4@example.com");
+
+        mockMvc.perform(delete("/api/v1/available-times/{id}", 9999L)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("API_005"));
+    }
+
+    @Test
+    void deleteAvailableTime_unauthorized() throws Exception {
+        mockMvc.perform(delete("/api/v1/available-times/{id}", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
     private String signupAndLogin(String email) throws Exception {
         SignupRequest signup = new SignupRequest("User", email, "010-1234-5678", "password123");
         mockMvc.perform(post("/api/v1/auth/signup")
@@ -271,6 +388,20 @@ class ResourceControllerTest {
     private Long registerResource(String token, Long merchantId, String name, Long price) throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest(name, "설명", price, 4);
         String response = mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(response).get("id").asLong();
+    }
+
+    private Long addAvailableTime(String token, Long resourceId,
+                                  LocalDateTime start, LocalDateTime end) throws Exception {
+        AvailableTimeCreateRequest request = new AvailableTimeCreateRequest(start, end);
+        String response = mockMvc.perform(post("/api/v1/resources/{resourceId}/available-times", resourceId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

@@ -42,6 +42,11 @@ public class AvailableTime extends BaseEntity {
     @Column(nullable = false)
     private AvailableTimeStatus status;
 
+    public void update(LocalDateTime startTime, LocalDateTime endTime) {
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
     public void block() {
         this.status = AvailableTimeStatus.BLOCKED;
     }

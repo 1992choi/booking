@@ -8,6 +8,7 @@ import com.example.booking.api.resource.domain.AvailableTimeStatus;
 import com.example.booking.api.resource.domain.Resource;
 import com.example.booking.api.resource.domain.ResourceRepository;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
+import com.example.booking.api.resource.dto.AvailableTimeUpdateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import com.example.booking.api.resource.dto.ResourceUpdateRequest;
 import com.example.booking.core.error.BusinessException;
@@ -63,6 +64,25 @@ public class ResourceService {
         LocalDateTime from = date.atStartOfDay();
         LocalDateTime to = date.plusDays(1).atStartOfDay();
         return availableTimeRepository.findAllByResourceIdAndStartTimeBetween(resourceId, from, to);
+    }
+
+    @Transactional
+    public AvailableTime updateAvailableTime(Long userId, Long availableTimeId, AvailableTimeUpdateRequest request) {
+        AvailableTime availableTime = availableTimeRepository.findById(availableTimeId)
+                .orElseThrow(() -> new BusinessException(ApiErrorCode.AVAILABLE_TIME_NOT_FOUND));
+        Resource resource = getById(availableTime.getResourceId());
+        validateMerchantAccess(userId, resource.getMerchantId());
+        availableTime.update(request.startTime(), request.endTime());
+        return availableTime;
+    }
+
+    @Transactional
+    public void deleteAvailableTime(Long userId, Long availableTimeId) {
+        AvailableTime availableTime = availableTimeRepository.findById(availableTimeId)
+                .orElseThrow(() -> new BusinessException(ApiErrorCode.AVAILABLE_TIME_NOT_FOUND));
+        Resource resource = getById(availableTime.getResourceId());
+        validateMerchantAccess(userId, resource.getMerchantId());
+        availableTimeRepository.delete(availableTime);
     }
 
     @Transactional

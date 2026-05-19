@@ -4,6 +4,7 @@ import com.example.booking.api.resource.domain.AvailableTime;
 import com.example.booking.api.resource.domain.Resource;
 import com.example.booking.api.resource.dto.AvailableTimeCreateRequest;
 import com.example.booking.api.resource.dto.AvailableTimeResponse;
+import com.example.booking.api.resource.dto.AvailableTimeUpdateRequest;
 import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import com.example.booking.api.resource.dto.ResourceResponse;
 import com.example.booking.api.resource.dto.ResourceUpdateRequest;
@@ -61,6 +62,20 @@ public class ResourceController {
     public void delete(@AuthenticationPrincipal AuthPrincipal principal,
                        @PathVariable Long resourceId) {
         resourceService.delete(principal.userId(), resourceId);
+    }
+
+    @PutMapping("/api/v1/available-times/{id}")
+    public AvailableTimeResponse updateAvailableTime(@AuthenticationPrincipal AuthPrincipal principal,
+                                                     @PathVariable Long id,
+                                                     @Valid @RequestBody AvailableTimeUpdateRequest request) {
+        return AvailableTimeResponse.from(resourceService.updateAvailableTime(principal.userId(), id, request));
+    }
+
+    @DeleteMapping("/api/v1/available-times/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAvailableTime(@AuthenticationPrincipal AuthPrincipal principal,
+                                    @PathVariable Long id) {
+        resourceService.deleteAvailableTime(principal.userId(), id);
     }
 
     @GetMapping("/api/v1/resources/{resourceId}/available-times")
