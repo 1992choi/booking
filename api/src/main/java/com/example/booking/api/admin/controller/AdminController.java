@@ -2,7 +2,6 @@ package com.example.booking.api.admin.controller;
 
 import com.example.booking.api.admin.client.ReservationClient;
 import com.example.booking.api.admin.dto.AdminCalendarEntry;
-import com.example.booking.api.admin.dto.AdminReservationPageResponse;
 import com.example.booking.api.admin.dto.AdminReservationResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,16 +20,6 @@ import java.util.Map;
 public class AdminController {
 
     private final ReservationClient reservationClient;
-
-    @GetMapping("/api/v1/admin/reservations")
-    public AdminReservationPageResponse getAll(
-            @RequestParam LocalDate date,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            HttpServletRequest request) {
-        return reservationClient.getAll(date, status, page, size, request.getHeader("Authorization"));
-    }
 
     @GetMapping("/api/v1/admin/reservations/calendar")
     public Map<LocalDate, List<AdminCalendarEntry>> getCalendar(

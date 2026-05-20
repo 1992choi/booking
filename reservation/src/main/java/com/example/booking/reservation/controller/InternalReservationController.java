@@ -24,14 +24,6 @@ public class InternalReservationController {
 
     private final ReservationService reservationService;
 
-    @GetMapping("/api/v1/internal/reservations")
-    public PageResponse<ReservationResponse> getAll(
-            @RequestParam LocalDate date,
-            @RequestParam(required = false) ReservationStatus status,
-            @PageableDefault(size = 10) Pageable pageable) {
-        return reservationService.getAll(date, status, pageable);
-    }
-
     @GetMapping("/api/v1/internal/reservations/calendar")
     public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(
             @RequestParam int year,
@@ -56,14 +48,6 @@ public class InternalReservationController {
 
     @GetMapping("/api/v1/internal/reservations/by-merchant")
     public PageResponse<ReservationResponse> getByMerchant(
-            @RequestParam List<Long> resourceIds,
-            @RequestParam(required = false) ReservationStatus status,
-            @PageableDefault(size = 10) Pageable pageable) {
-        return reservationService.getByResourceIds(resourceIds, status, pageable);
-    }
-
-    @GetMapping("/api/v1/internal/reservations/by-resources")
-    public PageResponse<ReservationResponse> getByResources(
             @RequestParam List<Long> resourceIds,
             @RequestParam(required = false) ReservationStatus status,
             @PageableDefault(size = 10) Pageable pageable) {

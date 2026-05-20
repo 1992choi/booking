@@ -112,19 +112,6 @@ public class ReservationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ReservationResponse> getAll(LocalDate date, ReservationStatus status, Pageable pageable) {
-        LocalDateTime from = date.atStartOfDay();
-        LocalDateTime to = date.plusDays(1).atStartOfDay();
-
-        return PageResponse.from(
-                (status != null
-                        ? reservationRepository.findByDateRangeAndStatus(from, to, status, pageable)
-                        : reservationRepository.findByDateRange(from, to, pageable)
-                ).map(ReservationResponse::from)
-        );
-    }
-
-    @Transactional(readOnly = true)
     public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(int year, int month) {
         LocalDateTime from = LocalDate.of(year, month, 1).atStartOfDay();
         LocalDateTime to = from.plusMonths(1);

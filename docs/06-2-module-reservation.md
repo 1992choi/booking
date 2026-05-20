@@ -84,7 +84,6 @@ List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDat
 
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
-| `GET /api/v1/internal/reservations?date=&status=` | api (admin) | 날짜별 전체 예약 목록 |
 | `GET /api/v1/internal/reservations/calendar?year=&month=` | api (admin) | 월별 캘린더 뷰 |
 | `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
 | `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |

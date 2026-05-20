@@ -9,7 +9,7 @@
 | `/api/v1/merchants/{merchantId}/reservations` | api → (REST) reservation |
 | `/api/v1/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
-| `/api/v1/admin/reservations/**` | api → (REST) reservation |
+| `/api/v1/admin/reservations/{id}/confirm`, `/api/v1/admin/reservations/{id}/cancel` | api → (REST) reservation |
 
 ---
 
@@ -488,10 +488,12 @@ Error 409 (status 가 COMPLETED 가 아닐 때):
 ## Admin API (api 서비스 → reservation 위임)
 
 api 서비스가 진입점이지만 실제 데이터는 reservation 서비스에서 REST 로 가져온다.
+예약 목록 조회는 merchant 기반 조회(`GET /api/v1/merchants/{merchantId}/reservations`)를 사용한다.
 
 ### 캘린더 뷰
 ```
 GET /api/v1/admin/reservations/calendar?year=2026&month=5
+Authorization: Bearer {jwt}  (MERCHANT 역할)
 
 Response 200:
 {
@@ -575,7 +577,6 @@ Response 200:
 
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
-| `GET /api/v1/internal/reservations?date=&status=` | api (admin) | 전체 예약 목록 |
 | `GET /api/v1/internal/reservations/calendar?year=&month=` | api (admin) | 캘린더 뷰 |
 | `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
 | `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |

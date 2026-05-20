@@ -28,6 +28,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -67,62 +68,7 @@ class InternalReservationControllerTest {
         given(resourceClient.fetch(1L)).willReturn(RESOURCE);
     }
 
-    @Test
-    void getAll_withoutStatusFilter() throws Exception {
-        createReservation(LocalDateTime.of(2026, 7, 1, 14, 0), LocalDateTime.of(2026, 7, 1, 15, 0));
-        createReservation(LocalDateTime.of(2026, 7, 1, 16, 0), LocalDateTime.of(2026, 7, 1, 17, 0));
-
-        mockMvc.perform(get("/api/v1/internal/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .param("date", "2026-07-01"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(2))
-                .andExpect(jsonPath("$.totalElements").value(2));
-    }
-
-    @Test
-    void getAll_withStatusFilter() throws Exception {
-        createReservation(LocalDateTime.of(2026, 7, 2, 10, 0), LocalDateTime.of(2026, 7, 2, 11, 0));
-
-        mockMvc.perform(get("/api/v1/internal/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .param("date", "2026-07-02")
-                        .param("status", "PENDING"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].status").value("PENDING"));
-    }
-
-    @Test
-    void getAll_statusFilterNoMatch() throws Exception {
-        createReservation(LocalDateTime.of(2026, 7, 3, 10, 0), LocalDateTime.of(2026, 7, 3, 11, 0));
-
-        mockMvc.perform(get("/api/v1/internal/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .param("date", "2026-07-03")
-                        .param("status", "CONFIRMED"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(0))
-                .andExpect(jsonPath("$.totalElements").value(0));
-    }
-
-    @Test
-    void getAll_otherDateExcluded() throws Exception {
-        createReservation(LocalDateTime.of(2026, 7, 4, 10, 0), LocalDateTime.of(2026, 7, 4, 11, 0));
-
-        mockMvc.perform(get("/api/v1/internal/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .param("date", "2026-07-05"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(0));
-    }
-
-    @Test
-    void getAll_unauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/internal/reservations")
-                        .param("date", "2026-07-01"))
-                .andExpect(status().isUnauthorized());
-    }
+    // ── getCalendar ──────────────────────────────────────────────────────────
 
     @Test
     void getCalendar_groupedByDate() throws Exception {
@@ -161,6 +107,8 @@ class InternalReservationControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // ── getById ─────────────────────────────────────────────────────────────
+
     @Test
     void getById_success() throws Exception {
         String response = createReservationAndGetBody(
@@ -183,11 +131,61 @@ class InternalReservationControllerTest {
     }
 
     @Test
-    void getByResources_withoutStatusFilter() throws Exception {
+    void getById_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/reservations/{id}", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ── confirm / cancel ────────────────────────────────────────────────────
+
+    @Test
+    void confirm_success() throws Exception {
+        String response = createReservationAndGetBody(
+                LocalDateTime.of(2026, 10, 2, 10, 0), LocalDateTime.of(2026, 10, 2, 11, 0));
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
+
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/confirm", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    }
+
+    @Test
+    void confirm_notFound() throws Exception {
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/confirm", 9999L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RSV_004"));
+    }
+
+    @Test
+    void cancel_success() throws Exception {
+        String response = createReservationAndGetBody(
+                LocalDateTime.of(2026, 10, 3, 10, 0), LocalDateTime.of(2026, 10, 3, 11, 0));
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
+
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/cancel", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void cancel_notFound() throws Exception {
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/cancel", 9999L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RSV_004"));
+    }
+
+    // ── by-merchant ─────────────────────────────────────────────────────────
+
+    @Test
+    void getByMerchant_withoutStatusFilter() throws Exception {
         createReservation(LocalDateTime.of(2026, 11, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 11, 0));
         createReservation(LocalDateTime.of(2026, 11, 1, 14, 0), LocalDateTime.of(2026, 11, 1, 15, 0));
 
-        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
                         .header("Authorization", "Bearer test-token")
                         .param("resourceIds", "1"))
                 .andExpect(status().isOk())
@@ -196,10 +194,10 @@ class InternalReservationControllerTest {
     }
 
     @Test
-    void getByResources_withStatusFilter() throws Exception {
+    void getByMerchant_withStatusFilter() throws Exception {
         createReservation(LocalDateTime.of(2026, 11, 2, 10, 0), LocalDateTime.of(2026, 11, 2, 11, 0));
 
-        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
                         .header("Authorization", "Bearer test-token")
                         .param("resourceIds", "1")
                         .param("status", "PENDING"))
@@ -209,10 +207,10 @@ class InternalReservationControllerTest {
     }
 
     @Test
-    void getByResources_statusFilterNoMatch() throws Exception {
+    void getByMerchant_statusFilterNoMatch() throws Exception {
         createReservation(LocalDateTime.of(2026, 11, 3, 10, 0), LocalDateTime.of(2026, 11, 3, 11, 0));
 
-        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
                         .header("Authorization", "Bearer test-token")
                         .param("resourceIds", "1")
                         .param("status", "CONFIRMED"))
@@ -222,10 +220,10 @@ class InternalReservationControllerTest {
     }
 
     @Test
-    void getByResources_resourceNotInList_excluded() throws Exception {
+    void getByMerchant_resourceNotInList_excluded() throws Exception {
         createReservation(LocalDateTime.of(2026, 11, 4, 10, 0), LocalDateTime.of(2026, 11, 4, 11, 0));
 
-        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
                         .header("Authorization", "Bearer test-token")
                         .param("resourceIds", "9999"))
                 .andExpect(status().isOk())
@@ -233,11 +231,13 @@ class InternalReservationControllerTest {
     }
 
     @Test
-    void getByResources_unauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/internal/reservations/by-resources")
+    void getByMerchant_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
                         .param("resourceIds", "1"))
                 .andExpect(status().isUnauthorized());
     }
+
+    // ── helpers ─────────────────────────────────────────────────────────────
 
     private void createReservation(LocalDateTime start, LocalDateTime end) throws Exception {
         createReservationAndGetBody(start, end);

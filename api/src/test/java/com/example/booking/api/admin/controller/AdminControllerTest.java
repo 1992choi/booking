@@ -2,13 +2,16 @@ package com.example.booking.api.admin.controller;
 
 import com.example.booking.api.admin.client.ReservationClient;
 import com.example.booking.api.admin.dto.AdminCalendarEntry;
-import com.example.booking.api.admin.dto.AdminReservationPageResponse;
 import com.example.booking.api.admin.dto.AdminReservationResponse;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.merchant.domain.MerchantType;
 import com.example.booking.api.merchant.dto.MerchantCreateRequest;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -63,21 +61,6 @@ class AdminControllerTest {
     }
 
     @Test
-    void getAll_merchantSuccess() throws Exception {
-        given(reservationClient.getAll(any(), any(), anyInt(), anyInt(), anyString()))
-                .willReturn(new AdminReservationPageResponse(List.of(), 0, 10, 0L, 0));
-
-        String token = signupAsMerchant("admin1@example.com");
-
-        mockMvc.perform(get("/api/v1/admin/reservations")
-                        .header("Authorization", "Bearer " + token)
-                        .param("date", "2026-07-01"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.totalElements").value(0));
-    }
-
-    @Test
     void getCalendar_merchantSuccess() throws Exception {
         given(reservationClient.getCalendar(anyInt(), anyInt(), anyString()))
                 .willReturn(Map.of(
@@ -85,7 +68,7 @@ class AdminControllerTest {
                         List.of(new AdminCalendarEntry(1L, "별채 A", "14:00", "15:00", "CONFIRMED"))
                 ));
 
-        String token = signupAsMerchant("admin2@example.com");
+        String token = signupAsMerchant("admin_cal1@example.com");
 
         mockMvc.perform(get("/api/v1/admin/reservations/calendar")
                         .header("Authorization", "Bearer " + token)
@@ -96,11 +79,30 @@ class AdminControllerTest {
     }
 
     @Test
+    void getCalendar_userForbidden() throws Exception {
+        String token = signupAndLogin("admin_cal2@example.com");
+
+        mockMvc.perform(get("/api/v1/admin/reservations/calendar")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "7"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getCalendar_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/reservations/calendar")
+                        .param("year", "2026")
+                        .param("month", "7"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void confirm_merchantSuccess() throws Exception {
         given(reservationClient.confirm(anyLong(), anyString()))
                 .willReturn(new AdminReservationResponse(1L, "CONFIRMED", "별채 A", null, null, 1, 150000L));
 
-        String token = signupAsMerchant("admin3@example.com");
+        String token = signupAsMerchant("admin1@example.com");
 
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 1L)
                         .header("Authorization", "Bearer " + token))
@@ -113,7 +115,7 @@ class AdminControllerTest {
         given(reservationClient.cancel(anyLong(), anyString()))
                 .willReturn(new AdminReservationResponse(1L, "CANCELLED", "별채 A", null, null, 1, 150000L));
 
-        String token = signupAsMerchant("admin4@example.com");
+        String token = signupAsMerchant("admin2@example.com");
 
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 1L)
                         .header("Authorization", "Bearer " + token))
@@ -122,19 +124,32 @@ class AdminControllerTest {
     }
 
     @Test
-    void getAll_userForbidden() throws Exception {
-        String token = signupAndLogin("user1@example.com");
+    void confirm_userForbidden() throws Exception {
+        String token = signupAndLogin("admin3@example.com");
 
-        mockMvc.perform(get("/api/v1/admin/reservations")
-                        .header("Authorization", "Bearer " + token)
-                        .param("date", "2026-07-01"))
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 1L)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void getAll_unauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/reservations")
-                        .param("date", "2026-07-01"))
+    void cancel_userForbidden() throws Exception {
+        String token = signupAndLogin("admin4@example.com");
+
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 1L)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void confirm_unauthorized() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 1L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void cancel_unauthorized() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 1L))
                 .andExpect(status().isUnauthorized());
     }
 

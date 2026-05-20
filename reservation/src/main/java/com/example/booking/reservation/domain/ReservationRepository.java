@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
     @Query("""
@@ -26,12 +27,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     Page<Reservation> findByUserId(Long userId, Pageable pageable);
 
     Page<Reservation> findByUserIdAndStatus(Long userId, ReservationStatus status, Pageable pageable);
-
-    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :from AND r.startTime < :to")
-    Page<Reservation> findByDateRange(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
-
-    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :from AND r.startTime < :to AND r.status = :status")
-    Page<Reservation> findByDateRangeAndStatus(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("status") ReservationStatus status, Pageable pageable);
 
     @Query("SELECT r FROM Reservation r WHERE r.startTime >= :from AND r.startTime < :to")
     List<Reservation> findByMonthRange(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);

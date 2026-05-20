@@ -19,21 +19,6 @@ public class ReservationClient {
 
     private final RestClient reservationRestClient;
 
-    public AdminReservationPageResponse getAll(LocalDate date, String status, int page, int size, String token) {
-        return reservationRestClient.get()
-                .uri(uriBuilder -> {
-                    var builder = uriBuilder.path("/api/v1/internal/reservations")
-                            .queryParam("date", date)
-                            .queryParam("page", page)
-                            .queryParam("size", size);
-                    if (status != null) builder.queryParam("status", status);
-                    return builder.build();
-                })
-                .header("Authorization", token)
-                .retrieve()
-                .body(AdminReservationPageResponse.class);
-    }
-
     public Map<LocalDate, List<AdminCalendarEntry>> getCalendar(int year, int month, String token) {
         return reservationRestClient.get()
                 .uri("/api/v1/internal/reservations/calendar?year={year}&month={month}", year, month)
