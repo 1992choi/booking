@@ -78,6 +78,21 @@ List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDat
 
 ---
 
+## 내부 API (api 서비스에 노출)
+
+`/api/v1/internal/**` — 외부 노출 금지. api 서비스가 JWT 를 전달해 호출한다.
+
+| Endpoint | 호출자 | 용도 |
+|----------|--------|------|
+| `GET /api/v1/internal/reservations?date=&status=` | api (admin) | 날짜별 전체 예약 목록 |
+| `GET /api/v1/internal/reservations/calendar?year=&month=` | api (admin) | 월별 캘린더 뷰 |
+| `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
+| `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |
+| `PUT /api/v1/internal/reservations/{id}/cancel` | api (admin) | 수동 취소 |
+| `GET /api/v1/internal/reservations/by-merchant?resourceIds=` | api (merchant) | 업체별 예약 목록 (resourceId 목록으로 필터) |
+
+---
+
 ## Kafka
 
 ### produce

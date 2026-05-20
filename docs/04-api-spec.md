@@ -6,6 +6,7 @@
 |-----------|---------------------|
 | `/api/v1/auth/**` | api |
 | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/resources/**` | api |
+| `/api/v1/merchants/{merchantId}/reservations` | api → (REST) reservation |
 | `/api/v1/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
 | `/api/v1/admin/reservations/**` | api → (REST) reservation |
@@ -50,6 +51,7 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | API_002 | 401 | 이메일/비밀번호 불일치 | api |
 | API_003 | 404 | 업체 없음 | api |
 | API_004 | 404 | 설비 없음 | api |
+| API_005 | 404 | 가능 시간 없음 | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
@@ -224,6 +226,36 @@ Response 200:
 Error 403: 본인 소유가 아닌 업체 수정 시도
 Error 404 (API_003): 업체 없음
 ```
+
+### 업체별 예약 목록 조회
+```
+GET /api/v1/merchants/{merchantId}/reservations?status=CONFIRMED&page=0&size=10
+Authorization: Bearer {jwt}  (해당 업체 소유자만 가능)
+
+Response 200:
+{
+  "content": [
+    {
+      "id": 1,
+      "status": "CONFIRMED",
+      "resourceName": "별채 A",
+      "startTime": "2026-05-01T14:00:00",
+      "endTime": "2026-05-01T15:00:00",
+      "headCount": 2,
+      "amount": 150000
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1
+}
+
+Error 403 (AUTH_002): 본인 소유 업체가 아닌 경우
+Error 404 (API_003): 업체 없음
+```
+
+> api 서비스가 해당 업체의 resourceId 목록을 조회한 뒤, reservation 서비스의 내부 엔드포인트 `GET /api/v1/internal/reservations/by-merchant` 에 위임한다. 리소스가 없으면 reservation 서비스 호출 없이 빈 페이지를 반환한다.
 
 ---
 
@@ -546,6 +578,8 @@ Response 200:
 |----------|--------|------|
 | `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
 | `GET /api/v1/internal/available-times?ids=` | reservation | 슬롯 상태 및 resource 귀속 검증 |
+| `PUT /api/v1/internal/available-times/block` | reservation | 슬롯 상태 BOOKED 처리 |
+| `PUT /api/v1/internal/available-times/release` | reservation | 슬롯 상태 OPEN 복구 |
 | `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
 
 ### reservation 서비스 내부 API
@@ -557,3 +591,4 @@ Response 200:
 | `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
 | `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |
 | `PUT /api/v1/internal/reservations/{id}/cancel` | api (admin) | 수동 취소 |
+| `GET /api/v1/internal/reservations/by-merchant?resourceIds=` | api (merchant) | 업체별 예약 목록 |

@@ -79,17 +79,22 @@ Client → Bearer token
 ```
 /api/v1/auth/**                             → permitAll
 GET /api/v1/resources/*/available-times     → permitAll
-GET /api/v1/merchants                       → permitAll
-GET /api/v1/merchants/{id}                  → permitAll
 /api/v1/admin/**                            → hasRole("MERCHANT")
 그 외                                        → authenticated
 ```
 
 > `JwtAuthenticationFilter` 가 권한을 `ROLE_{role}` 형태로 등록하므로 `hasRole("MERCHANT")` 사용.
 
-### Admin → reservation 위임
+### reservation 위임 패턴
 
-`/api/v1/admin/reservations/**` 는 api 서비스가 진입점이지만, `ReservationClient` 를 통해 reservation 서비스의 `/api/v1/internal/reservations/**` 에 위임한다. `Authorization` 헤더를 그대로 전달하고 각 서비스가 JWT 를 독립 검증한다.
+api 서비스가 진입점이 되고 `ReservationClient` 를 통해 reservation 서비스 내부 엔드포인트에 위임한다. `Authorization` 헤더를 그대로 전달하고 각 서비스가 JWT 를 독립 검증한다.
+
+| 외부 엔드포인트 | 위임 대상 |
+|----------------|----------|
+| `GET /api/v1/admin/reservations/**` | `/api/v1/internal/reservations/**` |
+| `GET /api/v1/merchants/{merchantId}/reservations` | `/api/v1/internal/reservations/by-merchant` |
+
+> 업체별 예약 조회는 api 서비스가 merchantId로 resourceId 목록을 조회한 뒤 reservation 서비스에 전달. 리소스가 없으면 reservation 호출 없이 빈 페이지 반환.
 
 ### Internal API
 
@@ -98,4 +103,7 @@ GET /api/v1/merchants/{id}                  → permitAll
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
 | `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
+| `GET /api/v1/internal/available-times?ids=` | reservation | 슬롯 상태 및 resource 귀속 검증 |
+| `PUT /api/v1/internal/available-times/block` | reservation | 슬롯 상태 BOOKED 처리 |
+| `PUT /api/v1/internal/available-times/release` | reservation | 슬롯 상태 OPEN 복구 |
 | `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 |
