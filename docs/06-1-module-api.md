@@ -91,7 +91,6 @@ api 서비스가 진입점이 되고 `ReservationClient` 를 통해 reservation 
 
 | 외부 엔드포인트 | 위임 대상 |
 |----------------|----------|
-| `GET /api/v1/admin/reservations/**` | `/api/v1/internal/reservations/**` |
 | `GET /api/v1/merchants/{merchantId}/reservations` | `/api/v1/internal/reservations/by-merchant` |
 
 > 업체별 예약 조회는 api 서비스가 merchantId로 resourceId 목록을 조회한 뒤 reservation 서비스에 전달. 리소스가 없으면 reservation 호출 없이 빈 페이지 반환.

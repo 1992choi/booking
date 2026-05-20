@@ -489,17 +489,6 @@ Error 409 (status 가 COMPLETED 가 아닐 때):
 
 api 서비스가 진입점이지만 실제 데이터는 reservation 서비스에서 REST 로 가져온다.
 
-### 전체 예약 현황
-```
-GET /api/v1/admin/reservations?date=2026-05-01&status=CONFIRMED
-
-Response 200:
-{
-  "content": [],
-  "totalElements": 10
-}
-```
-
 ### 캘린더 뷰
 ```
 GET /api/v1/admin/reservations/calendar?year=2026&month=5
