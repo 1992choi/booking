@@ -30,10 +30,11 @@ public class ResourceService {
     private final MerchantRepository merchantRepository;
 
     @Transactional
-    public Resource register(Long merchantId, ResourceCreateRequest request) {
+    public Resource register(Long userId, Long merchantId, ResourceCreateRequest request) {
         if (!merchantRepository.existsById(merchantId)) {
             throw new BusinessException(ApiErrorCode.MERCHANT_NOT_FOUND);
         }
+        validateMerchantAccess(userId, merchantId);
         return resourceRepository.save(Resource.builder()
                 .merchantId(merchantId)
                 .name(request.name())
@@ -44,10 +45,9 @@ public class ResourceService {
     }
 
     @Transactional
-    public AvailableTime addAvailableTime(Long resourceId, AvailableTimeCreateRequest request) {
-        if (!resourceRepository.existsById(resourceId)) {
-            throw new BusinessException(ApiErrorCode.RESOURCE_NOT_FOUND);
-        }
+    public AvailableTime addAvailableTime(Long userId, Long resourceId, AvailableTimeCreateRequest request) {
+        Resource resource = getById(resourceId);
+        validateMerchantAccess(userId, resource.getMerchantId());
         return availableTimeRepository.save(AvailableTime.builder()
                 .resourceId(resourceId)
                 .startTime(request.startTime())

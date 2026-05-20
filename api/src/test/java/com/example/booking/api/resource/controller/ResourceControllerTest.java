@@ -354,6 +354,85 @@ class ResourceControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void registerResource_invalidInput_blankName() throws Exception {
+        String token = signupAndLogin("resource_val1@example.com");
+        Long merchantId = registerMerchant(token, "Validation Pension", MerchantType.PENSION);
+
+        ResourceCreateRequest request = new ResourceCreateRequest("", "설명", 100000L, 2);
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void registerResource_invalidInput_negativePrice() throws Exception {
+        String token = signupAndLogin("resource_val2@example.com");
+        Long merchantId = registerMerchant(token, "Validation Pension", MerchantType.PENSION);
+
+        ResourceCreateRequest request = new ResourceCreateRequest("별채 A", "설명", -1000L, 2);
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void registerResource_forbidden_otherUsersMerchant() throws Exception {
+        String ownerToken = signupAndLogin("resource_val3@example.com");
+        Long merchantId = registerMerchant(ownerToken, "Owner Pension", MerchantType.PENSION);
+
+        String otherToken = signupAndLogin("resource_val4@example.com");
+        ResourceCreateRequest request = new ResourceCreateRequest("침입 리소스", "설명", 100000L, 2);
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
+    }
+
+    @Test
+    void addAvailableTime_forbidden_otherUsersMerchant() throws Exception {
+        String ownerToken = signupAndLogin("resource_val5@example.com");
+        Long merchantId = registerMerchant(ownerToken, "Owner Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(ownerToken, merchantId, "별채 A", 100000L);
+
+        String otherToken = signupAndLogin("resource_val6@example.com");
+        registerMerchant(otherToken, "Other Pension", MerchantType.PENSION);
+
+        AvailableTimeCreateRequest request = new AvailableTimeCreateRequest(
+                LocalDateTime.of(2026, 8, 1, 10, 0),
+                LocalDateTime.of(2026, 8, 1, 11, 0));
+        mockMvc.perform(post("/api/v1/resources/{resourceId}/available-times", resourceId)
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
+    }
+
+    @Test
+    void getAvailableTimes_noResults() throws Exception {
+        String token = signupAndLogin("resource_val7@example.com");
+        Long merchantId = registerMerchant(token, "Empty Pension", MerchantType.PENSION);
+        Long resourceId = registerResource(token, merchantId, "별채 A", 100000L);
+
+        mockMvc.perform(get("/api/v1/resources/{resourceId}/available-times", resourceId)
+                        .param("date", "2026-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     private String signupAndLogin(String email) throws Exception {
         SignupRequest signup = new SignupRequest("User", email, "010-1234-5678", "password123");
         mockMvc.perform(post("/api/v1/auth/signup")

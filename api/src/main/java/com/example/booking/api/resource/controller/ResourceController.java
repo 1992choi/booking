@@ -36,17 +36,19 @@ public class ResourceController {
 
     @PostMapping("/api/v1/merchants/{merchantId}/resources")
     @ResponseStatus(HttpStatus.CREATED)
-    public ResourceResponse register(@PathVariable Long merchantId,
+    public ResourceResponse register(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @PathVariable Long merchantId,
                                      @Valid @RequestBody ResourceCreateRequest request) {
-        Resource resource = resourceService.register(merchantId, request);
+        Resource resource = resourceService.register(principal.userId(), merchantId, request);
         return ResourceResponse.from(resource);
     }
 
     @PostMapping("/api/v1/resources/{resourceId}/available-times")
     @ResponseStatus(HttpStatus.CREATED)
-    public AvailableTimeResponse addAvailableTime(@PathVariable Long resourceId,
+    public AvailableTimeResponse addAvailableTime(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @PathVariable Long resourceId,
                                                   @Valid @RequestBody AvailableTimeCreateRequest request) {
-        AvailableTime availableTime = resourceService.addAvailableTime(resourceId, request);
+        AvailableTime availableTime = resourceService.addAvailableTime(principal.userId(), resourceId, request);
         return AvailableTimeResponse.from(availableTime);
     }
 

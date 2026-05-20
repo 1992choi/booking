@@ -89,4 +89,31 @@ class NotificationControllerTest {
         mockMvc.perform(get("/api/v1/notifications/me"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void getMyNotifications_verifyFields() throws Exception {
+        notificationService.send(1L, 42L, NotificationType.CONFIRMED);
+
+        mockMvc.perform(get("/api/v1/notifications/me")
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].reservationId").value(42))
+                .andExpect(jsonPath("$[0].type").value("CONFIRMED"))
+                .andExpect(jsonPath("$[0].status").value("SENT"))
+                .andExpect(jsonPath("$[0].channel").value("LOG"))
+                .andExpect(jsonPath("$[0].sentAt").exists());
+    }
+
+    @Test
+    void getMyNotifications_onlyMine() throws Exception {
+        notificationService.send(1L, 10L, NotificationType.CONFIRMED);
+
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(2L, Role.USER));
+
+        mockMvc.perform(get("/api/v1/notifications/me")
+                        .header("Authorization", "Bearer other-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
 }

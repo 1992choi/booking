@@ -237,6 +237,40 @@ class InternalReservationControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void getByMerchant_paginationParams() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            LocalDateTime base = LocalDateTime.of(2026, 12, i + 1, 10, 0);
+            createReservation(base, base.plusHours(1));
+        }
+
+        mockMvc.perform(get("/api/v1/internal/reservations/by-merchant")
+                        .header("Authorization", "Bearer test-token")
+                        .param("resourceIds", "1")
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(5));
+    }
+
+    @Test
+    void confirm_alreadyConfirmed() throws Exception {
+        String response = createReservationAndGetBody(
+                LocalDateTime.of(2026, 10, 5, 10, 0), LocalDateTime.of(2026, 10, 5, 11, 0));
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
+
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/confirm", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+
+        mockMvc.perform(put("/api/v1/internal/reservations/{id}/confirm", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private void createReservation(LocalDateTime start, LocalDateTime end) throws Exception {

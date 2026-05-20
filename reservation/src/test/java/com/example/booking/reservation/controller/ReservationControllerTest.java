@@ -224,4 +224,99 @@ class ReservationControllerTest {
                                 new CreateReservationRequest(1L, List.of(1L), 1))))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void create_invalidRequest_emptySlots() throws Exception {
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resourceId\":1,\"availableTimeIds\":[],\"headCount\":1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void create_invalidRequest_headCountZero() throws Exception {
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resourceId\":1,\"availableTimeIds\":[1],\"headCount\":0}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void create_slotNotOpen() throws Exception {
+        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
+                new com.example.booking.reservation.client.AvailableTimeSnapshot(
+                        1L, 1L,
+                        LocalDateTime.of(2026, 6, 1, 14, 0),
+                        LocalDateTime.of(2026, 6, 1, 15, 0),
+                        "BLOCKED")));
+
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RSV_001"));
+    }
+
+    @Test
+    void create_slotBelongsToDifferentResource() throws Exception {
+        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
+                new com.example.booking.reservation.client.AvailableTimeSnapshot(
+                        1L, 999L,
+                        LocalDateTime.of(2026, 6, 1, 14, 0),
+                        LocalDateTime.of(2026, 6, 1, 15, 0),
+                        "OPEN")));
+
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RSV_001"));
+    }
+
+    @Test
+    void getMyReservations_defaultStatusIsPending() throws Exception {
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/reservations/me")
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content[0].status").value("PENDING"));
+    }
+
+    @Test
+    void cancel_alreadyCancelled() throws Exception {
+        String response = mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
+
+        mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
 }

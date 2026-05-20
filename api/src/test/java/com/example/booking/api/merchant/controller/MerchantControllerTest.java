@@ -277,6 +277,64 @@ class MerchantControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void register_invalidInput_blankName() throws Exception {
+        String token = signupAndLogin("merchant_val1@example.com");
+
+        MerchantCreateRequest request = new MerchantCreateRequest("", "02-1111-2222", MerchantType.PENSION);
+
+        mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void register_invalidInput_nullType() throws Exception {
+        String token = signupAndLogin("merchant_val2@example.com");
+
+        mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Valid Name\",\"phone\":\"02-1111-2222\",\"type\":null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    void getMerchant_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/merchants/{merchantId}", 1L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("AUTH_001"));
+    }
+
+    @Test
+    void update_invalidInput_blankName() throws Exception {
+        String token = signupAndLogin("merchant_val3@example.com");
+        String response = mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new MerchantCreateRequest("Original", "02-1111-1111", MerchantType.PENSION))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long merchantId = objectMapper.readTree(response).get("id").asLong();
+
+        MerchantUpdateRequest update = new MerchantUpdateRequest("", "02-9999-9999", MerchantType.CLASS);
+        mockMvc.perform(put("/api/v1/merchants/{merchantId}", merchantId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
     private String signupAndLogin(String email) throws Exception {
         SignupRequest signup = new SignupRequest("User", email, "010-1234-5678", "password123");
         mockMvc.perform(post("/api/v1/auth/signup")

@@ -118,4 +118,45 @@ class PaymentControllerTest {
         mockMvc.perform(get("/api/v1/payments/{reservationId}", 1L))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void refund_alreadyRefunded() throws Exception {
+        Payment payment = Payment.builder()
+                .reservationId(4L)
+                .userId(1L)
+                .amount(100000L)
+                .status(PaymentStatus.COMPLETED)
+                .build();
+        payment.complete();
+        paymentRepository.save(payment);
+
+        mockMvc.perform(post("/api/v1/payments/{reservationId}/refund", 4L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REFUNDED"));
+
+        mockMvc.perform(post("/api/v1/payments/{reservationId}/refund", 4L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PAY_002"));
+    }
+
+    @Test
+    void getByReservationId_verifyAllFields() throws Exception {
+        Payment payment = paymentRepository.save(Payment.builder()
+                .reservationId(5L)
+                .userId(1L)
+                .amount(200000L)
+                .status(PaymentStatus.COMPLETED)
+                .build());
+
+        mockMvc.perform(get("/api/v1/payments/{reservationId}", 5L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(payment.getId()))
+                .andExpect(jsonPath("$.reservationId").value(5))
+                .andExpect(jsonPath("$.amount").value(200000))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.paidAt").isEmpty());
+    }
 }
