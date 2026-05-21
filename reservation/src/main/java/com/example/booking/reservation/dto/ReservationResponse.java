@@ -12,7 +12,8 @@ public record ReservationResponse(
         LocalDateTime startTime,
         LocalDateTime endTime,
         int headCount,
-        Long amount
+        Long amount,
+        Long userId
 ) {
 
     public static ReservationResponse from(Reservation reservation) {
@@ -23,7 +24,8 @@ public record ReservationResponse(
                 reservation.getStartTime(),
                 reservation.getEndTime(),
                 reservation.getHeadCount(),
-                reservation.getAmount()
+                reservation.getAmount(),
+                reservation.getUserId()
         );
     }
 }

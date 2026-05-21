@@ -68,9 +68,11 @@ class MerchantReservationControllerTest {
         Long merchantId = registerMerchant(token, "Sunset Pension");
         addResource(token, merchantId, "별채 A");
 
+        Long userId = getUserId(token);
+
         given(reservationClient.getByMerchant(any(), nullable(String.class), anyInt(), anyInt(), anyString()))
                 .willReturn(new AdminReservationPageResponse(
-                        List.of(new AdminReservationResponse(1L, "PENDING", "별채 A", null, null, 2, 100000L)),
+                        List.of(new AdminReservationResponse(1L, "PENDING", "별채 A", null, null, 2, 100000L, userId, null)),
                         0, 10, 1L, 1));
 
         mockMvc.perform(get("/api/v1/merchants/{merchantId}/reservations", merchantId)
@@ -78,6 +80,7 @@ class MerchantReservationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].resourceName").value("별채 A"))
+                .andExpect(jsonPath("$.content[0].userName").value("테스트"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
@@ -182,5 +185,13 @@ class MerchantReservationControllerTest {
                         .content(objectMapper.writeValueAsString(
                                 new ResourceCreateRequest(resourceName, "설명", 100000L, 2))))
                 .andExpect(status().isCreated());
+    }
+
+    private Long getUserId(String token) throws Exception {
+        String response = mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(response).get("id").asLong();
     }
 }

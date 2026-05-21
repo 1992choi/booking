@@ -100,7 +100,7 @@ class AdminControllerTest {
     @Test
     void confirm_merchantSuccess() throws Exception {
         given(reservationClient.confirm(anyLong(), anyString()))
-                .willReturn(new AdminReservationResponse(1L, "CONFIRMED", "별채 A", null, null, 1, 150000L));
+                .willReturn(new AdminReservationResponse(1L, "CONFIRMED", "별채 A", null, null, 1, 150000L, null, null));
 
         String token = signupAsMerchant("admin1@example.com");
 
@@ -113,7 +113,7 @@ class AdminControllerTest {
     @Test
     void cancel_merchantSuccess() throws Exception {
         given(reservationClient.cancel(anyLong(), anyString()))
-                .willReturn(new AdminReservationResponse(1L, "CANCELLED", "별채 A", null, null, 1, 150000L));
+                .willReturn(new AdminReservationResponse(1L, "CANCELLED", "별채 A", null, null, 1, 150000L, null, null));
 
         String token = signupAsMerchant("admin2@example.com");
 

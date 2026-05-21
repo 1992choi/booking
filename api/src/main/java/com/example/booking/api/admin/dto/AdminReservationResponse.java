@@ -9,5 +9,7 @@ public record AdminReservationResponse(
         LocalDateTime startTime,
         LocalDateTime endTime,
         int headCount,
-        Long amount
+        Long amount,
+        Long userId,
+        String userName
 ) {}
