@@ -4,13 +4,13 @@ spring:
     listener:
       auto-startup: false
   datasource:
-    url: jdbc:mysql://localhost:3306/db_reservation?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/db_reservation_test?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: none
     show-sql: false
 
 booking:
