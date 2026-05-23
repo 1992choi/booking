@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at  DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- db_reservation
+USE db_reservation;
+
 CREATE TABLE IF NOT EXISTS merchants (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id     BIGINT       NOT NULL,
@@ -42,9 +45,6 @@ CREATE TABLE IF NOT EXISTS available_times (
     created_at   DATETIME(6),
     updated_at   DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- db_reservation
-USE db_reservation;
 
 CREATE TABLE IF NOT EXISTS reservations (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,

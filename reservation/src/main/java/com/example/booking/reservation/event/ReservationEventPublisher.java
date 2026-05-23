@@ -1,14 +1,14 @@
 package com.example.booking.reservation.event;
 
-import com.example.booking.reservation.client.AvailableTimeClient;
+import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.util.List;
 
 @Slf4j
 @Component
@@ -16,12 +16,17 @@ import java.util.List;
 public class ReservationEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final AvailableTimeClient availableTimeClient;
+    private final AvailableTimeRepository availableTimeRepository;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onReservationCreated(ReservationCreatedDomainEvent event) {
         try {
-            availableTimeClient.block(List.of(event.availableTimeId()));
+            availableTimeRepository.findById(event.availableTimeId())
+                    .ifPresent(at -> {
+                        at.block();
+                        availableTimeRepository.save(at);
+                    });
         } catch (Exception e) {
             log.error("슬롯 BLOCKED 처리 실패 availableTimeId={}", event.availableTimeId(), e);
         }
@@ -35,9 +40,14 @@ public class ReservationEventPublisher {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onReservationCancelled(ReservationCancelledDomainEvent event) {
         try {
-            availableTimeClient.release(List.of(event.availableTimeId()));
+            availableTimeRepository.findById(event.availableTimeId())
+                    .ifPresent(at -> {
+                        at.release();
+                        availableTimeRepository.save(at);
+                    });
         } catch (Exception e) {
             log.error("슬롯 OPEN 복원 실패 availableTimeId={}", event.availableTimeId(), e);
         }

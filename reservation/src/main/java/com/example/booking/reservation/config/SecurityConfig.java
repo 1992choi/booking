@@ -4,6 +4,7 @@ import com.example.booking.core.auth.JwtAuthenticationEntryPoint;
 import com.example.booking.core.auth.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,7 +25,11 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/v1/resources/*/available-times").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/merchants").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/merchants/*").permitAll()
                         .requestMatchers("/ping").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("MERCHANT")
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

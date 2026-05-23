@@ -1,9 +1,6 @@
 package com.example.booking.reservation.service;
 
 import com.example.booking.core.error.BusinessException;
-import com.example.booking.reservation.client.AvailableTimeSnapshot;
-import com.example.booking.reservation.client.ResourceClient;
-import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.domain.Reservation;
 import com.example.booking.reservation.domain.ReservationRepository;
 import com.example.booking.reservation.domain.ReservationStatus;
@@ -14,6 +11,10 @@ import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.error.ReservationErrorCode;
 import com.example.booking.reservation.event.ReservationCancelledDomainEvent;
 import com.example.booking.reservation.event.ReservationCreatedDomainEvent;
+import com.example.booking.reservation.resource.domain.AvailableTime;
+import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
+import com.example.booking.reservation.resource.domain.Resource;
+import com.example.booking.reservation.resource.domain.ResourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
@@ -32,28 +33,30 @@ import java.util.stream.Collectors;
 public class ReservationService {
 
     private final ReservationRepository reservationRepository;
-    private final ResourceClient resourceClient;
+    private final ResourceRepository resourceRepository;
+    private final AvailableTimeRepository availableTimeRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
-        ResourceSnapshot resource = resourceClient.fetch(request.resourceId());
+        Resource resource = resourceRepository.findById(request.resourceId())
+                .orElseThrow(() -> new BusinessException(ReservationErrorCode.RESOURCE_NOT_FOUND));
 
-        if (request.headCount() > resource.maxCapacity()) {
+        if (request.headCount() > resource.getMaxCapacity()) {
             throw new BusinessException(ReservationErrorCode.CAPACITY_EXCEEDED);
         }
 
-        List<AvailableTimeSnapshot> slots = resourceClient.fetchAvailableTimes(request.availableTimeIds());
+        List<AvailableTime> slots = availableTimeRepository.findAllById(request.availableTimeIds());
 
-        for (AvailableTimeSnapshot slot : slots) {
-            if (!slot.resourceId().equals(request.resourceId())) {
+        for (AvailableTime slot : slots) {
+            if (!slot.getResourceId().equals(request.resourceId())) {
                 throw new BusinessException(ReservationErrorCode.CONFLICT);
             }
-            if (!"OPEN".equals(slot.status())) {
+            if (slot.getStatus().name().equals("BLOCKED")) {
                 throw new BusinessException(ReservationErrorCode.CONFLICT);
             }
             boolean hasOverlap = !reservationRepository.findOverlapping(
-                    request.resourceId(), slot.startTime(), slot.endTime()).isEmpty();
+                    request.resourceId(), slot.getStartTime(), slot.getEndTime()).isEmpty();
             if (hasOverlap) {
                 throw new BusinessException(ReservationErrorCode.CONFLICT);
             }
@@ -61,15 +64,15 @@ public class ReservationService {
 
         List<Reservation> reservations = slots.stream()
                 .map(slot -> Reservation.builder()
-                        .availableTimeId(slot.id())
+                        .availableTimeId(slot.getId())
                         .userId(userId)
                         .resourceId(request.resourceId())
-                        .resourceName(resource.name())
-                        .startTime(slot.startTime())
-                        .endTime(slot.endTime())
+                        .resourceName(resource.getName())
+                        .startTime(slot.getStartTime())
+                        .endTime(slot.getEndTime())
                         .status(ReservationStatus.PENDING)
                         .headCount(request.headCount())
-                        .amount(resource.price())
+                        .amount(resource.getPrice())
                         .build())
                 .toList();
 
@@ -77,7 +80,7 @@ public class ReservationService {
 
         reservations.forEach(reservation ->
                 eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
-                        reservation.getId(), userId, request.resourceId(), resource.price(),
+                        reservation.getId(), userId, request.resourceId(), resource.getPrice(),
                         reservation.getAvailableTimeId())));
 
         return reservations.stream().map(ReservationResponse::from).toList();

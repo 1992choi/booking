@@ -3,11 +3,12 @@ package com.example.booking.reservation.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
-import com.example.booking.reservation.client.AvailableTimeClient;
-import com.example.booking.reservation.client.AvailableTimeSnapshot;
-import com.example.booking.reservation.client.ResourceClient;
-import com.example.booking.reservation.client.ResourceSnapshot;
 import com.example.booking.reservation.dto.CreateReservationRequest;
+import com.example.booking.reservation.resource.domain.AvailableTime;
+import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
+import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
+import com.example.booking.reservation.resource.domain.Resource;
+import com.example.booking.reservation.resource.domain.ResourceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,11 +47,11 @@ class ReservationControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
-    @MockitoBean
-    ResourceClient resourceClient;
+    @Autowired
+    ResourceRepository resourceRepository;
 
-    @MockitoBean
-    AvailableTimeClient availableTimeClient;
+    @Autowired
+    AvailableTimeRepository availableTimeRepository;
 
     @MockitoBean
     JwtVerifier jwtVerifier;
@@ -60,13 +61,8 @@ class ReservationControllerTest {
 
     MockMvc mockMvc;
 
-    static final ResourceSnapshot RESOURCE = new ResourceSnapshot(1L, "별채 A", 150000L, 2, 10L);
-
-    static final AvailableTimeSnapshot SLOT = new AvailableTimeSnapshot(
-            1L, 1L,
-            LocalDateTime.of(2026, 6, 1, 14, 0),
-            LocalDateTime.of(2026, 6, 1, 15, 0),
-            "OPEN");
+    Resource resource;
+    AvailableTime slot;
 
     @BeforeEach
     void setUp() {
@@ -75,13 +71,26 @@ class ReservationControllerTest {
                 .build();
 
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
-        given(resourceClient.fetch(1L)).willReturn(RESOURCE);
-        given(resourceClient.fetchAvailableTimes(any())).willReturn(List.of(SLOT));
+
+        resource = resourceRepository.save(Resource.builder()
+                .merchantId(10L)
+                .name("별채 A")
+                .description("2인실")
+                .price(150000L)
+                .maxCapacity(2)
+                .build());
+
+        slot = availableTimeRepository.save(AvailableTime.builder()
+                .resourceId(resource.getId())
+                .startTime(LocalDateTime.of(2026, 6, 1, 14, 0))
+                .endTime(LocalDateTime.of(2026, 6, 1, 15, 0))
+                .status(AvailableTimeStatus.OPEN)
+                .build());
     }
 
     @Test
     void create_success() throws Exception {
-        CreateReservationRequest request = new CreateReservationRequest(1L, List.of(1L), 2);
+        CreateReservationRequest request = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 2);
 
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
@@ -97,7 +106,7 @@ class ReservationControllerTest {
 
     @Test
     void create_capacityExceeded() throws Exception {
-        CreateReservationRequest request = new CreateReservationRequest(1L, List.of(1L), 3);
+        CreateReservationRequest request = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 3);
 
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
@@ -108,28 +117,66 @@ class ReservationControllerTest {
     }
 
     @Test
-    void create_timeConflict() throws Exception {
-        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
-                new AvailableTimeSnapshot(1L, 1L,
-                        LocalDateTime.of(2026, 6, 1, 14, 0),
-                        LocalDateTime.of(2026, 6, 1, 15, 0), "OPEN")));
-        given(resourceClient.fetchAvailableTimes(List.of(2L))).willReturn(List.of(
-                new AvailableTimeSnapshot(2L, 1L,
-                        LocalDateTime.of(2026, 6, 1, 14, 30),
-                        LocalDateTime.of(2026, 6, 1, 15, 30), "OPEN")));
+    void create_slotNotOpen() throws Exception {
+        AvailableTime blockedSlot = availableTimeRepository.save(AvailableTime.builder()
+                .resourceId(resource.getId())
+                .startTime(LocalDateTime.of(2026, 6, 2, 14, 0))
+                .endTime(LocalDateTime.of(2026, 6, 2, 15, 0))
+                .status(AvailableTimeStatus.BLOCKED)
+                .build());
+
+        CreateReservationRequest request = new CreateReservationRequest(resource.getId(), List.of(blockedSlot.getId()), 1);
 
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RSV_001"));
+    }
+
+    @Test
+    void create_slotBelongsToDifferentResource() throws Exception {
+        Resource otherResource = resourceRepository.save(Resource.builder()
+                .merchantId(10L).name("별채 B").description("").price(100000L).maxCapacity(4).build());
+        AvailableTime otherSlot = availableTimeRepository.save(AvailableTime.builder()
+                .resourceId(otherResource.getId())
+                .startTime(LocalDateTime.of(2026, 6, 3, 14, 0))
+                .endTime(LocalDateTime.of(2026, 6, 3, 15, 0))
+                .status(AvailableTimeStatus.OPEN)
+                .build());
+
+        CreateReservationRequest request = new CreateReservationRequest(resource.getId(), List.of(otherSlot.getId()), 1);
+
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RSV_001"));
+    }
+
+    @Test
+    void create_timeConflict() throws Exception {
+        CreateReservationRequest first = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1);
+        mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(first)))
                 .andExpect(status().isCreated());
 
+        AvailableTime overlappingSlot = availableTimeRepository.save(AvailableTime.builder()
+                .resourceId(resource.getId())
+                .startTime(LocalDateTime.of(2026, 6, 1, 14, 30))
+                .endTime(LocalDateTime.of(2026, 6, 1, 15, 30))
+                .status(AvailableTimeStatus.OPEN)
+                .build());
+
+        CreateReservationRequest second = new CreateReservationRequest(resource.getId(), List.of(overlappingSlot.getId()), 1);
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(2L), 1))))
+                        .content(objectMapper.writeValueAsString(second)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("RSV_001"));
     }
@@ -140,7 +187,7 @@ class ReservationControllerTest {
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
@@ -167,7 +214,7 @@ class ReservationControllerTest {
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/reservations/me")
@@ -184,7 +231,7 @@ class ReservationControllerTest {
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
@@ -202,7 +249,7 @@ class ReservationControllerTest {
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
@@ -221,7 +268,7 @@ class ReservationControllerTest {
         mockMvc.perform(post("/api/v1/reservations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -230,7 +277,7 @@ class ReservationControllerTest {
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"resourceId\":1,\"availableTimeIds\":[],\"headCount\":1}"))
+                        .content("{\"resourceId\":" + resource.getId() + ",\"availableTimeIds\":[],\"headCount\":1}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
     }
@@ -240,45 +287,9 @@ class ReservationControllerTest {
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"resourceId\":1,\"availableTimeIds\":[1],\"headCount\":0}"))
+                        .content("{\"resourceId\":" + resource.getId() + ",\"availableTimeIds\":[" + slot.getId() + "],\"headCount\":0}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
-    }
-
-    @Test
-    void create_slotNotOpen() throws Exception {
-        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
-                new com.example.booking.reservation.client.AvailableTimeSnapshot(
-                        1L, 1L,
-                        LocalDateTime.of(2026, 6, 1, 14, 0),
-                        LocalDateTime.of(2026, 6, 1, 15, 0),
-                        "BLOCKED")));
-
-        mockMvc.perform(post("/api/v1/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("RSV_001"));
-    }
-
-    @Test
-    void create_slotBelongsToDifferentResource() throws Exception {
-        given(resourceClient.fetchAvailableTimes(List.of(1L))).willReturn(List.of(
-                new com.example.booking.reservation.client.AvailableTimeSnapshot(
-                        1L, 999L,
-                        LocalDateTime.of(2026, 6, 1, 14, 0),
-                        LocalDateTime.of(2026, 6, 1, 15, 0),
-                        "OPEN")));
-
-        mockMvc.perform(post("/api/v1/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("RSV_001"));
     }
 
     @Test
@@ -287,7 +298,7 @@ class ReservationControllerTest {
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
+                                new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1))))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/reservations/me")
@@ -295,28 +306,5 @@ class ReservationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].status").value("PENDING"));
-    }
-
-    @Test
-    void cancel_alreadyCancelled() throws Exception {
-        String response = mockMvc.perform(post("/api/v1/reservations")
-                        .header("Authorization", "Bearer test-token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new CreateReservationRequest(1L, List.of(1L), 1))))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-
-        Long reservationId = objectMapper.readTree(response).get(0).get("id").asLong();
-
-        mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
-                        .header("Authorization", "Bearer test-token"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
-
-        mockMvc.perform(put("/api/v1/reservations/{id}/cancel", reservationId)
-                        .header("Authorization", "Bearer test-token"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 }

@@ -21,8 +21,9 @@
    │ :8080  │ │   :8081      │ │  :8082  │ │   :8083      │
    └───┬────┘ └──────┬───────┘ └────┬────┘ └──────┬───────┘
        │             │              │              │
-       │ REST        │              │              │
-       │ ←───────────┘              │              │
+       │ REST (user) │              │              │
+       │ ←───────────────────────────┘              │
+       │ ←──────────────────────────────────────────┘
        │                            │              │
        ▼             ▼              ▼              ▼
    ┌────────┐  ┌──────────────┐ ┌─────────┐  ┌──────────────┐
@@ -81,8 +82,8 @@ notification ─── core
 
 | 서비스 | 책임 | DB |
 |--------|------|----|
-| api | 인증, 회원, 업체(Merchant), 리소스, 가능시간 CRUD. 관리 API 의 진입점 | db_api |
-| reservation | 예약 생성/조회/취소, 동시성 처리(Redis 분산 락 + DB 락) | db_reservation |
+| api | 인증 전용 — 회원(User) CRUD, JWT 발급/갱신 | db_api |
+| reservation | 예약 도메인 전체 — 업체(Merchant)/리소스(Resource)/가능시간(AvailableTime) CRUD, 예약 생성/조회/취소/관리, 동시성 처리(Redis 분산 락 + DB 락) | db_reservation |
 | payment | Mock 결제 처리. 결제 이력 조회/환불 | db_payment |
 | notification | Mock 알림 발송. 발송 이력 저장 | db_notification |
 
@@ -94,14 +95,14 @@ notification ─── core
 
 | 호출 방향 | 용도 |
 |-----------|------|
-| reservation → api | 예약 시 resource / available-time 검증, 가격 조회 |
 | payment → api | 결제 응답에 사용자 정보 포함 시 |
 | notification → api | 알림 메시지 생성 시 사용자 정보 |
-| api → reservation | 관리 API 의 예약 조회/캘린더 뷰 위임 |
 
 - Spring 6 `RestClient` 사용
 - Resilience4j 로 서킷브레이커 / 타임아웃
 - JWT 토큰을 호출 체인 전체에 전파 (각 서비스가 자체 검증)
+
+> reservation → api REST 호출은 제거됨. Merchant/Resource/AvailableTime 을 reservation 이 직접 소유하므로 cross-service 검증 불필요.
 
 ### 비동기 (Kafka)
 
@@ -217,8 +218,8 @@ List<Reservation> findOverlappingWithLock(...);
 ```
 [Route 53]
    ↓
-[ALB] (path 라우팅: /auth/* /merchants/* /resources/* → api,
-       /reservations/* → reservation, ...)
+[ALB] (path 라우팅: /auth/* /users/* → api,
+       /merchants/* /resources/* /reservations/* /admin/* → reservation, ...)
    ↓
 [ECS Cluster]
    ├── api task           (db_api RDS)

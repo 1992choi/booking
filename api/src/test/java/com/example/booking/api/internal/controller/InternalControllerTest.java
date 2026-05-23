@@ -3,9 +3,6 @@ package com.example.booking.api.internal.controller;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
-import com.example.booking.api.merchant.domain.MerchantType;
-import com.example.booking.api.merchant.dto.MerchantCreateRequest;
-import com.example.booking.api.resource.dto.ResourceCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +17,6 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -47,47 +43,21 @@ class InternalControllerTest {
     }
 
     @Test
-    void getResource_success() throws Exception {
-        String token = signupAndLogin("internal1@example.com");
-        Long merchantId = registerMerchant(token, "My Pension", MerchantType.PENSION);
-        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
-
-        mockMvc.perform(get("/api/v1/internal/resources/{id}", resourceId)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(resourceId))
-                .andExpect(jsonPath("$.name").value("별채 A"))
-                .andExpect(jsonPath("$.price").value(150000))
-                .andExpect(jsonPath("$.maxCapacity").value(2))
-                .andExpect(jsonPath("$.merchantId").value(merchantId));
-    }
-
-    @Test
-    void getResource_notFound() throws Exception {
-        String token = signupAndLogin("internal2@example.com");
-
-        mockMvc.perform(get("/api/v1/internal/resources/{id}", 9999L)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("API_004"));
-    }
-
-    @Test
     void getUser_success() throws Exception {
-        String token = signupAndLogin("internal3@example.com");
-        Long userId = getUserId(token, "internal3@example.com");
+        String token = signupAndLogin("internal1@example.com");
+        Long userId = getUserId(token);
 
         mockMvc.perform(get("/api/v1/internal/users/{id}", userId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("User"))
-                .andExpect(jsonPath("$.email").value("internal3@example.com"));
+                .andExpect(jsonPath("$.email").value("internal1@example.com"));
     }
 
     @Test
     void getUser_notFound() throws Exception {
-        String token = signupAndLogin("internal4@example.com");
+        String token = signupAndLogin("internal2@example.com");
 
         mockMvc.perform(get("/api/v1/internal/users/{id}", 9999L)
                         .header("Authorization", "Bearer " + token))
@@ -96,70 +66,8 @@ class InternalControllerTest {
     }
 
     @Test
-    void getAvailableTimes_success() throws Exception {
-        String token = signupAndLogin("internal5@example.com");
-        Long merchantId = registerMerchant(token, "Test Pension", MerchantType.PENSION);
-        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
-        Long availableTimeId = registerAvailableTime(token, resourceId);
-
-        mockMvc.perform(get("/api/v1/internal/available-times")
-                        .param("ids", String.valueOf(availableTimeId))
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(availableTimeId))
-                .andExpect(jsonPath("$[0].resourceId").value(resourceId))
-                .andExpect(jsonPath("$[0].status").value("OPEN"));
-    }
-
-    @Test
-    void blockAvailableTimes_success() throws Exception {
-        String token = signupAndLogin("internal6@example.com");
-        Long merchantId = registerMerchant(token, "Block Test Pension", MerchantType.PENSION);
-        Long resourceId = registerResource(token, merchantId, "별채 A", 150000L, 2);
-        Long availableTimeId = registerAvailableTime(token, resourceId);
-
-        mockMvc.perform(put("/api/v1/internal/available-times/block")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("[" + availableTimeId + "]"))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/v1/internal/available-times")
-                        .param("ids", String.valueOf(availableTimeId))
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("BLOCKED"));
-    }
-
-    @Test
-    void releaseAvailableTimes_success() throws Exception {
-        String token = signupAndLogin("internal7@example.com");
-        Long merchantId = registerMerchant(token, "Release Test Pension", MerchantType.PENSION);
-        Long resourceId = registerResource(token, merchantId, "별채 B", 150000L, 2);
-        Long availableTimeId = registerAvailableTime(token, resourceId);
-
-        mockMvc.perform(put("/api/v1/internal/available-times/block")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("[" + availableTimeId + "]"))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(put("/api/v1/internal/available-times/release")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("[" + availableTimeId + "]"))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/v1/internal/available-times")
-                        .param("ids", String.valueOf(availableTimeId))
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("OPEN"));
-    }
-
-    @Test
-    void internal_unauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/internal/resources/{id}", 1L))
+    void getUser_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/internal/users/{id}", 1L))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -179,40 +87,7 @@ class InternalControllerTest {
         return objectMapper.readValue(response, TokenResponse.class).accessToken();
     }
 
-    private Long registerMerchant(String token, String name, MerchantType type) throws Exception {
-        MerchantCreateRequest request = new MerchantCreateRequest(name, "02-1234-5678", type);
-        String response = mockMvc.perform(post("/api/v1/merchants")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
-
-    private Long registerResource(String token, Long merchantId, String name, Long price, Integer maxCapacity) throws Exception {
-        ResourceCreateRequest request = new ResourceCreateRequest(name, "설명", price, maxCapacity);
-        String response = mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchantId)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
-
-    private Long registerAvailableTime(String token, Long resourceId) throws Exception {
-        String body = "{\"startTime\":\"2026-06-01T14:00:00\",\"endTime\":\"2026-06-01T15:00:00\"}";
-        String response = mockMvc.perform(post("/api/v1/resources/{resourceId}/available-times", resourceId)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
-
-    private Long getUserId(String token, String email) throws Exception {
+    private Long getUserId(String token) throws Exception {
         String response = mockMvc.perform(get("/api/v1/users/me")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())

@@ -3,8 +3,8 @@
 MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 다른 서비스 데이터는 REST 호출 또는 Kafka 이벤트 페이로드로 받는다.
 
 ```
-db_api          ← User, Merchant, Resource, AvailableTime
-db_reservation  ← Reservation
+db_api          ← User
+db_reservation  ← Merchant, Resource, AvailableTime, Reservation
 db_payment      ← Payment
 db_notification ← Notification
 ```
@@ -49,18 +49,22 @@ public abstract class BaseEntity {
 
 > `role` 은 JWT 클레임에 포함되어 각 서비스로 전파됨.
 
+---
+
+## db_reservation (reservation 서비스 소유)
+
 ### Merchant (업체/호스트)
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
-| user_id | BIGINT | FK → User (업체 운영자 계정, UNIQUE 제약 없음) |
+| user_id | BIGINT | db_api.User.id (FK X) — 업체 운영자 계정 |
 | name | VARCHAR | 업체명 |
 | phone | VARCHAR | 전화번호 |
 | type | ENUM | PENSION / CLASS / FACILITY |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 
-> Merchant 는 별도 로그인 주체가 아니라 User(role=MERCHANT) 에 속함. 한 User 가 여러 Merchant 를 소유할 수 있음 (1:N).
+> 한 User 가 여러 Merchant 를 소유할 수 있음 (1:N). 다른 서비스 DB 이므로 FK 없이 user_id 를 BIGINT 로 보유.
 
 ### Resource (예약 대상)
 | 컬럼 | 타입 | 설명 |
@@ -85,19 +89,15 @@ public abstract class BaseEntity {
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 
-> reservation 서비스가 예약 시 api 서비스의 `/api/internal/resources/{id}/check` REST 로 가용성 검증.
-> AvailableTime.status 는 운영자가 임의로 시간대를 막을 때(`BLOCKED`) 사용. 실제 예약 점유는 db_reservation 의 Reservation 으로 판단.
-
----
-
-## db_reservation (reservation 서비스 소유)
+> AvailableTime.status 는 운영자가 임의로 시간대를 막을 때(`BLOCKED`) 사용. 실제 예약 점유는 Reservation 으로 판단.
+> reservation 서비스가 Merchant/Resource/AvailableTime 을 직접 소유하므로 cross-service REST 검증 불필요.
 
 ### Reservation
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
 | user_id | BIGINT | db_api.User.id (FK X) |
-| resource_id | BIGINT | db_api.Resource.id (FK X) |
+| resource_id | BIGINT | db_reservation.Resource.id (FK X — 같은 DB지만 물리 FK 생략) |
 | resource_name | VARCHAR | 예약 시점의 설비명 snapshot |
 | start_time | DATETIME | 예약 시작 |
 | end_time | DATETIME | 예약 종료 |
@@ -159,13 +159,13 @@ User (api)
   └─ 1:N → Reservation (reservation)
   └─ 1:N → Payment (payment)
   └─ 1:N → Notification (notification)
-  └─ 1:N → Merchant (api)
+  └─ 1:N → Merchant (reservation)
 
-Merchant (api)
-  └─ 1:N → Resource (api)
+Merchant (reservation)
+  └─ 1:N → Resource (reservation)
 
-Resource (api)
-  └─ 1:N → AvailableTime (api)
+Resource (reservation)
+  └─ 1:N → AvailableTime (reservation)
   └─ 1:N → Reservation (reservation)
 
 Reservation (reservation)

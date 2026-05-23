@@ -4,12 +4,11 @@
 
 | Path 패턴 | 라우팅 대상 서비스 |
 |-----------|---------------------|
-| `/api/v1/auth/**` | api |
-| `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/resources/**` | api |
-| `/api/v1/merchants/{merchantId}/reservations` | api → (REST) reservation |
+| `/api/v1/auth/**`, `/api/v1/users/**` | api |
+| `/api/v1/merchants/**`, `/api/v1/resources/**`, `/api/v1/available-times/**` | reservation |
 | `/api/v1/reservations/**` | reservation |
+| `/api/v1/admin/**` | reservation |
 | `/api/v1/payments/**` | payment |
-| `/api/v1/admin/reservations/{id}/confirm`, `/api/v1/admin/reservations/{id}/cancel` | api → (REST) reservation |
 
 ---
 
@@ -49,14 +48,14 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | COMMON_500 | 500 | 서버 오류 | core |
 | API_001 | 409 | 이메일 중복 | api |
 | API_002 | 401 | 이메일/비밀번호 불일치 | api |
-| API_003 | 404 | 업체 없음 | api |
-| API_004 | 404 | 설비 없음 | api |
-| API_005 | 404 | 가능 시간 없음 | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
 | RSV_004 | 404 | 예약 없음 | reservation |
 | RSV_005 | 403 | 본인 예약 아님 | reservation |
+| RSV_006 | 404 | 업체 없음 | reservation |
+| RSV_007 | 404 | 예약 대상 없음 | reservation |
+| RSV_008 | 404 | 가능 시간 없음 | reservation |
 | PAY_001 | 422 | 결제 실패 (비즈니스 결과) | payment |
 | PAY_002 | 409 | 환불 불가 상태 | payment |
 | PAY_003 | 404 | 결제 내역 없음 | payment |
@@ -132,7 +131,7 @@ Error 401 (refresh token이 유효하지 않거나 access token을 사용한 경
 
 ---
 
-## Merchant API (api 서비스)
+## Merchant API (reservation 서비스)
 
 ### 업체 등록
 ```
@@ -224,7 +223,7 @@ Response 200:
 }
 
 Error 403: 본인 소유가 아닌 업체 수정 시도
-Error 404 (API_003): 업체 없음
+Error 404 (RSV_006): 업체 없음
 ```
 
 ### 업체별 예약 목록 조회
@@ -252,14 +251,14 @@ Response 200:
 }
 
 Error 403 (AUTH_002): 본인 소유 업체가 아닌 경우
-Error 404 (API_003): 업체 없음
+Error 404 (RSV_006): 업체 없음
 ```
 
-> api 서비스가 해당 업체의 resourceId 목록을 조회한 뒤, reservation 서비스의 내부 엔드포인트 `GET /api/v1/internal/reservations/by-merchant` 에 위임한다. 리소스가 없으면 reservation 서비스 호출 없이 빈 페이지를 반환한다.
+> reservation 서비스가 merchantId 로 resourceId 목록을 조회한 뒤 직접 예약 목록을 반환. 리소스가 없으면 빈 페이지를 반환.
 
 ---
 
-## Resource API (api 서비스)
+## Resource API (reservation 서비스)
 
 ### 예약 대상 등록
 ```
@@ -387,7 +386,7 @@ Error 409 (application/problem+json):
 }
 ```
 
-> reservation 서비스는 예약 생성 전 api 서비스에 `GET /api/v1/internal/resources/{id}` 로 resource 검증 (가격, max_capacity), `GET /api/v1/internal/available-times?ids=` 로 슬롯 상태 및 소속 resource 검증.
+> reservation 서비스가 Resource/AvailableTime 을 직접 소유하므로 cross-service 검증 호출 없이 로컬 DB 조회로 resource 검증 (가격, max_capacity) 및 슬롯 상태 확인.
 
 ### 예약 상세 조회
 ```
@@ -434,7 +433,7 @@ Response 200:
 ```
 
 > 목록 항목에는 결제 정보가 포함되지 않음. 결제 상세가 필요하면 `/payments/{reservationId}` 별도 호출.
-> `resourceName` 은 reservation 서비스가 api 서비스에 batch 로 조회하거나 (`POST /api/v1/internal/resources/lookup` with id 배열), 예약 시점에 snapshot 으로 저장해 둘 수 있음 — 구현 결정 필요.
+> `resourceName` 은 예약 시점에 reservation 서비스가 로컬 Resource 에서 읽어 snapshot 으로 저장. 이후 Resource.name 이 변경되어도 불변.
 
 ### 예약 취소
 ```
@@ -485,10 +484,9 @@ Error 409 (status 가 COMPLETED 가 아닐 때):
 
 ---
 
-## Admin API (api 서비스 → reservation 위임)
+## Admin API (reservation 서비스)
 
-api 서비스가 진입점이지만 실제 데이터는 reservation 서비스에서 REST 로 가져온다.
-예약 목록 조회는 merchant 기반 조회(`GET /api/v1/merchants/{merchantId}/reservations`)를 사용한다.
+reservation 서비스가 직접 처리한다. MERCHANT 역할이 있는 JWT 필요.
 
 ### 캘린더 뷰
 ```
@@ -567,18 +565,4 @@ Response 200:
 
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
-| `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
-| `GET /api/v1/internal/available-times?ids=` | reservation | 슬롯 상태 및 resource 귀속 검증 |
-| `PUT /api/v1/internal/available-times/block` | reservation | 슬롯 상태 BOOKED 처리 |
-| `PUT /api/v1/internal/available-times/release` | reservation | 슬롯 상태 OPEN 복구 |
 | `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
-
-### reservation 서비스 내부 API
-
-| Endpoint | 호출자 | 용도 |
-|----------|--------|------|
-| `GET /api/v1/internal/reservations/calendar?year=&month=` | api (admin) | 캘린더 뷰 |
-| `GET /api/v1/internal/reservations/{id}` | api (admin) | 예약 상세 |
-| `PUT /api/v1/internal/reservations/{id}/confirm` | api (admin) | 수동 확정 |
-| `PUT /api/v1/internal/reservations/{id}/cancel` | api (admin) | 수동 취소 |
-| `GET /api/v1/internal/reservations/by-merchant?resourceIds=` | api (merchant) | 업체별 예약 목록 |

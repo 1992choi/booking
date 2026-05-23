@@ -23,15 +23,15 @@ Gradle wrapper is pinned to **9.4.1**; toolchain is **Java 25**; Spring Boot **4
 Four independent Spring Boot services + one shared library:
 
 ```
-api (8080)          ─ HTTP entry point, auth (JWT issuance), User/Merchant/Resource/AvailableTime CRUD
-reservation (8081)  ─ Reservation domain, Redis distributed lock, DB pessimistic lock
+api (8080)          ─ Auth only: JWT issuance, User CRUD
+reservation (8081)  ─ Full booking domain: Merchant/Resource/AvailableTime CRUD + Reservation, Redis distributed lock, DB pessimistic lock
 payment (8082)      ─ Mock payment processing
 notification (8083) ─ Mock notification dispatch
 core (library)      ─ BaseEntity, ErrorCode interface, ProblemDetail handler, JwtVerifier
 ```
 
 Services communicate via:
-- **Synchronous**: Spring 6 `RestClient` + Resilience4j (e.g., `reservation → api` for resource validation)
+- **Synchronous**: Spring 6 `RestClient` + Resilience4j (payment/notification → api for user info only)
 - **Asynchronous**: Kafka (`reservation.created`, `payment.completed`, `payment.failed`, `reservation.cancelled`)
 
 Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, `db_payment`, `db_notification`). **No cross-service FK constraints** — other services' identifiers are stored as plain `BIGINT` columns.

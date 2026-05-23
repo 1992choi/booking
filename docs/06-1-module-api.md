@@ -2,7 +2,7 @@
 
 ## 역할
 
-외부 HTTP 요청의 진입점 + 사용자/업체(Merchant)/리소스 도메인 소유 + 인증(JWT 발급) + 관리 API 의 진입점.
+인증 전용 서비스. 회원(User) CRUD + JWT 발급/갱신.
 
 | 항목 | 값 |
 |------|-----|
@@ -10,7 +10,7 @@
 | DB | db_api |
 | 외부 노출 | O |
 | 의존 | core (라이브러리) |
-| 호출하는 서비스 | reservation (REST, 관리 API 위임) |
+| 호출하는 서비스 | 없음 |
 
 ---
 
@@ -18,9 +18,6 @@
 
 api 서비스가 자체 DB 에 소유하는 엔티티:
 - User (회원)
-- Merchant (업체, 1:N 관계 — 한 User 가 여러 Merchant 소유 가능)
-- Resource (예약 대상)
-- AvailableTime (가능 시간대)
 
 ---
 
@@ -36,18 +33,12 @@ api/
     │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
     │   └── dto/
     ├── user/
-    ├── merchant/
-    ├── resource/
-    ├── admin/
-    │   ├── controller/AdminController.java   (reservation 서비스 위임)
-    │   └── client/ReservationClient.java     (RestClient)
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
     ├── error/
     │   └── ApiErrorCode.java
     └── config/
-        ├── SecurityConfig.java
-        └── RestClientConfig.java
+        └── SecurityConfig.java
 ```
 
 ---
@@ -78,34 +69,20 @@ Client → Bearer token
 
 ```
 /api/v1/auth/**                             → permitAll
-GET /api/v1/resources/*/available-times     → permitAll
-/api/v1/admin/**                            → hasRole("MERCHANT")
 그 외                                        → authenticated
 ```
 
-> `JwtAuthenticationFilter` 가 권한을 `ROLE_{role}` 형태로 등록하므로 `hasRole("MERCHANT")` 사용.
-
-### reservation 위임 패턴
-
-api 서비스가 진입점이 되고 `ReservationClient` 를 통해 reservation 서비스 내부 엔드포인트에 위임한다. `Authorization` 헤더를 그대로 전달하고 각 서비스가 JWT 를 독립 검증한다.
-
-| 외부 엔드포인트 | 위임 대상 |
-|----------------|----------|
-| `GET /api/v1/admin/reservations/calendar` | `GET /api/v1/internal/reservations/calendar` |
-| `PUT /api/v1/admin/reservations/{id}/confirm` | `PUT /api/v1/internal/reservations/{id}/confirm` |
-| `PUT /api/v1/admin/reservations/{id}/cancel` | `PUT /api/v1/internal/reservations/{id}/cancel` |
-| `GET /api/v1/merchants/{merchantId}/reservations` | `GET /api/v1/internal/reservations/by-merchant` |
-
-> 업체별 예약 조회는 api 서비스가 merchantId로 resourceId 목록을 조회한 뒤 reservation 서비스에 전달. 리소스가 없으면 reservation 호출 없이 빈 페이지 반환.
-
 ### Internal API
 
-`/api/v1/internal/**` 는 서비스 간 호출 전용 — 외부 노출 금지 (보안 그룹 / Gateway 차단).
+`/api/v1/internal/**` — 외부 노출 금지. payment/notification 서비스가 JWT 를 전달해 호출한다.
 
 | Endpoint | 호출자 | 용도 |
 |----------|--------|------|
-| `GET /api/v1/internal/resources/{id}` | reservation | 가격/정원 검증 |
-| `GET /api/v1/internal/available-times?ids=` | reservation | 슬롯 상태 및 resource 귀속 검증 |
-| `PUT /api/v1/internal/available-times/block` | reservation | 슬롯 상태 BOOKED 처리 |
-| `PUT /api/v1/internal/available-times/release` | reservation | 슬롯 상태 OPEN 복구 |
-| `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 |
+| `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
+
+### ApiErrorCode
+
+| code | HTTP | 설명 |
+|------|------|------|
+| API_001 | 409 | 이메일 중복 |
+| API_002 | 401 | 이메일/비밀번호 불일치 |
