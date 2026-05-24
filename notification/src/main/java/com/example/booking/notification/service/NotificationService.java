@@ -1,17 +1,19 @@
 package com.example.booking.notification.service;
 
-import com.example.booking.notification.client.UserClient;
-import com.example.booking.notification.client.UserSnapshot;
 import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
+import com.example.booking.notification.domain.NotificationStatus;
 import com.example.booking.notification.domain.NotificationType;
 import com.example.booking.notification.service.channel.NotificationSender;
+import com.example.booking.notification.user.domain.UserSync;
+import com.example.booking.notification.user.domain.UserSyncRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -20,7 +22,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationSender notificationSender;
-    private final UserClient userClient;
+    private final UserSyncRepository userSyncRepository;
 
     @Transactional
     public void send(Long userId, Long reservationId, NotificationType type) {
@@ -29,13 +31,18 @@ public class NotificationService {
                 .reservationId(reservationId)
                 .type(type)
                 .channel(notificationSender.channel())
-                .status(com.example.booking.notification.domain.NotificationStatus.FAILED)
+                .status(NotificationStatus.FAILED)
                 .build();
 
         try {
-            UserSnapshot user = userClient.fetch(userId);
-            notificationSender.send(userId, user.email(), type);
-            notification.markSent();
+            Optional<UserSync> userOpt = userSyncRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                log.warn("유저 동기화 정보 없음 userId={}, 알림 발송 스킵", userId);
+                notification.markFailed();
+            } else {
+                notificationSender.send(userId, userOpt.get().getEmail(), type);
+                notification.markSent();
+            }
         } catch (Exception e) {
             log.warn("알림 발송 실패 userId={}, type={}", userId, type, e);
             notification.markFailed();

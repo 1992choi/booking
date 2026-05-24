@@ -16,6 +16,8 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 booking:
   jwt:

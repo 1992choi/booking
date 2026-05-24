@@ -16,7 +16,31 @@ VALUES ('관리자', 'admin@bookit.com', '010-1111-1111', '$2a$10$k6nl/zUrrsYBBD
 USE db_reservation;
 
 -- =============================================
--- 2. Merchant 3개 생성 (PENSION / CLASS / FACILITY)
+-- 2. Users 동기화 (db_api.users → db_reservation.users)
+-- =============================================
+INSERT INTO users (id, name, email, created_at, updated_at)
+SELECT id, name, email, created_at, updated_at FROM db_api.users;
+
+USE db_payment;
+
+-- =============================================
+-- Users 동기화 (db_api.users → db_payment.users)
+-- =============================================
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at FROM db_api.users;
+
+USE db_notification;
+
+-- =============================================
+-- Users 동기화 (db_api.users → db_notification.users)
+-- =============================================
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at FROM db_api.users;
+
+USE db_reservation;
+
+-- =============================================
+-- 3. Merchant 3개 생성 (PENSION / CLASS / FACILITY)
 -- =============================================
 INSERT INTO merchants (user_id, name, phone, type, created_at, updated_at)
 SELECT id, name, phone, 'PENSION', NOW(), NOW()

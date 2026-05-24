@@ -8,12 +8,14 @@ import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
+import com.example.booking.api.user.event.UserCreatedDomainEvent;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.Role;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.core.error.CommonErrorCode;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtIssuer jwtIssuer;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public User register(SignupRequest request) {
@@ -32,13 +35,15 @@ public class AuthService {
             throw new BusinessException(ApiErrorCode.EMAIL_DUPLICATED);
         }
 
-        return userRepository.save(User.builder()
+        User user = userRepository.save(User.builder()
                 .name(request.name())
                 .email(request.email())
                 .phone(request.phone())
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.USER)
                 .build());
+        eventPublisher.publishEvent(new UserCreatedDomainEvent(user.getId(), user.getName(), user.getEmail(), user.getPhone()));
+        return user;
     }
 
     @Transactional(readOnly = true)

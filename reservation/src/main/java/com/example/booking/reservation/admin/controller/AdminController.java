@@ -4,6 +4,7 @@ import com.example.booking.reservation.admin.dto.AdminReservationResponse;
 import com.example.booking.reservation.dto.CalendarReservationResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.service.ReservationService;
+import com.example.booking.reservation.user.domain.UserSyncRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class AdminController {
 
     private final ReservationService reservationService;
+    private final UserSyncRepository userSyncRepository;
 
     @GetMapping("/api/v1/admin/reservations/calendar")
     public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(
@@ -39,8 +41,10 @@ public class AdminController {
     }
 
     private AdminReservationResponse toAdminResponse(ReservationResponse r) {
+        String userName = userSyncRepository.findById(r.userId())
+                .map(u -> u.getName()).orElse(null);
         return new AdminReservationResponse(
                 r.id(), r.status().name(), r.resourceName(),
-                r.startTime(), r.endTime(), r.headCount(), r.amount(), r.userId(), null);
+                r.startTime(), r.endTime(), r.headCount(), r.amount(), r.userId(), userName);
     }
 }

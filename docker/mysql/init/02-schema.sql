@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS users (
 -- db_reservation
 USE db_reservation;
 
+CREATE TABLE IF NOT EXISTS users (
+    id          BIGINT PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    email       VARCHAR(255) NOT NULL,
+    created_at  DATETIME(6),
+    updated_at  DATETIME(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS merchants (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id     BIGINT       NOT NULL,
@@ -66,6 +74,15 @@ CREATE TABLE IF NOT EXISTS reservations (
 -- db_payment
 USE db_payment;
 
+CREATE TABLE IF NOT EXISTS users (
+    id          BIGINT PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    email       VARCHAR(255) NOT NULL,
+    phone       VARCHAR(255) NOT NULL,
+    created_at  DATETIME(6),
+    updated_at  DATETIME(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS payments (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     reservation_id  BIGINT      NOT NULL UNIQUE,
@@ -80,6 +97,15 @@ CREATE TABLE IF NOT EXISTS payments (
 
 -- db_notification
 USE db_notification;
+
+CREATE TABLE IF NOT EXISTS users (
+    id          BIGINT PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    email       VARCHAR(255) NOT NULL,
+    phone       VARCHAR(255) NOT NULL,
+    created_at  DATETIME(6),
+    updated_at  DATETIME(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS notifications (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,

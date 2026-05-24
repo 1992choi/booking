@@ -3,13 +3,11 @@ package com.example.booking.notification.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
-import com.example.booking.notification.client.UserClient;
-import com.example.booking.notification.client.UserSnapshot;
-import com.example.booking.notification.domain.NotificationChannel;
 import com.example.booking.notification.domain.NotificationRepository;
-import com.example.booking.notification.domain.NotificationStatus;
 import com.example.booking.notification.domain.NotificationType;
 import com.example.booking.notification.service.NotificationService;
+import com.example.booking.notification.user.domain.UserSync;
+import com.example.booking.notification.user.domain.UserSyncRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,11 +41,11 @@ class NotificationControllerTest {
     @Autowired
     NotificationRepository notificationRepository;
 
-    @MockitoBean
-    JwtVerifier jwtVerifier;
+    @Autowired
+    UserSyncRepository userSyncRepository;
 
     @MockitoBean
-    UserClient userClient;
+    JwtVerifier jwtVerifier;
 
     MockMvc mockMvc;
 
@@ -57,8 +55,11 @@ class NotificationControllerTest {
                 .addFilters(springSecurityFilterChain)
                 .build();
 
+        notificationRepository.deleteAll();
+        userSyncRepository.save(UserSync.builder()
+                .id(1L).name("홍길동").email("hong@example.com").phone("010-1234-5678").build());
+
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
-        given(userClient.fetch(any())).willReturn(new UserSnapshot(1L, "홍길동", "hong@example.com"));
     }
 
     @Test

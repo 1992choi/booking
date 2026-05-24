@@ -18,6 +18,8 @@ import com.example.booking.reservation.merchant.service.MerchantService;
 import com.example.booking.reservation.resource.domain.Resource;
 import com.example.booking.reservation.resource.domain.ResourceRepository;
 import com.example.booking.reservation.service.ReservationService;
+import com.example.booking.reservation.user.domain.UserSync;
+import com.example.booking.reservation.user.domain.UserSyncRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +35,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -41,6 +45,7 @@ public class MerchantController {
     private final MerchantService merchantService;
     private final ResourceRepository resourceRepository;
     private final ReservationService reservationService;
+    private final UserSyncRepository userSyncRepository;
 
     @PostMapping("/api/v1/merchants")
     @ResponseStatus(HttpStatus.CREATED)
@@ -96,10 +101,15 @@ public class MerchantController {
         ReservationStatus reservationStatus = status != null ? ReservationStatus.valueOf(status) : null;
         PageResponse<ReservationResponse> pageResponse = reservationService.getByResourceIds(
                 resourceIds, reservationStatus, PageRequest.of(page, size));
+        List<Long> userIds = pageResponse.content().stream()
+                .map(ReservationResponse::userId).distinct().toList();
+        Map<Long, String> userNames = userIds.isEmpty() ? Map.of() :
+                userSyncRepository.findAllByIdIn(userIds).stream()
+                        .collect(Collectors.toMap(UserSync::getId, UserSync::getName));
         List<AdminReservationResponse> content = pageResponse.content().stream()
                 .map(r -> new AdminReservationResponse(
                         r.id(), r.status().name(), r.resourceName(), r.startTime(), r.endTime(),
-                        r.headCount(), r.amount(), r.userId(), null))
+                        r.headCount(), r.amount(), r.userId(), userNames.get(r.userId())))
                 .toList();
         return new AdminReservationPageResponse(content, pageResponse.page(), pageResponse.size(),
                 pageResponse.totalElements(), pageResponse.totalPages());
