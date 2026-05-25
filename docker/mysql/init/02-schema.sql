@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     id          BIGINT PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,
     email       VARCHAR(255) NOT NULL,
+    phone       VARCHAR(255) NOT NULL,
     created_at  DATETIME(6),
     updated_at  DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

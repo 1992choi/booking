@@ -27,4 +27,13 @@ public class UserSync extends BaseEntity {
 
     @Column(nullable = false)
     private String email;
+
+    @Column(nullable = false)
+    private String phone;
+
+    public void update(String name, String email, String phone) {
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+    }
 }

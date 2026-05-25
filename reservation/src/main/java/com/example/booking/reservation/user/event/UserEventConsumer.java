@@ -24,10 +24,36 @@ public class UserEventConsumer {
                     .id(event.userId())
                     .name(event.name())
                     .email(event.email())
+                    .phone(event.phone())
                     .build());
             log.info("유저 동기화 완료 userId={}", event.userId());
         } catch (Exception e) {
             log.error("user.created 처리 실패: {}", message, e);
+        }
+    }
+
+    @KafkaListener(topics = "user.updated", groupId = "reservation-group")
+    public void onUserUpdated(String message) {
+        try {
+            UserUpdatedKafkaEvent event = objectMapper.readValue(message, UserUpdatedKafkaEvent.class);
+            userSyncRepository.findById(event.userId()).ifPresent(user -> {
+                user.update(event.name(), event.email(), event.phone());
+                userSyncRepository.save(user);
+            });
+            log.info("유저 정보 업데이트 완료 userId={}", event.userId());
+        } catch (Exception e) {
+            log.error("user.updated 처리 실패: {}", message, e);
+        }
+    }
+
+    @KafkaListener(topics = "user.deleted", groupId = "reservation-group")
+    public void onUserDeleted(String message) {
+        try {
+            UserDeletedKafkaEvent event = objectMapper.readValue(message, UserDeletedKafkaEvent.class);
+            userSyncRepository.deleteById(event.userId());
+            log.info("유저 삭제 완료 userId={}", event.userId());
+        } catch (Exception e) {
+            log.error("user.deleted 처리 실패: {}", message, e);
         }
     }
 }

@@ -47,4 +47,9 @@ public class User extends BaseEntity {
     public void promoteToMerchant() {
         this.role = Role.MERCHANT;
     }
+
+    public void update(String name, String phone) {
+        this.name = name;
+        this.phone = phone;
+    }
 }

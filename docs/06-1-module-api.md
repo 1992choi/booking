@@ -2,7 +2,7 @@
 
 ## 역할
 
-인증 전용 서비스. 회원(User) CRUD + JWT 발급/갱신.
+인증 및 회원 관리 서비스. 회원(User) CRUD + JWT 발급/갱신 + 유저 변경 이벤트 Kafka 발행.
 
 | 항목 | 값 |
 |------|-----|
@@ -33,12 +33,25 @@ api/
     │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
     │   └── dto/
     ├── user/
+    │   ├── controller/UserController.java
+    │   ├── service/UserService.java
+    │   ├── domain/User.java
+    │   ├── dto/
+    │   └── event/
+    │       ├── UserCreatedDomainEvent.java
+    │       ├── UserUpdatedDomainEvent.java
+    │       ├── UserDeletedDomainEvent.java
+    │       ├── UserCreatedKafkaEvent.java
+    │       ├── UserUpdatedKafkaEvent.java
+    │       ├── UserDeletedKafkaEvent.java
+    │       └── UserEventPublisher.java
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
     ├── error/
     │   └── ApiErrorCode.java
     └── config/
-        └── SecurityConfig.java
+        ├── SecurityConfig.java
+        └── KafkaConfig.java
 ```
 
 ---
@@ -72,13 +85,31 @@ Client → Bearer token
 그 외                                        → authenticated
 ```
 
+### User API
+
+| Endpoint | 설명 |
+|----------|------|
+| `GET /api/v1/users/me` | 내 정보 조회 |
+| `PUT /api/v1/users/me` | 이름/전화번호 수정 → `user.updated` 이벤트 발행 |
+| `DELETE /api/v1/users/me` | 회원 탈퇴 (hard delete) → `user.deleted` 이벤트 발행 |
+
+### Kafka 이벤트 발행
+
+회원 상태 변경 시 `ApplicationEventPublisher` → `@TransactionalEventListener(AFTER_COMMIT)` 패턴으로 발행.
+
+| 토픽 | 발행 시점 | 페이로드 |
+|------|-----------|----------|
+| `user.created` | 회원가입 완료 | userId, name, email, phone |
+| `user.updated` | 정보 수정 완료 | userId, name, email, phone |
+| `user.deleted` | 탈퇴 완료 | userId |
+
 ### Internal API
 
-`/api/v1/internal/**` — 외부 노출 금지. payment/notification 서비스가 JWT 를 전달해 호출한다.
+`/api/v1/internal/**` — 외부 노출 금지.
 
-| Endpoint | 호출자 | 용도 |
-|----------|--------|------|
-| `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
+| Endpoint | 용도 |
+|----------|------|
+| `GET /api/v1/internal/users/{id}` | 사용자 정보 조회 |
 
 ### ApiErrorCode
 

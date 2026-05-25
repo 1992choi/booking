@@ -18,8 +18,8 @@ USE db_reservation;
 -- =============================================
 -- 2. Users 동기화 (db_api.users → db_reservation.users)
 -- =============================================
-INSERT INTO users (id, name, email, created_at, updated_at)
-SELECT id, name, email, created_at, updated_at FROM db_api.users;
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at FROM db_api.users;
 
 USE db_payment;
 

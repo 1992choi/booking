@@ -21,10 +21,6 @@
    │ :8080  │ │   :8081      │ │  :8082  │ │   :8083      │
    └───┬────┘ └──────┬───────┘ └────┬────┘ └──────┬───────┘
        │             │              │              │
-       │ REST (user) │              │              │
-       │ ←───────────────────────────┘              │
-       │ ←──────────────────────────────────────────┘
-       │                            │              │
        ▼             ▼              ▼              ▼
    ┌────────┐  ┌──────────────┐ ┌─────────┐  ┌──────────────┐
    │ db_api │  │db_reservation│ │db_payment│ │db_notification│
@@ -63,7 +59,7 @@ payment      ─── core
 notification ─── core
 ```
 
-→ 4개 서비스는 **서로 직접 의존하지 않는다**. 통신은 REST 또는 Kafka 만 사용.
+→ 4개 서비스는 **서로 직접 의존하지 않는다**. 통신은 Kafka 만 사용.
 → core 만 공통 라이브러리로 임베드.
 
 ### 배포 산출물
@@ -91,23 +87,13 @@ notification ─── core
 
 ## 서비스 간 통신
 
-### 동기 (REST)
-
-| 호출 방향 | 용도 |
-|-----------|------|
-| payment → api | 결제 응답에 사용자 정보 포함 시 |
-| notification → api | 알림 메시지 생성 시 사용자 정보 |
-
-- Spring 6 `RestClient` 사용
-- Resilience4j 로 서킷브레이커 / 타임아웃
-- JWT 토큰을 호출 체인 전체에 전파 (각 서비스가 자체 검증)
-
-> reservation → api REST 호출은 제거됨. Merchant/Resource/AvailableTime 을 reservation 이 직접 소유하므로 cross-service 검증 불필요.
-
 ### 비동기 (Kafka)
 
 | 토픽 | producer | consumer | 페이로드 |
 |------|----------|----------|----------|
+| `user.created` | api | reservation, payment, notification | userId, name, email, phone |
+| `user.updated` | api | reservation, payment, notification | userId, name, email, phone |
+| `user.deleted` | api | reservation, payment, notification | userId |
 | `reservation.created` | reservation | payment | reservationId, userId, resourceId, startTime, endTime, amount |
 | `payment.completed` | payment | notification | paymentId, reservationId, userId, amount, paidAt |
 | `payment.failed` | payment | reservation | paymentId, reservationId, reason |

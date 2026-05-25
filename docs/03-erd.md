@@ -1,12 +1,12 @@
 # 03. ERD (서비스별 DB 분리)
 
-MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 다른 서비스 데이터는 REST 호출 또는 Kafka 이벤트 페이로드로 받는다.
+MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 유저 정보는 Kafka `user.created` / `user.updated` / `user.deleted` 이벤트로 각 서비스의 로컬 `users` 테이블에 동기화된다.
 
 ```
 db_api          ← User
-db_reservation  ← Merchant, Resource, AvailableTime, Reservation
-db_payment      ← Payment
-db_notification ← Notification
+db_reservation  ← UserSync, Merchant, Resource, AvailableTime, Reservation
+db_payment      ← UserSync, Payment
+db_notification ← UserSync, Notification
 ```
 
 > 다른 서비스 도메인의 식별자(예: `user_id`, `resource_id`)는 단순 BIGINT 컬럼으로 보유한다. **FK 제약은 걸지 않는다** — 물리적으로 다른 DB이기 때문.
@@ -52,6 +52,18 @@ public abstract class BaseEntity {
 ---
 
 ## db_reservation (reservation 서비스 소유)
+
+### UserSync (유저 동기화 캐시)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGINT | PK — db_api.User.id 그대로 사용 (AUTO_INCREMENT X) |
+| name | VARCHAR | 이름 |
+| email | VARCHAR | 이메일 |
+| phone | VARCHAR | 전화번호 |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+> `user.created` / `user.updated` / `user.deleted` Kafka 이벤트로 동기화. 예약 목록 조회 시 예약자 이름 표시에 사용.
 
 ### Merchant (업체/호스트)
 | 컬럼 | 타입 | 설명 |
@@ -118,6 +130,18 @@ public abstract class BaseEntity {
 
 ## db_payment (payment 서비스 소유)
 
+### UserSync (유저 동기화 캐시)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGINT | PK — db_api.User.id 그대로 사용 (AUTO_INCREMENT X) |
+| name | VARCHAR | 이름 |
+| email | VARCHAR | 이메일 |
+| phone | VARCHAR | 전화번호 |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+> `user.created` / `user.updated` / `user.deleted` Kafka 이벤트로 동기화.
+
 ### Payment
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
@@ -134,6 +158,18 @@ public abstract class BaseEntity {
 ---
 
 ## db_notification (notification 서비스 소유)
+
+### UserSync (유저 동기화 캐시)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGINT | PK — db_api.User.id 그대로 사용 (AUTO_INCREMENT X) |
+| name | VARCHAR | 이름 |
+| email | VARCHAR | 이메일 |
+| phone | VARCHAR | 전화번호 |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+> `user.created` / `user.updated` / `user.deleted` Kafka 이벤트로 동기화. 알림 발송 시 이메일/전화번호 조회에 사용.
 
 ### Notification
 | 컬럼 | 타입 | 설명 |

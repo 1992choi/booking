@@ -131,6 +131,60 @@ Error 401 (refresh token이 유효하지 않거나 access token을 사용한 경
 
 ---
 
+## 유저 API (api 서비스)
+
+### 내 정보 조회
+```
+GET /api/v1/users/me
+Authorization: Bearer {jwt}
+
+Response 200:
+{
+  "id": 1,
+  "name": "홍길동",
+  "email": "hong@example.com",
+  "phone": "010-1234-5678",
+  "role": "USER",
+  "createdAt": "2026-05-01T10:00:00"
+}
+```
+
+### 내 정보 수정
+```
+PUT /api/v1/users/me
+Authorization: Bearer {jwt}
+
+Request:
+{
+  "name": "홍길순",
+  "phone": "010-9999-8888"
+}
+
+Response 200:
+{
+  "id": 1,
+  "name": "홍길순",
+  "email": "hong@example.com",
+  "phone": "010-9999-8888",
+  "role": "USER",
+  "createdAt": "2026-05-01T10:00:00"
+}
+```
+
+> 수정 성공 시 `user.updated` Kafka 이벤트 발행 → 각 서비스의 로컬 users 테이블 동기화.
+
+### 회원 탈퇴
+```
+DELETE /api/v1/users/me
+Authorization: Bearer {jwt}
+
+Response 204 (No Content)
+```
+
+> 탈퇴 성공 시 `user.deleted` Kafka 이벤트 발행 → 각 서비스의 로컬 users 테이블에서 삭제.
+
+---
+
 ## Merchant API (reservation 서비스)
 
 ### 업체 등록
@@ -563,6 +617,6 @@ Response 200:
 
 ### api 서비스 내부 API
 
-| Endpoint | 호출자 | 용도 |
-|----------|--------|------|
-| `GET /api/v1/internal/users/{id}` | payment, notification | 사용자 정보 (이메일, 이름) |
+| Endpoint | 용도 |
+|----------|------|
+| `GET /api/v1/internal/users/{id}` | 사용자 정보 조회 |

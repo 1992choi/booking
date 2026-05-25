@@ -23,4 +23,19 @@ public class UserEventPublisher {
                 new UserCreatedKafkaEvent(event.userId(), event.name(), event.email(), event.phone()));
         log.info("user.created 발행 userId={}", event.userId());
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onUserUpdated(UserUpdatedDomainEvent event) {
+        kafkaTemplate.send("user.updated",
+                new UserUpdatedKafkaEvent(event.userId(), event.name(), event.email(), event.phone()));
+        log.info("user.updated 발행 userId={}", event.userId());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onUserDeleted(UserDeletedDomainEvent event) {
+        kafkaTemplate.send("user.deleted", new UserDeletedKafkaEvent(event.userId()));
+        log.info("user.deleted 발행 userId={}", event.userId());
+    }
 }
