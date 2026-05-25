@@ -55,9 +55,10 @@ public class ReservationService {
             if (slot.getStatus().name().equals("BLOCKED")) {
                 throw new BusinessException(ReservationErrorCode.CONFLICT);
             }
-            boolean hasOverlap = !reservationRepository.findOverlapping(
-                    request.resourceId(), slot.getStartTime(), slot.getEndTime()).isEmpty();
-            if (hasOverlap) {
+            int occupied = reservationRepository.findOverlapping(
+                    request.resourceId(), slot.getStartTime(), slot.getEndTime())
+                    .stream().mapToInt(Reservation::getHeadCount).sum();
+            if (occupied + request.headCount() > resource.getMaxCapacity()) {
                 throw new BusinessException(ReservationErrorCode.CONFLICT);
             }
         }

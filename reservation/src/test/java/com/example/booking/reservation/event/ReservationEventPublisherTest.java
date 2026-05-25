@@ -1,8 +1,11 @@
 package com.example.booking.reservation.event;
 
+import com.example.booking.reservation.domain.ReservationRepository;
 import com.example.booking.reservation.resource.domain.AvailableTime;
 import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
 import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
+import com.example.booking.reservation.resource.domain.Resource;
+import com.example.booking.reservation.resource.domain.ResourceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +32,12 @@ class ReservationEventPublisherTest {
     @Mock
     AvailableTimeRepository availableTimeRepository;
 
+    @Mock
+    ReservationRepository reservationRepository;
+
+    @Mock
+    ResourceRepository resourceRepository;
+
     @InjectMocks
     ReservationEventPublisher publisher;
 
@@ -50,7 +59,11 @@ class ReservationEventPublisherTest {
 
     @Test
     void onReservationCreated_슬롯_BLOCKED_처리_후_카프카_발행() {
+        Resource resource = Resource.builder()
+                .merchantId(1L).name("테스트").description("").price(10000L).maxCapacity(1).build();
         given(availableTimeRepository.findById(99L)).willReturn(Optional.of(slot));
+        given(resourceRepository.findById(5L)).willReturn(Optional.of(resource));
+        given(reservationRepository.sumHeadCountByAvailableTimeId(99L)).willReturn(1);
 
         publisher.onReservationCreated(createdEvent);
 

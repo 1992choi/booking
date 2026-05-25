@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -34,4 +35,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     Page<Reservation> findByResourceIdIn(List<Long> resourceIds, Pageable pageable);
 
     Page<Reservation> findByResourceIdInAndStatus(List<Long> resourceIds, ReservationStatus status, Pageable pageable);
+
+    @Query("""
+            SELECT COALESCE(SUM(r.headCount), 0) FROM Reservation r
+            WHERE r.availableTimeId = :availableTimeId
+              AND r.status <> com.example.booking.reservation.domain.ReservationStatus.CANCELLED
+            """)
+    int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId);
 }

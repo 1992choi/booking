@@ -158,7 +158,8 @@ class ReservationControllerTest {
 
     @Test
     void create_timeConflict() throws Exception {
-        CreateReservationRequest first = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 1);
+        // maxCapacity=2 를 꽉 채운 뒤 추가 예약 시도 → CONFLICT
+        CreateReservationRequest first = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 2);
         mockMvc.perform(post("/api/v1/reservations")
                         .header("Authorization", "Bearer test-token")
                         .contentType(MediaType.APPLICATION_JSON)
