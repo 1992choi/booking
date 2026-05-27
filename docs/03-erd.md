@@ -108,8 +108,9 @@ public abstract class BaseEntity {
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT | PK |
+| available_time_id | BIGINT | FK → AvailableTime |
 | user_id | BIGINT | db_api.User.id (FK X) |
-| resource_id | BIGINT | db_reservation.Resource.id (FK X — 같은 DB지만 물리 FK 생략) |
+| resource_id | BIGINT | FK → Resource |
 | resource_name | VARCHAR | 예약 시점의 설비명 snapshot |
 | start_time | DATETIME | 예약 시작 |
 | end_time | DATETIME | 예약 종료 |

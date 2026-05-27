@@ -116,57 +116,18 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | 단계 | 내용 |
 |------|------|
 | 1단계 | core 라이브러리 — BaseEntity, ErrorCode, GlobalExceptionHandler, JwtVerifier, JwtAuthenticationFilter |
-| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급, Merchant/Resource/AvailableTime CRUD, Internal API |
-| 3단계 | reservation 서비스 — 예약 생성/조회/취소 (시간 중복 검사 포함) |
-| 4단계 | payment 서비스 — 결제 내역 조회, 환불 |
-| 5단계 | notification 서비스 — 알림 발송(Mock), 이력 조회 |
-| 6단계 | Kafka 연동 — `reservation.created` → 결제, `payment.completed` / `reservation.cancelled` → 알림, `payment.failed` → 예약 취소 |
-| 7단계 | 관리 API — `AdminController` + `ReservationClient` (api), `InternalReservationController` (reservation) |
-| 8단계 | Merchant 수정, Resource 수정/삭제, Refresh Token (Stateless JWT) |
-
-### 구조 변경
-
-현재 api 서비스는 인증(User/JWT)과 예약 카탈로그(Merchant/Resource/AvailableTime)를 함께 담당한다.
-관심사 기준으로 경계를 다시 그리면 아래 구조가 더 올바르다.
-
-**현재 구조의 문제**
-
-api 서비스가 두 개의 서로 다른 관심사를 혼재:
-- 인증 관심사 — User, 로그인, JWT 발급
-- 예약 도메인 관심사 — Merchant, Resource, AvailableTime
-
-Merchant · Resource · AvailableTime은 "무엇을, 언제 예약할 수 있는가"를 정의하는 예약 도메인의 구성원이다.
-Reservation과 같은 bounded context에 속하므로 reservation 서비스가 소유하는 것이 맞다.
-
-현재 구조에서는 reservation 서비스가 예약 생성 시 api 서비스를 REST로 호출해 Resource/AvailableTime을 검증하고,
-예약 상태 변경 시 api 서비스 소유 데이터(AvailableTime.status)를 역으로 수정하는 anti-pattern이 발생한다.
-
-**올바른 구조**
-
-```
-auth-service        → User, JWT 발급/갱신
-reservation-service → Merchant, Resource, AvailableTime, Reservation
-payment-service     → Payment
-notification-service → Notification
-```
-
-| 서비스 | 관심사 |
-|--------|--------|
-| auth | 당신이 누구인가 (인증/신원) |
-| reservation | 무엇을 언제 예약할 수 있는가 + 예약 행위 (예약 도메인 전체) |
-| payment | 결제 |
-| notification | 알림 |
-
-**변경 시 개선되는 점**
-
-- reservation 서비스가 Merchant/Resource/AvailableTime을 직접 소유 → 검증을 위한 cross-service REST 호출 제거
-- AvailableTime.status를 reservation 서비스가 역으로 수정하는 anti-pattern 제거
-- auth-service는 인증만, reservation-service는 예약 도메인 전체를 담당하는 단일 책임 구조
+| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급/갱신, 회원 수정/삭제, Internal API |
+| 3단계 | reservation 서비스 — Merchant/Resource/AvailableTime CRUD + 예약 생성/조회/취소 + headCount 기반 정원 초과 검사 |
+| 4단계 | payment 서비스 — Mock 결제 처리, 결제 내역 조회, 환불 |
+| 5단계 | notification 서비스 — Mock 알림 발송, 이력 조회 |
+| 6단계 | Kafka 연동 — `reservation.created` → payment, `payment.completed`/`payment.failed` → notification/reservation, `reservation.cancelled` → notification |
+| 7단계 | 관리 API — AdminController (예약 확정/취소/캘린더) |
+| 8단계 | Merchant/Resource 수정·삭제, Refresh Token (Stateless JWT) |
+| 9단계 | `user.created`/`user.updated`/`user.deleted` Kafka 이벤트 → 각 서비스 UserSync 테이블 동기화 |
 
 ### 개선 이슈 (미구현)
 
 | 항목 | 설명 |
 |------|------|
-| Redis 분산락 | reservation 서비스 예약 생성 시 동시성 처리 미적용 (현재 시간 중복 검사만) |
-| DB 비관적 락 | reservation 서비스 `findOverlapping` 에 `@Lock` 미적용 |
-| 유저 동기화 | 각 서비스가 JWT 서명 검증만으로 유저를 신뢰하는 구조 → `user.created` / `user.deleted` Kafka 이벤트로 각 서비스 users 테이블 동기화 필요 |
+| Redis 분산락 | 예약 생성 시 Redisson 분산락 미적용. 현재는 headCount 합산 비교로만 방어. |
+| DB 비관적락 | `findOverlapping` 쿼리에 `@Lock(PESSIMISTIC_WRITE)` 미적용. |

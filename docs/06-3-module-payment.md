@@ -10,7 +10,7 @@
 | DB | db_payment |
 | 외부 노출 | O (path: `/payments/**`) |
 | 의존 | core (라이브러리), Kafka |
-| 호출하는 서비스 | api (REST, 사용자 정보) |
+| 호출하는 서비스 | 없음 (유저 정보는 로컬 UserSync 테이블 사용) |
 
 ---
 
@@ -38,6 +38,9 @@ payment/
     ├── event/
     │   ├── ReservationEventConsumer.java
     │   └── PaymentEventPublisher.java
+    ├── user/
+    │   ├── domain/UserSync.java
+    │   └── event/UserEventConsumer.java  (user.created/updated/deleted 구독)
     ├── error/
     │   └── PaymentErrorCode.java
     ├── dto/

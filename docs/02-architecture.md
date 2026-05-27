@@ -145,57 +145,28 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
 
 ## 동시성 처리 전략 (reservation 서비스)
 
-### 문제 시나리오
-```
-User A: 5/10 14:00 ~ 15:00 예약 요청
-User B: 5/10 14:00 ~ 15:00 예약 요청  ← 동시에 들어옴
-→ 둘 다 "예약 가능"으로 판단
-→ 중복 예약 발생
-```
+### 현재 구현 (headCount 기반 검사)
 
-### 다층 방어 전략
+슬롯에 `maxCapacity` 가 있어, 단순 겹침 여부가 아니라 현재 점유 인원 합산으로 예약 가능 여부를 판단한다.
 
-**1단계 — Redis 분산 락 (메인)**
-```java
-RLock lock = redissonClient.getLock("reservation:lock:" + resourceId);
-try {
-    if (!lock.tryLock(3, 5, TimeUnit.SECONDS)) {
-        throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
-    }
-    // 시간 겹침 체크 → 예약 생성 → Kafka produce (AFTER_COMMIT)
-} finally {
-    if (lock.isHeldByCurrentThread()) lock.unlock();
-}
-```
-
-**2단계 — DB 비관적 락 + 시간 겹침 쿼리**
-```java
-@Lock(LockModeType.PESSIMISTIC_WRITE)
-@Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId " +
-       "AND r.status <> 'CANCELLED' " +
-       "AND r.startTime < :endTime AND r.endTime > :startTime")
-List<Reservation> findOverlappingWithLock(...);
-```
-
-**3단계 — DB 인덱스 + 정합성 체크**
-- `INDEX (resource_id, start_time, end_time)` — 겹침 쿼리 성능
-- 단순 UNIQUE 제약은 부분 겹침을 막지 못함 (`14:00–15:00` vs `14:30–15:30`).
-  → 진짜 마지막 방어선이 필요하면 PostgreSQL EXCLUDE 제약, 또는 별도 슬롯 테이블 단위 잠금이 필요. 현재는 1+2 단계로 방어.
-
-### 처리 흐름
 ```
 요청
-  → JWT 검증
-  → Redis 분산 락 획득 시도
-      락 실패 → 409 + RSV_002 (LOCK_FAILED)
-      락 성공
-        → 시간 겹침 쿼리 (DB 비관적 락)
-            겹침 있음 → 409 + RSV_001 (CONFLICT)
-            겹침 없음
-              → Reservation INSERT
-              → AFTER_COMMIT 시점에 Kafka produce
-  → 락 해제
+  → headCount > resource.maxCapacity → 422 RSV_003
+  → 각 슬롯별:
+      - slot.status == BLOCKED → 409 RSV_001
+      - findOverlapping().sumHeadCount + 요청 headCount > maxCapacity → 409 RSV_001
+  → Reservation INSERT
+  → AFTER_COMMIT:
+      - sumHeadCountByAvailableTimeId >= maxCapacity → AvailableTime BLOCKED
+      - Kafka produce reservation.created
 ```
+
+> `INDEX (resource_id, start_time, end_time)` — 겹침 쿼리 성능용. UNIQUE 제약은 부분 겹침(`14:00–15:00` vs `14:30–15:30`)을 막지 못하므로 사용하지 않는다.
+
+### 미구현 (backlog)
+
+- **Redis 분산락**: `redissonClient.getLock("reservation:lock:" + resourceId)` — 동시 요청 시 RSV_002 반환
+- **DB 비관적락**: `findOverlapping` 에 `@Lock(LockModeType.PESSIMISTIC_WRITE)` 적용
 
 ---
 

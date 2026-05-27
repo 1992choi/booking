@@ -69,7 +69,7 @@ reservation/
         └── SecurityConfig.java
 ```
 
-> Redis 분산락, DB 비관적 락은 개선 이슈로 미구현 (backlog).
+> Redis 분산락 및 DB 비관적락은 미구현 (backlog). 현재는 headCount 합산 검사로만 방어.
 
 ---
 
@@ -77,26 +77,36 @@ reservation/
 
 ### 예약 생성 흐름
 
-1. `ResourceRepository` 로 resource 검증 (가격 · 최대 인원 snapshot 취득) — cross-service REST 호출 없음
-2. `AvailableTimeRepository` 로 슬롯 상태 검증 (BLOCKED 이면 RSV_001)
-3. `findOverlapping` 으로 시간대 겹침 체크 — 겹치면 `RSV_001`
-4. 예약 생성. `amount` · `resourceName` 은 resource 에서 취득한 snapshot 값으로 저장 (이후 resource 가 변경돼도 불변)
-5. 도메인 이벤트 발행 → `ReservationEventPublisher` 가 `AFTER_COMMIT` 에 AvailableTime.status BLOCKED 처리 + Kafka publish
+1. `ResourceRepository` 로 resource 조회 (가격 · maxCapacity snapshot)
+2. `headCount > maxCapacity` → 422 RSV_003
+3. 각 슬롯별 검증:
+   - `slot.status == BLOCKED` → 409 RSV_001
+   - `findOverlapping().sumHeadCount + headCount > maxCapacity` → 409 RSV_001
+4. Reservation INSERT. `amount` · `resourceName` 은 resource snapshot 으로 저장 (이후 변경돼도 불변)
+5. 도메인 이벤트 발행 → `ReservationEventPublisher` 가 `AFTER_COMMIT` 에:
+   - `sumHeadCountByAvailableTimeId >= maxCapacity` 이면 `AvailableTime.status` → BLOCKED
+   - Kafka `reservation.created` publish
 
-### 시간 겹침 쿼리
+### 주요 쿼리
 
 ```java
+// 시간 겹침 조회
 @Query("""
     SELECT r FROM Reservation r
     WHERE r.resourceId = :resourceId
       AND r.status <> ReservationStatus.CANCELLED
-      AND r.startTime < :end
-      AND r.endTime > :start
+      AND r.startTime < :end AND r.endTime > :start
 """)
 List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDateTime end);
-```
 
-> UNIQUE INDEX 는 정확히 일치하는 시간만 막으므로 부분 겹침을 방지할 수 없다. 이 쿼리가 실질적인 중복 방어선이다.
+// 슬롯 점유 인원 합산 (CANCELLED 제외)
+@Query("""
+    SELECT COALESCE(SUM(r.headCount), 0) FROM Reservation r
+    WHERE r.availableTimeId = :availableTimeId
+      AND r.status <> ReservationStatus.CANCELLED
+""")
+int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId);
+```
 
 ---
 

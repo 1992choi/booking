@@ -10,7 +10,7 @@
 | DB | db_notification |
 | 외부 노출 | △ (이력 조회만. 발송은 Kafka 트리거) |
 | 의존 | core (라이브러리), Kafka |
-| 호출하는 서비스 | api (REST, 사용자 정보) |
+| 호출하는 서비스 | 없음 (유저 정보는 로컬 UserSync 테이블 사용) |
 
 ---
 
@@ -27,21 +27,23 @@ notification 서비스가 자체 DB 에 소유:
 notification/
 └── src/main/java/com/example/booking/notification/
     ├── NotificationApplication.java
+    ├── controller/
+    │   └── NotificationController.java
     ├── service/
     │   ├── NotificationService.java
     │   └── channel/
-    │       ├── NotificationChannel.java     (interface — 확장 포인트)
-    │       └── LogChannel.java              (Mock)
+    │       ├── NotificationSender.java      (interface — 확장 포인트)
+    │       └── LogNotificationSender.java   (Mock)
     ├── domain/
     │   ├── Notification.java
+    │   ├── NotificationChannel.java         (enum: EMAIL/SMS/KAKAO/LOG)
     │   └── NotificationRepository.java
-    ├── client/
-    │   └── UserClient.java                  (api 서비스 REST)
     ├── event/
     │   ├── PaymentEventConsumer.java
     │   └── ReservationEventConsumer.java
-    ├── error/
-    │   └── NotificationErrorCode.java
+    ├── user/
+    │   ├── domain/UserSync.java
+    │   └── event/UserEventConsumer.java     (user.created/updated/deleted 구독)
     └── config/
         └── KafkaConfig.java
 ```
@@ -50,9 +52,9 @@ notification/
 
 ## 핵심 로직
 
-이벤트 consume → `UserClient` 로 api 서비스에서 사용자 정보 조회 → `NotificationChannel.send()` 호출 → Notification 이력 저장 (SENT / FAILED).
+이벤트 consume → 로컬 `UserSyncRepository` 로 사용자 정보 조회 → `NotificationSender.send()` 호출 → Notification 이력 저장 (SENT / FAILED). 유저 동기화 정보가 없으면 발송 스킵 후 FAILED 기록.
 
-`NotificationChannel` 은 인터페이스로 분리돼 있어, 이메일·SMS·카카오 알림톡 등 채널 추가 시 구현체만 추가하면 된다. 현재는 `LogChannel` (로그 출력) 만 구현돼 있다.
+`NotificationSender` 는 인터페이스로 분리돼 있어, 이메일·SMS·카카오 알림톡 등 채널 추가 시 구현체만 추가하면 된다. 현재는 `LogNotificationSender` (로그 출력) 만 구현돼 있다.
 
 알림 타입은 `CONFIRMED` / `CANCELLED` 두 가지만 존재한다.
 
