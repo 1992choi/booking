@@ -163,10 +163,6 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
 
 > `INDEX (resource_id, start_time, end_time)` — 겹침 쿼리 성능용. UNIQUE 제약은 부분 겹침(`14:00–15:00` vs `14:30–15:30`)을 막지 못하므로 사용하지 않는다.
 
-### 미구현 (backlog)
-
-- **Redis 분산락**: `redissonClient.getLock("reservation:lock:" + resourceId)` — 동시 요청 시 RSV_002 반환
-- **DB 비관적락**: `findOverlapping` 에 `@Lock(LockModeType.PESSIMISTIC_WRITE)` 적용
 
 ---
 

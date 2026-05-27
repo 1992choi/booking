@@ -69,7 +69,6 @@ reservation/
         └── SecurityConfig.java
 ```
 
-> Redis 분산락 및 DB 비관적락은 미구현 (backlog). 현재는 headCount 합산 검사로만 방어.
 
 ---
 

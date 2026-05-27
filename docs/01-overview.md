@@ -81,8 +81,6 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 | Infrastructure | AWS (RDS, ElastiCache, MSK, ECS) |
 | Frontend | Next.js (React) |
 
-> **현재 상태**: 4개 서비스 기본 기능 구현 완료. Kafka 연동, Redis 분산락, 관리 API 등은 개선 이슈로 분리됨 (아래 개발 순서 참고).
-
 ---
 
 ## 배포 단위 (MSA)
@@ -106,28 +104,3 @@ MSA 구조로 설계되며, 4개의 독립 배포 서비스 + 1개의 공통 라
 ```
 
 각 서비스는 자기 DB 만 소유. 다른 서비스 데이터는 REST 또는 이벤트 페이로드로 전달받는다.
-
----
-
-## 개발 순서
-
-### 완료
-
-| 단계 | 내용 |
-|------|------|
-| 1단계 | core 라이브러리 — BaseEntity, ErrorCode, GlobalExceptionHandler, JwtVerifier, JwtAuthenticationFilter |
-| 2단계 | api 서비스 — 회원가입/로그인/JWT 발급/갱신, 회원 수정/삭제, Internal API |
-| 3단계 | reservation 서비스 — Merchant/Resource/AvailableTime CRUD + 예약 생성/조회/취소 + headCount 기반 정원 초과 검사 |
-| 4단계 | payment 서비스 — Mock 결제 처리, 결제 내역 조회, 환불 |
-| 5단계 | notification 서비스 — Mock 알림 발송, 이력 조회 |
-| 6단계 | Kafka 연동 — `reservation.created` → payment, `payment.completed`/`payment.failed` → notification/reservation, `reservation.cancelled` → notification |
-| 7단계 | 관리 API — AdminController (예약 확정/취소/캘린더) |
-| 8단계 | Merchant/Resource 수정·삭제, Refresh Token (Stateless JWT) |
-| 9단계 | `user.created`/`user.updated`/`user.deleted` Kafka 이벤트 → 각 서비스 UserSync 테이블 동기화 |
-
-### 개선 이슈 (미구현)
-
-| 항목 | 설명 |
-|------|------|
-| Redis 분산락 | 예약 생성 시 Redisson 분산락 미적용. 현재는 headCount 합산 비교로만 방어. |
-| DB 비관적락 | `findOverlapping` 쿼리에 `@Lock(PESSIMISTIC_WRITE)` 미적용. |
