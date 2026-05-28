@@ -12,6 +12,7 @@ import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
 import com.example.booking.reservation.resource.domain.Resource;
 import com.example.booking.reservation.resource.domain.ResourceRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -75,6 +76,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("MERCHANT 권한으로 달력 예약 현황 조회 성공")
     void getCalendar_merchantSuccess() throws Exception {
         Resource resource = resourceRepository.save(Resource.builder()
                 .merchantId(1L).name("별채 A").description("").price(150000L).maxCapacity(2).build());
@@ -105,6 +107,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("USER 권한으로 달력 조회 시 403 반환")
     void getCalendar_userForbidden() throws Exception {
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
 
@@ -116,6 +119,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 달력 조회 시 401 반환")
     void getCalendar_unauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/admin/reservations/calendar")
                         .param("year", "2026")
@@ -124,6 +128,18 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("예약이 없는 달 조회 시 빈 맵 반환")
+    void getCalendar_emptyMonth() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/reservations/calendar")
+                        .header("Authorization", "Bearer token")
+                        .param("year", "2030")
+                        .param("month", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    @DisplayName("MERCHANT 권한으로 예약 확정 성공")
     void confirm_merchantSuccess() throws Exception {
         Reservation reservation = createReservation(LocalDateTime.of(2026, 10, 1, 10, 0));
 
@@ -134,6 +150,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("MERCHANT 권한으로 예약 취소(관리자) 성공")
     void cancel_merchantSuccess() throws Exception {
         Reservation reservation = createReservation(LocalDateTime.of(2026, 10, 2, 10, 0));
 
@@ -144,6 +161,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("USER 권한으로 예약 확정 시 403 반환")
     void confirm_userForbidden() throws Exception {
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
 
@@ -153,6 +171,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("USER 권한으로 예약 취소(관리자) 시 403 반환")
     void cancel_userForbidden() throws Exception {
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
 
@@ -162,15 +181,35 @@ class AdminControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 예약 확정 시 401 반환")
     void confirm_unauthorized() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 1L))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
+    @DisplayName("비인증 요청으로 예약 취소(관리자) 시 401 반환")
     void cancel_unauthorized() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 1L))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 예약 확정 시 404 반환")
+    void confirm_notFound() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/confirm", 9999L)
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RSV_004"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 예약 취소(관리자) 시 404 반환")
+    void cancel_notFound() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reservations/{id}/cancel", 9999L)
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RSV_004"));
     }
 
     private Reservation createReservation(LocalDateTime start) {

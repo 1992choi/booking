@@ -4,6 +4,7 @@ import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,6 +49,7 @@ class InternalControllerTest {
     }
 
     @Test
+    @DisplayName("내부 API로 유저 조회 성공")
     void getUser_success() throws Exception {
         String token = signupAndLogin("internal1@example.com");
         Long userId = getUserId(token);
@@ -61,6 +63,7 @@ class InternalControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 유저 내부 조회 시 404 반환")
     void getUser_notFound() throws Exception {
         String token = signupAndLogin("internal2@example.com");
 
@@ -71,6 +74,7 @@ class InternalControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 내부 API 접근 시 401 반환")
     void getUser_unauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/internal/users/{id}", 1L))
                 .andExpect(status().isUnauthorized());

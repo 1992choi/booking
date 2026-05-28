@@ -6,7 +6,9 @@ import com.example.booking.core.auth.Role;
 import com.example.booking.payment.domain.Payment;
 import com.example.booking.payment.domain.PaymentRepository;
 import com.example.booking.payment.domain.PaymentStatus;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,7 +17,6 @@ import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -26,7 +27,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@Transactional
 class PaymentControllerTest {
 
     @Autowired
@@ -53,9 +53,16 @@ class PaymentControllerTest {
                 .build();
 
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(1L, Role.USER));
+        paymentRepository.deleteAll();
+    }
+
+    @AfterEach
+    void tearDown() {
+        paymentRepository.deleteAll();
     }
 
     @Test
+    @DisplayName("예약 ID로 결제 정보 조회 성공")
     void getByReservationId_success() throws Exception {
         Payment payment = paymentRepository.save(Payment.builder()
                 .reservationId(1L)
@@ -74,6 +81,7 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 예약의 결제 조회 시 404 반환")
     void getByReservationId_notFound() throws Exception {
         mockMvc.perform(get("/api/v1/payments/{reservationId}", 9999L)
                         .header("Authorization", "Bearer test-token"))
@@ -82,6 +90,7 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("COMPLETED 상태 결제 환불 성공")
     void refund_success() throws Exception {
         Payment payment = Payment.builder()
                 .reservationId(2L)
@@ -99,6 +108,7 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("PENDING 상태 결제 환불 시도 시 409 반환")
     void refund_notAllowed() throws Exception {
         paymentRepository.save(Payment.builder()
                 .reservationId(3L)
@@ -114,12 +124,14 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 결제 조회 시 401 반환")
     void unauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/payments/{reservationId}", 1L))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
+    @DisplayName("이미 환불된 결제 재환불 시도 시 409 반환")
     void refund_alreadyRefunded() throws Exception {
         Payment payment = Payment.builder()
                 .reservationId(4L)
@@ -142,6 +154,16 @@ class PaymentControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 예약 환불 시 404 반환")
+    void refund_notFound() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/{reservationId}/refund", 9999L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PAY_003"));
+    }
+
+    @Test
+    @DisplayName("결제 조회 시 모든 필드 정상 반환")
     void getByReservationId_verifyAllFields() throws Exception {
         Payment payment = paymentRepository.save(Payment.builder()
                 .reservationId(5L)

@@ -8,6 +8,7 @@ import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
 import com.example.booking.reservation.merchant.domain.MerchantType;
 import com.example.booking.reservation.resource.dto.ResourceCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -64,6 +65,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Merchant registration returns 201 with all fields")
     void register_success() throws Exception {
         MerchantCreateRequest request = new MerchantCreateRequest("Sunset Pension", "02-1111-2222", MerchantType.PENSION);
 
@@ -80,6 +82,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Same user can register multiple merchants")
     void register_allows_multiple() throws Exception {
         mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -97,6 +100,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Merchant registration without token returns 401")
     void register_unauthorized() throws Exception {
         MerchantCreateRequest request = new MerchantCreateRequest("No Auth", "02-9999-9999", MerchantType.PENSION);
 
@@ -109,6 +113,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Get my merchants returns registered merchant")
     void getMyMerchants_success() throws Exception {
         mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -125,6 +130,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Get my merchants returns empty list when none registered")
     void getMyMerchants_empty() throws Exception {
         mockMvc.perform(get("/api/v1/merchants/me")
                         .header("Authorization", "Bearer token"))
@@ -133,6 +139,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Get all merchants returns merchants from all users")
     void getMerchants_success() throws Exception {
         long userId1 = userIdSeq.incrementAndGet();
         long userId2 = userIdSeq.incrementAndGet();
@@ -162,6 +169,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Get single merchant returns details including resources")
     void getMerchant_success() throws Exception {
         String merchantResponse = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -189,6 +197,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Get non-existent merchant returns 404")
     void getMerchant_not_found() throws Exception {
         mockMvc.perform(get("/api/v1/merchants/{merchantId}", 9999L))
                 .andExpect(status().isNotFound())
@@ -197,6 +206,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Merchant update by owner returns updated fields")
     void update_success() throws Exception {
         String response = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -219,6 +229,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("Update non-existent merchant returns 404")
     void update_notFound() throws Exception {
         MerchantUpdateRequest update = new MerchantUpdateRequest("Name", "02-1111-1111", MerchantType.PENSION);
         mockMvc.perform(put("/api/v1/merchants/{merchantId}", 9999L)
@@ -230,6 +241,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("다른 유저가 Merchant 수정 시 403 반환")
     void update_forbidden() throws Exception {
         long ownerUserId = userIdSeq.incrementAndGet();
         long otherUserId = userIdSeq.incrementAndGet();
@@ -255,6 +267,7 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("이름이 빈값이면 Merchant 등록 시 400 반환")
     void register_invalidInput_blankName() throws Exception {
         MerchantCreateRequest request = new MerchantCreateRequest("", "02-1111-2222", MerchantType.PENSION);
 
@@ -265,5 +278,34 @@ class MerchantControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("이름이 빈값이면 Merchant 수정 시 400 반환")
+    void update_invalidInput_blankName() throws Exception {
+        String response = mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new MerchantCreateRequest("Valid Name", "02-1111-1111", MerchantType.PENSION))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long merchantId = objectMapper.readTree(response).get("id").asLong();
+
+        MerchantUpdateRequest update = new MerchantUpdateRequest("", "02-9999-9999", MerchantType.CLASS);
+        mockMvc.perform(put("/api/v1/merchants/{merchantId}", merchantId)
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("비인증 요청으로 전체 Merchant 목록 조회 가능")
+    void getMerchants_noAuthAllowed() throws Exception {
+        mockMvc.perform(get("/api/v1/merchants"))
+                .andExpect(status().isOk());
     }
 }

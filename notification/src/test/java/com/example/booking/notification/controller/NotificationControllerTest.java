@@ -9,6 +9,7 @@ import com.example.booking.notification.service.NotificationService;
 import com.example.booking.notification.user.domain.UserSync;
 import com.example.booking.notification.user.domain.UserSyncRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -63,6 +64,7 @@ class NotificationControllerTest {
     }
 
     @Test
+    @DisplayName("내 알림 목록 조회 성공 — 최신순 정렬 및 타입 검증")
     void getMyNotifications_success() throws Exception {
         notificationService.send(1L, 10L, NotificationType.CONFIRMED);
         notificationService.send(1L, 11L, NotificationType.CANCELLED);
@@ -78,6 +80,7 @@ class NotificationControllerTest {
     }
 
     @Test
+    @DisplayName("알림이 없을 때 빈 목록 반환")
     void getMyNotifications_empty() throws Exception {
         mockMvc.perform(get("/api/v1/notifications/me")
                         .header("Authorization", "Bearer test-token"))
@@ -86,12 +89,14 @@ class NotificationControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 알림 조회 시 401 반환")
     void getMyNotifications_unauthorized() throws Exception {
         mockMvc.perform(get("/api/v1/notifications/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
+    @DisplayName("알림 조회 시 모든 필드 정상 반환")
     void getMyNotifications_verifyFields() throws Exception {
         notificationService.send(1L, 42L, NotificationType.CONFIRMED);
 
@@ -107,6 +112,7 @@ class NotificationControllerTest {
     }
 
     @Test
+    @DisplayName("다른 유저의 알림은 조회되지 않음")
     void getMyNotifications_onlyMine() throws Exception {
         notificationService.send(1L, 10L, NotificationType.CONFIRMED);
 

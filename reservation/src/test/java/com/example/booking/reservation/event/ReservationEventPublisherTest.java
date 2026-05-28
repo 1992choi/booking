@@ -7,6 +7,7 @@ import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
 import com.example.booking.reservation.resource.domain.Resource;
 import com.example.booking.reservation.resource.domain.ResourceRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -58,7 +59,8 @@ class ReservationEventPublisherTest {
     }
 
     @Test
-    void onReservationCreated_슬롯_BLOCKED_처리_후_카프카_발행() {
+    @DisplayName("예약 생성 시 슬롯 BLOCKED 처리 후 Kafka 이벤트 발행")
+    void onReservationCreated_blocksSlotAndPublishesToKafka() {
         Resource resource = Resource.builder()
                 .merchantId(1L).name("테스트").description("").price(10000L).maxCapacity(1).build();
         given(availableTimeRepository.findById(99L)).willReturn(Optional.of(slot));
@@ -73,7 +75,8 @@ class ReservationEventPublisherTest {
     }
 
     @Test
-    void onReservationCreated_슬롯_BLOCKED_실패해도_카프카는_발행() {
+    @DisplayName("슬롯 BLOCKED 처리 실패해도 Kafka 이벤트는 발행")
+    void onReservationCreated_publishesToKafkaEvenIfSlotBlockFails() {
         willThrow(new RuntimeException("db error")).given(availableTimeRepository).findById(any());
 
         publisher.onReservationCreated(createdEvent);
@@ -82,7 +85,8 @@ class ReservationEventPublisherTest {
     }
 
     @Test
-    void onReservationCancelled_슬롯_OPEN_복원_후_카프카_발행() {
+    @DisplayName("예약 취소 시 슬롯 OPEN 복원 후 Kafka 이벤트 발행")
+    void onReservationCancelled_restoresSlotAndPublishesToKafka() {
         given(availableTimeRepository.findById(99L)).willReturn(Optional.of(slot));
 
         publisher.onReservationCancelled(cancelledEvent);
@@ -93,7 +97,8 @@ class ReservationEventPublisherTest {
     }
 
     @Test
-    void onReservationCancelled_슬롯_복원_실패해도_카프카는_발행() {
+    @DisplayName("슬롯 복원 실패해도 Kafka 이벤트는 발행")
+    void onReservationCancelled_publishesToKafkaEvenIfSlotRestoreFails() {
         willThrow(new RuntimeException("db error")).given(availableTimeRepository).findById(any());
 
         publisher.onReservationCancelled(cancelledEvent);

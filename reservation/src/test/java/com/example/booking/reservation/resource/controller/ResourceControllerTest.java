@@ -11,6 +11,7 @@ import com.example.booking.reservation.resource.dto.AvailableTimeUpdateRequest;
 import com.example.booking.reservation.resource.dto.ResourceCreateRequest;
 import com.example.booking.reservation.resource.dto.ResourceUpdateRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -83,6 +84,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("리소스 등록 성공 시 201 및 필드 반환")
     void registerResource_success() throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest("별채 A", "2인실 독채", 150000L, 2);
 
@@ -99,6 +101,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 Merchant에 리소스 등록 시 404 반환")
     void registerResource_merchantNotFound() throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest("별채 A", "설명", 100000L, 2);
 
@@ -112,6 +115,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("비인증 요청으로 리소스 등록 시 401 반환")
     void registerResource_unauthorized() throws Exception {
         ResourceCreateRequest request = new ResourceCreateRequest("별채 A", "설명", 100000L, 2);
 
@@ -122,6 +126,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("가용 시간 추가 성공 시 201 및 OPEN 상태 반환")
     void addAvailableTime_success() throws Exception {
         Long resourceId = registerResource("별채 B", 100000L);
 
@@ -141,6 +146,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 리소스에 가용 시간 추가 시 404 반환")
     void addAvailableTime_resourceNotFound() throws Exception {
         AvailableTimeCreateRequest request = new AvailableTimeCreateRequest(
                 LocalDateTime.of(2026, 6, 1, 14, 0),
@@ -156,6 +162,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("날짜로 가용 시간 목록 조회 성공")
     void getAvailableTimes_success() throws Exception {
         Long resourceId = registerResource("강의실 A", 50000L);
 
@@ -185,6 +192,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 리소스의 가용 시간 조회 시 404 반환")
     void getAvailableTimes_resourceNotFound() throws Exception {
         mockMvc.perform(get("/api/v1/resources/{resourceId}/available-times", 9999L)
                         .param("date", "2026-06-10"))
@@ -194,6 +202,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("리소스 수정 성공 시 변경된 필드 반환")
     void updateResource_success() throws Exception {
         Long resourceId = registerResource("별채 A", 150000L);
 
@@ -209,6 +218,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("다른 유저가 리소스 수정 시 403 반환")
     void updateResource_forbidden() throws Exception {
         Long resourceId = registerResource("별채 A", 150000L);
 
@@ -224,6 +234,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("리소스 삭제 성공 시 204 반환")
     void deleteResource_success() throws Exception {
         Long resourceId = registerResource("별채 A", 150000L);
 
@@ -233,6 +244,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("가용 시간 수정 성공 시 변경된 시간 반환")
     void updateAvailableTime_success() throws Exception {
         Long resourceId = registerResource("별채 A", 150000L);
         Long availableTimeId = addAvailableTime(resourceId,
@@ -253,6 +265,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 가용 시간 수정 시 404 반환")
     void updateAvailableTime_notFound() throws Exception {
         AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
                 LocalDateTime.of(2026, 7, 1, 14, 0), LocalDateTime.of(2026, 7, 1, 15, 0));
@@ -267,6 +280,7 @@ class ResourceControllerTest {
     }
 
     @Test
+    @DisplayName("가용 시간 삭제 성공 시 204 반환")
     void deleteAvailableTime_success() throws Exception {
         Long resourceId = registerResource("별채 A", 150000L);
         Long availableTimeId = addAvailableTime(resourceId,
@@ -275,6 +289,105 @@ class ResourceControllerTest {
         mockMvc.perform(delete("/api/v1/available-times/{id}", availableTimeId)
                         .header("Authorization", "Bearer token"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("다른 유저가 리소스 등록 시 403 반환")
+    void registerResource_forbidden() throws Exception {
+        long otherUserId = userIdSeq.incrementAndGet();
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(otherUserId, Role.USER));
+
+        ResourceCreateRequest request = new ResourceCreateRequest("별채 A", "설명", 150000L, 2);
+        mockMvc.perform(post("/api/v1/merchants/{merchantId}/resources", merchant.getId())
+                        .header("Authorization", "Bearer otherToken")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("다른 유저가 가용 시간 추가 시 403 반환")
+    void addAvailableTime_forbidden() throws Exception {
+        Long resourceId = registerResource("별채 A", 150000L);
+
+        long otherUserId = userIdSeq.incrementAndGet();
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(otherUserId, Role.USER));
+
+        AvailableTimeCreateRequest request = new AvailableTimeCreateRequest(
+                LocalDateTime.of(2026, 8, 1, 10, 0),
+                LocalDateTime.of(2026, 8, 1, 11, 0));
+        mockMvc.perform(post("/api/v1/resources/{resourceId}/available-times", resourceId)
+                        .header("Authorization", "Bearer otherToken")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 리소스 삭제 시 404 반환")
+    void deleteResource_notFound() throws Exception {
+        mockMvc.perform(delete("/api/v1/resources/{resourceId}", 9999L)
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("RSV_007"));
+    }
+
+    @Test
+    @DisplayName("다른 유저가 리소스 삭제 시 403 반환")
+    void deleteResource_forbidden() throws Exception {
+        Long resourceId = registerResource("별채 A", 150000L);
+
+        long otherUserId = userIdSeq.incrementAndGet();
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(otherUserId, Role.USER));
+
+        mockMvc.perform(delete("/api/v1/resources/{resourceId}", resourceId)
+                        .header("Authorization", "Bearer otherToken"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 가용 시간 삭제 시 404 반환")
+    void deleteAvailableTime_notFound() throws Exception {
+        mockMvc.perform(delete("/api/v1/available-times/{id}", 9999L)
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("RSV_008"));
+    }
+
+    @Test
+    @DisplayName("다른 유저가 가용 시간 삭제 시 403 반환")
+    void deleteAvailableTime_forbidden() throws Exception {
+        Long resourceId = registerResource("별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(resourceId,
+                LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 1, 11, 0));
+
+        long otherUserId = userIdSeq.incrementAndGet();
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(otherUserId, Role.USER));
+
+        mockMvc.perform(delete("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer otherToken"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("다른 유저가 가용 시간 수정 시 403 반환")
+    void updateAvailableTime_forbidden() throws Exception {
+        Long resourceId = registerResource("별채 A", 150000L);
+        Long availableTimeId = addAvailableTime(resourceId,
+                LocalDateTime.of(2026, 9, 2, 10, 0), LocalDateTime.of(2026, 9, 2, 11, 0));
+
+        long otherUserId = userIdSeq.incrementAndGet();
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(otherUserId, Role.USER));
+
+        AvailableTimeUpdateRequest update = new AvailableTimeUpdateRequest(
+                LocalDateTime.of(2026, 9, 2, 14, 0), LocalDateTime.of(2026, 9, 2, 15, 0));
+        mockMvc.perform(put("/api/v1/available-times/{id}", availableTimeId)
+                        .header("Authorization", "Bearer otherToken")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isForbidden());
     }
 
     private Long registerResource(String name, Long price) throws Exception {

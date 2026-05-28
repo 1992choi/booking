@@ -7,6 +7,7 @@ import com.example.booking.api.auth.dto.TokenResponse;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,6 +60,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("회원가입 성공 시 유저 정보 반환 및 DB 저장")
     void signup_success() throws Exception {
         SignupRequest request = new SignupRequest(
                 "Hong",
@@ -84,6 +86,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("중복 이메일로 회원가입 시 409 반환")
     void signup_duplicate_email() throws Exception {
         SignupRequest first = new SignupRequest(
                 "First",
@@ -112,6 +115,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("잘못된 입력(이름 짧음, 이메일 형식 오류, 비밀번호 짧음)으로 회원가입 시 400 반환")
     void signup_invalid_input() throws Exception {
         SignupRequest invalid = new SignupRequest(
                 "a",
@@ -130,6 +134,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("로그인 성공 시 액세스 토큰 반환")
     void login_success() throws Exception {
         SignupRequest signup = new SignupRequest(
                 "Login",
@@ -152,6 +157,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("잘못된 비밀번호로 로그인 시 401 반환")
     void login_invalid_credentials() throws Exception {
         SignupRequest signup = new SignupRequest(
                 "WrongPw",
@@ -175,6 +181,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않는 이메일로 로그인 시 401 반환")
     void login_user_not_found() throws Exception {
         LoginRequest login = new LoginRequest("nobody@example.com", "anypassword");
 
@@ -188,6 +195,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("로그인 성공 시 리프레시 토큰 및 만료 시간 포함 반환")
     void login_returnsRefreshToken() throws Exception {
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -206,6 +214,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("리프레시 토큰으로 액세스 토큰 갱신 성공")
     void refresh_success() throws Exception {
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -232,6 +241,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("유효하지 않은 토큰으로 갱신 시 401 반환")
     void refresh_invalidToken() throws Exception {
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -241,6 +251,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("액세스 토큰을 갱신 엔드포인트에 사용하면 401 반환")
     void refresh_accessTokenRejected() throws Exception {
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -255,7 +266,6 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        // access token을 refresh endpoint에 사용하면 거절
         String accessToken = objectMapper.readValue(loginBody, TokenResponse.class).accessToken();
 
         mockMvc.perform(post("/api/v1/auth/refresh")
@@ -266,6 +276,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("이름이 빈값이면 회원가입 시 400 반환")
     void signup_blankName() throws Exception {
         SignupRequest request = new SignupRequest("", "blank@example.com", "010-1234-5678", "password123");
 
@@ -279,6 +290,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("비밀번호가 8자 미만이면 회원가입 시 400 반환")
     void signup_passwordTooShort() throws Exception {
         SignupRequest request = new SignupRequest("Hong", "short@example.com", "010-1234-5678", "1234567");
 
@@ -291,6 +303,7 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("빈 요청 바디로 로그인 시 400 반환")
     void login_emptyBody() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
