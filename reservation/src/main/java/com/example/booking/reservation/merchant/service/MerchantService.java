@@ -8,6 +8,9 @@ import com.example.booking.reservation.merchant.domain.MerchantRepository;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ public class MerchantService {
     private final MerchantRepository merchantRepository;
 
     @Transactional
+    @CacheEvict(value = "merchants", key = "'all'")
     public Merchant register(Long userId, MerchantCreateRequest request) {
         return merchantRepository.save(Merchant.builder()
                 .userId(userId)
@@ -35,12 +39,17 @@ public class MerchantService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "merchant", key = "#merchantId")
     public Merchant getById(Long merchantId) {
         return merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND));
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchant", key = "#merchantId"),
+            @CacheEvict(value = "merchants", key = "'all'")
+    })
     public Merchant update(Long userId, Long merchantId, MerchantUpdateRequest request) {
         Merchant merchant = merchantRepository.findById(merchantId)
                 .orElseThrow(() -> new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND));
@@ -52,6 +61,7 @@ public class MerchantService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "merchants", key = "'all'")
     public List<Merchant> getAll() {
         return merchantRepository.findAll();
     }
