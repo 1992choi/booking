@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtIssuer {
@@ -41,7 +42,7 @@ public class JwtIssuer {
         return accessTokenTtl.toSeconds();
     }
 
-    public AuthPrincipal verifyRefreshToken(String token) {
+    public RefreshTokenClaims verifyRefreshToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .build()
@@ -50,15 +51,17 @@ public class JwtIssuer {
         if (!"refresh".equals(claims.get("type", String.class))) {
             throw new IllegalArgumentException("Not a refresh token");
         }
-        return new AuthPrincipal(
+        AuthPrincipal principal = new AuthPrincipal(
                 Long.parseLong(claims.getSubject()),
                 Role.valueOf(claims.get("role", String.class))
         );
+        return new RefreshTokenClaims(principal, claims.getId(), claims.getExpiration().toInstant());
     }
 
     private String buildToken(Long userId, Role role, Duration ttl, String type) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .claim("role", role.name())
                 .claim("type", type)
