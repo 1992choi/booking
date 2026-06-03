@@ -21,6 +21,7 @@ public class ReservationEventConsumer {
         try {
             ReservationCancelledKafkaEvent event = objectMapper.readValue(message, ReservationCancelledKafkaEvent.class);
             notificationService.send(event.userId(), event.reservationId(), NotificationType.CANCELLED);
+            log.info("reservation.cancelled 처리 완료 reservationId={}, userId={}", event.reservationId(), event.userId());
         } catch (Exception e) {
             log.error("reservation.cancelled 처리 실패: {}", message, e);
         }

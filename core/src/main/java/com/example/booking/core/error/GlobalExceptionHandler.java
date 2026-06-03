@@ -15,6 +15,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ProblemDetail> handleBusiness(BusinessException e) {
         ErrorCode ec = e.getErrorCode();
+        log.warn("Business exception: code={}, status={}, message={}", ec.code(), ec.status(), ec.message());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(ec.status(), ec.message());
         pd.setProperty("code", ec.code());
         return ResponseEntity.status(ec.status()).body(pd);

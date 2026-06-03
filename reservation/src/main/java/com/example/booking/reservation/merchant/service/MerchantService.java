@@ -8,6 +8,7 @@ import com.example.booking.reservation.merchant.domain.MerchantRepository;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MerchantService {
@@ -25,12 +27,14 @@ public class MerchantService {
     @Transactional
     @CacheEvict(value = "merchants", key = "'all'")
     public Merchant register(Long userId, MerchantCreateRequest request) {
-        return merchantRepository.save(Merchant.builder()
+        Merchant merchant = merchantRepository.save(Merchant.builder()
                 .userId(userId)
                 .name(request.name())
                 .phone(request.phone())
                 .type(request.type())
                 .build());
+        log.info("업체 등록 merchantId={}, userId={}", merchant.getId(), userId);
+        return merchant;
     }
 
     @Transactional(readOnly = true)
@@ -57,6 +61,7 @@ public class MerchantService {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
         merchant.update(request.name(), request.phone(), request.type());
+        log.info("업체 수정 merchantId={}, userId={}", merchantId, userId);
         return merchant;
     }
 

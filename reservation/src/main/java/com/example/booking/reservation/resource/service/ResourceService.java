@@ -14,6 +14,7 @@ import com.example.booking.reservation.resource.dto.AvailableTimeUpdateRequest;
 import com.example.booking.reservation.resource.dto.ResourceCreateRequest;
 import com.example.booking.reservation.resource.dto.ResourceUpdateRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ResourceService {
@@ -35,25 +37,29 @@ public class ResourceService {
             throw new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND);
         }
         validateMerchantAccess(userId, merchantId);
-        return resourceRepository.save(Resource.builder()
+        Resource resource = resourceRepository.save(Resource.builder()
                 .merchantId(merchantId)
                 .name(request.name())
                 .description(request.description())
                 .price(request.price())
                 .maxCapacity(request.maxCapacity())
                 .build());
+        log.info("리소스 등록 resourceId={}, merchantId={}, userId={}", resource.getId(), merchantId, userId);
+        return resource;
     }
 
     @Transactional
     public AvailableTime addAvailableTime(Long userId, Long resourceId, AvailableTimeCreateRequest request) {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
-        return availableTimeRepository.save(AvailableTime.builder()
+        AvailableTime availableTime = availableTimeRepository.save(AvailableTime.builder()
                 .resourceId(resourceId)
                 .startTime(request.startTime())
                 .endTime(request.endTime())
                 .status(AvailableTimeStatus.OPEN)
                 .build());
+        log.info("가능 시간 추가 availableTimeId={}, resourceId={}", availableTime.getId(), resourceId);
+        return availableTime;
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +89,7 @@ public class ResourceService {
         Resource resource = getById(availableTime.getResourceId());
         validateMerchantAccess(userId, resource.getMerchantId());
         availableTimeRepository.delete(availableTime);
+        log.info("가능 시간 삭제 availableTimeId={}, resourceId={}, userId={}", availableTimeId, resource.getId(), userId);
     }
 
     @Transactional
@@ -90,6 +97,7 @@ public class ResourceService {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
         resource.update(request.name(), request.description(), request.price(), request.maxCapacity());
+        log.info("리소스 수정 resourceId={}, userId={}", resourceId, userId);
         return resource;
     }
 
@@ -98,6 +106,7 @@ public class ResourceService {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
         resourceRepository.delete(resource);
+        log.info("리소스 삭제 resourceId={}, userId={}", resourceId, userId);
     }
 
     @Transactional(readOnly = true)

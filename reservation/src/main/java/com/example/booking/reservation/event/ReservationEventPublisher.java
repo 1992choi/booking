@@ -45,6 +45,7 @@ public class ReservationEventPublisher {
                         event.resourceId(),
                         event.amount()
                 ));
+        log.info("reservation.created 발행 reservationId={}, userId={}", event.reservationId(), event.userId());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -64,5 +65,6 @@ public class ReservationEventPublisher {
                         event.reservationId(),
                         event.userId()
                 ));
+        log.info("reservation.cancelled 발행 reservationId={}, userId={}", event.reservationId(), event.userId());
     }
 }
