@@ -71,6 +71,43 @@ Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, 
 
 **Notification types**: only `CONFIRMED` and `CANCELLED` exist. Earlier drafts mentioned `RESERVED` — there is no such type in the spec.
 
+## Coding behavior
+
+### Think before coding
+- State assumptions explicitly before implementing. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so and push back when warranted.
+
+### Simplicity first
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Self-check: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### Surgical changes
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it — don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that *your* changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+Every changed line should trace directly to the user's request.
+
+### Goal-driven execution
+Transform vague tasks into verifiable goals before starting:
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan with success criteria per step.
+
 ## Documentation index
 
 `docs/` is the source of truth for design decisions:
