@@ -105,7 +105,7 @@ Response 200:
 }
 ```
 
-> refreshToken은 Stateless JWT (type=refresh claim). 서버에 저장하지 않음.
+> refreshToken은 Stateless JWT (type=refresh claim). 로그아웃 시 JTI를 Redis 블랙리스트에 등록 (TTL = refresh token 잔여 만료 시간).
 
 ### 토큰 갱신
 ```
@@ -128,6 +128,20 @@ Error 401 (refresh token이 유효하지 않거나 access token을 사용한 경
   "code": "AUTH_001"
 }
 ```
+
+### 로그아웃
+```
+POST /api/v1/auth/logout
+
+Request:
+{
+  "refreshToken": "eyJhbGci..."
+}
+
+Response 204 (No Content)
+```
+
+> 유효하지 않거나 이미 만료된 토큰도 204 반환 (멱등성 보장). refresh token의 JTI를 Redis 블랙리스트에 등록.
 
 ---
 

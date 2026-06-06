@@ -31,6 +31,8 @@ api/
     │   ├── controller/AuthController.java
     │   ├── service/AuthService.java
     │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
+    │   ├── RefreshTokenBlacklist.java      (Redis 기반 JTI 블랙리스트)
+    │   ├── RefreshTokenClaims.java
     │   └── dto/
     ├── user/
     │   ├── controller/UserController.java
@@ -75,8 +77,8 @@ Client → Bearer token
        → Controller
 ```
 
-> Refresh Token은 Stateless JWT — 서버에 저장하지 않음. `type` claim(`access` / `refresh`)으로 구분.
-> `/auth/refresh` 에 access token 을 넘기면 401 반환.
+> Refresh Token은 Stateless JWT (`type` claim으로 구분). 로그아웃 시 JTI를 Redis 블랙리스트에 등록 (TTL = refresh token 잔여 만료 시간).
+> `/auth/refresh` 에 access token을 넘기거나, 블랙리스트에 등록된 JTI를 사용하면 401 반환.
 
 ### 접근 제어 (SecurityConfig)
 

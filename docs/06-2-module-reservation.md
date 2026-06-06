@@ -66,7 +66,8 @@ reservation/
     │   └── ReservationErrorCode.java
     ├── dto/
     └── config/
-        └── SecurityConfig.java
+        ├── SecurityConfig.java
+        └── CacheConfig.java                 (Redis 캐시 설정)
 ```
 
 
@@ -106,6 +107,17 @@ List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDat
 """)
 int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId);
 ```
+
+---
+
+## Redis 캐싱
+
+Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict`) 적용.
+
+| 캐시 이름 | 키 | 대상 | 무효화 시점 |
+|-----------|----|------|------------|
+| `merchant` | `{merchantId}` | 업체 상세 | 업체 수정 |
+| `merchants` | `all` | 전체 업체 목록 | 업체 등록 · 수정 |
 
 ---
 
