@@ -21,6 +21,7 @@ public class PaymentEventConsumer {
         try {
             PaymentCompletedKafkaEvent event = objectMapper.readValue(message, PaymentCompletedKafkaEvent.class);
             notificationService.send(event.userId(), event.reservationId(), NotificationType.CONFIRMED);
+            log.info("payment.completed 처리 완료 reservationId={}, userId={}", event.reservationId(), event.userId());
         } catch (Exception e) {
             log.error("payment.completed 처리 실패: {}", message, e);
         }

@@ -8,10 +8,12 @@ import com.example.booking.api.user.event.UserUpdatedDomainEvent;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.core.error.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -30,6 +32,7 @@ public class UserService {
         User user = getById(userId);
         user.update(request.name(), request.phone());
         eventPublisher.publishEvent(new UserUpdatedDomainEvent(user.getId(), user.getName(), user.getEmail(), user.getPhone()));
+        log.info("유저 업데이트 userId={}", userId);
         return user;
     }
 
@@ -38,5 +41,6 @@ public class UserService {
         User user = getById(userId);
         userRepository.delete(user);
         eventPublisher.publishEvent(new UserDeletedDomainEvent(userId));
+        log.info("유저 삭제 userId={}", userId);
     }
 }

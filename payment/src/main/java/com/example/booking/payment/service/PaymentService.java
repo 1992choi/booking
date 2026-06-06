@@ -10,10 +10,12 @@ import com.example.booking.payment.event.PaymentCompletedDomainEvent;
 import com.example.booking.payment.event.PaymentFailedDomainEvent;
 import com.example.booking.payment.event.ReservationCreatedKafkaEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -24,6 +26,7 @@ public class PaymentService {
 
     @Transactional
     public void process(ReservationCreatedKafkaEvent event) {
+        log.info("결제 처리 시작 reservationId={}, userId={}, amount={}", event.reservationId(), event.userId(), event.amount());
         Payment payment = Payment.builder()
                 .reservationId(event.reservationId())
                 .userId(event.userId())
@@ -36,9 +39,11 @@ public class PaymentService {
             gateway.charge(payment);
             payment.complete();
             eventPublisher.publishEvent(new PaymentCompletedDomainEvent(payment));
+            log.info("결제 완료 paymentId={}, reservationId={}", payment.getId(), event.reservationId());
         } catch (PaymentDeclinedException e) {
             payment.fail(e.getMessage());
             eventPublisher.publishEvent(new PaymentFailedDomainEvent(payment));
+            log.warn("결제 실패 reservationId={}, reason={}", event.reservationId(), e.getMessage());
         }
     }
 
@@ -59,6 +64,7 @@ public class PaymentService {
         }
 
         payment.refund();
+        log.info("환불 처리 paymentId={}, reservationId={}", payment.getId(), reservationId);
         return PaymentResponse.from(payment);
     }
 }

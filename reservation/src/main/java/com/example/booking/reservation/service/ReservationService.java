@@ -16,6 +16,7 @@ import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
 import com.example.booking.reservation.resource.domain.Resource;
 import com.example.booking.reservation.resource.domain.ResourceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
@@ -84,6 +86,7 @@ public class ReservationService {
                         reservation.getId(), userId, request.resourceId(), resource.getPrice(),
                         reservation.getAvailableTimeId())));
 
+        log.info("예약 생성 userId={}, resourceId={}, slotCount={}", userId, request.resourceId(), reservations.size());
         return reservations.stream().map(ReservationResponse::from).toList();
     }
 
@@ -112,6 +115,7 @@ public class ReservationService {
         reservation.cancel();
         eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
                 reservationId, userId, reservation.getAvailableTimeId()));
+        log.info("예약 취소 reservationId={}, userId={}", reservationId, userId);
         return ReservationResponse.from(reservation);
     }
 
@@ -160,6 +164,7 @@ public class ReservationService {
             reservation.cancel();
             eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
                     reservationId, reservation.getUserId(), reservation.getAvailableTimeId()));
+            log.warn("결제 실패로 예약 취소 reservationId={}, userId={}", reservationId, reservation.getUserId());
         });
     }
 
