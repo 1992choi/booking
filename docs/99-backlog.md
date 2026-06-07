@@ -78,3 +78,92 @@ payment.completed → reservation confirm 실패
 | payment | `payment.completed` / `payment.failed` | outbox 교체 |
 | reservation | `reservation.confirmed` | 신규 이벤트 + outbox |
 | reservation | `reservation.cancelled` | outbox 교체 |
+
+---
+
+## Claude 활용 개발 플로우
+
+### 개요
+
+```
+/plan → /impl → /convention-check → /test → /update-docs
+```
+
+각 단계를 skill / hook / agent 중 적절한 수단으로 구성한다.
+
+---
+
+### Step 1+2: 정리 & 파일 기록 — `/plan` (custom skill)
+
+`.claude/commands/plan.md`로 정의.
+
+- 관련 docs 자동 읽기: `06-*` 모듈 스펙, `04-api-spec.md`, `03-erd.md`
+- 불명확한 부분 질문
+- 구현 계획을 `.claude/tasks/{feature}.md`에 저장
+  - 구현 범위, API 엔드포인트, ERD 변경, 예상 파일 목록
+
+파일로 남기는 이유: 이후 `/impl` 호출 시 context를 다시 설명하지 않아도 됨.
+
+---
+
+### Step 3: 구현 — `/impl` (custom skill)
+
+`.claude/tasks/{feature}.md`를 읽고 시작.
+CLAUDE.md의 "기능 구현 전 docs 3개 확인" 규칙을 자동 수행.
+
+---
+
+### Step 4: 컨벤션 확인 — 두 레이어
+
+**자동 레이어**: `PostToolUse` hook — Edit/Write 후 경량 grep 체크
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [{ "type": "command", "command": ".claude/scripts/convention-lint.sh" }]
+    }]
+  }
+}
+```
+
+`convention-lint.sh`: envelope 응답 여부, 패키지 구조, ErrorCode 위치 등 빠른 패턴 검사.
+
+**명시적 레이어**: `/convention-check` (custom skill) — 구현 완료 후 AI가 맥락을 이해하며 종합 검증.
+
+---
+
+### Step 5: 테스트 — `/test` (custom skill)
+
+`/impl` 결과물을 읽고 테스트 작성. 또는 `/impl`에 `--tdd` 옵션으로 통합 가능.
+
+---
+
+### Step 6: 문서 현행화 — Stop hook + `/update-docs`
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{ "type": "command", "command": ".claude/scripts/docs-reminder.sh" }]
+    }]
+  }
+}
+```
+
+`docs-reminder.sh`: Java 파일 변경 여부 확인 후 docs 현행화 필요 메시지 출력.
+실제 업데이트는 `/update-docs` (built-in skill) 호출.
+
+---
+
+### 수단별 정리
+
+| 단계 | 수단 | 이유 |
+|------|------|------|
+| 정리 & 기록 | skill (`/plan`) | 사용자가 트리거, 대화형 |
+| 구현 | skill (`/impl`) | 파일 읽고 시작, 반복 패턴 |
+| 컨벤션 (자동) | PostToolUse hook | 매 파일 저장마다 자동 |
+| 컨벤션 (종합) | skill (`/convention-check`) | AI 판단이 필요한 부분 |
+| 테스트 | skill (`/test`) | 구현과 분리된 명시적 단계 |
+| 문서 | Stop hook + `/update-docs` | 잊지 않도록 알림, 실행은 수동 |
