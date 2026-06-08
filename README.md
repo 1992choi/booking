@@ -6,6 +6,22 @@
 
 ---
 
+## 개발 플로우
+
+Claude Code를 활용한 기능 개발은 아래 순서로 진행한다.
+
+```
+/design <기능명>        # 관련 docs 분석 → .claude/tasks/{기능}.md 에 설계 기록
+/impl <기능명>          # 설계 파일 기반 구현 + 빌드 확인
+/convention-check       # CLAUDE.md 컨벤션 위반 검사
+/test <기능명>          # 테스트 코드 작성 → 개별 실행 → clean 전체 실행
+/update-docs            # 변경된 코드 기준으로 docs/ 현행화
+```
+
+skill 파일은 `.claude/skills/`, 설계 산출물은 `.claude/tasks/` 에 위치한다.
+
+---
+
 ## 프로젝트 설정
 
 ### 1. 사전 요구사항

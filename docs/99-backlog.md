@@ -1,5 +1,26 @@
 # 99. Backlog
 
+## 코드 컨벤션 정비
+
+코드 스타일, 아키텍처 일관성, 추상화 레벨이 서비스/레이어별로 중구난방인 상태. 전반적으로 맞춰야 함.
+
+### 코드 스타일
+- Checkstyle 또는 Google Java Style Guide 기준 적용 (들여쓰기, 네이밍, 임포트 정렬 등)
+- Lombok 사용 범위 통일 (`@RequiredArgsConstructor` 중심으로)
+- 불필요한 `public` 제거, 접근 제어자 일관화
+
+### 아키텍처 일관성
+- 레이어 간 의존 방향 재확인: Controller → Service → Repository (역방향 참조 제거)
+- DTO가 도메인 레이어로 내려가지 않는지 점검
+- 패키지 구조가 `com.example.booking.{서비스}.{레이어}` 기준으로 통일되어 있는지 확인
+
+### 추상화 레벨
+- 메서드 내 추상화 레벨 혼재 제거 (고수준 흐름 메서드에 저수준 구현 섞이지 않도록)
+- 서비스 메서드 단위 재검토 — 한 메서드가 한 가지 책임만 갖는지
+- 의미 없는 위임 메서드(pass-through) 제거
+
+---
+
 ## 동시성 보강
 
 ### Redis 분산락
@@ -167,3 +188,53 @@ CLAUDE.md의 "기능 구현 전 docs 3개 확인" 규칙을 자동 수행.
 | 컨벤션 (종합) | skill (`/convention-check`) | AI 판단이 필요한 부분 |
 | 테스트 | skill (`/test`) | 구현과 분리된 명시적 단계 |
 | 문서 | Stop hook + `/update-docs` | 잊지 않도록 알림, 실행은 수동 |
+
+---
+
+## 분산 추적 (Micrometer Tracing + Zipkin)
+
+MSA 환경에서 요청이 여러 서비스를 거칠 때 흐름 추적.
+`reservation → payment → notification` 체인의 지연/오류 원인 파악이 현재 로그만으로는 어려움.
+
+- Micrometer Tracing + Brave 의존성 추가 (각 서비스)
+- Zipkin 컨테이너 추가 (docker-compose)
+- TraceId/SpanId 자동 전파 확인
+
+---
+
+## Rate Limiting (Bucket4j)
+
+외부 노출 API의 어뷰징 방지. 예약 생성(`POST /api/v1/reservations`) 등 비용이 큰 엔드포인트 우선 적용.
+
+- Bucket4j + Redis 기반 분산 rate limit (서비스 인스턴스가 여러 개여도 공유 카운터)
+- 초과 시 429 응답
+
+---
+
+## QueryDSL
+
+동적 쿼리가 필요한 목록 조회에 적용. 현재 `@Query` JPQL로 작성된 정적 쿼리를 보완.
+
+- 적용 대상: 예약 목록 (`status`, `date` 필터 조합), 업체별 예약 캘린더 조회
+- `JPAQueryFactory` 빈 등록 + Q클래스 생성 설정 (각 서비스 `build.gradle`)
+
+---
+
+## batch 모듈 (Spring Batch)
+
+독립 모듈(`batch`)로 추가. 구체적인 기능은 미정이나 아래 방향 중 하나 이상 적용 예정.
+
+- **통계 처리**: 일별/월별 예약 건수, 매출 집계
+- **이벤트 트리거**: 미완료 예약 자동 만료 (PENDING 상태 N시간 초과 시 CANCELLED), 슬롯 복원
+- Chunk 기반 처리, JobParameter로 실행 기준 제어
+- `docker-compose`에 배치 실행 환경 추가
+
+---
+
+## CQRS
+
+예약 조회(Read)와 생성/취소(Write) 모델 분리. 현재는 동일 엔티티로 읽기/쓰기를 모두 처리.
+
+- Write 모델: 기존 JPA 엔티티 유지
+- Read 모델: 조회 전용 DTO/Repository 분리 (QueryDSL 또는 별도 Read DB)
+- 적용 대상: 예약 목록 조회, 업체별 캘린더 뷰 — 조회 빈도가 높고 Write와 요구사항이 달라 분리 효과가 큼
