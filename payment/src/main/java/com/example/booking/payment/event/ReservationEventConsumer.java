@@ -19,10 +19,12 @@ public class ReservationEventConsumer {
     public void onReservationCreated(String message) {
         try {
             ReservationCreatedKafkaEvent event = objectMapper.readValue(message, ReservationCreatedKafkaEvent.class);
+
             paymentService.process(event);
             log.info("reservation.created 처리 완료 reservationId={}", event.reservationId());
         } catch (Exception e) {
             log.error("reservation.created 처리 실패: {}", message, e);
         }
     }
+
 }

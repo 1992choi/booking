@@ -37,6 +37,7 @@ public class ResourceService {
             throw new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND);
         }
         validateMerchantAccess(userId, merchantId);
+
         Resource resource = resourceRepository.save(Resource.builder()
                 .merchantId(merchantId)
                 .name(request.name())
@@ -45,6 +46,7 @@ public class ResourceService {
                 .maxCapacity(request.maxCapacity())
                 .build());
         log.info("리소스 등록 resourceId={}, merchantId={}, userId={}", resource.getId(), merchantId, userId);
+
         return resource;
     }
 
@@ -52,6 +54,7 @@ public class ResourceService {
     public AvailableTime addAvailableTime(Long userId, Long resourceId, AvailableTimeCreateRequest request) {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
+
         AvailableTime availableTime = availableTimeRepository.save(AvailableTime.builder()
                 .resourceId(resourceId)
                 .startTime(request.startTime())
@@ -59,6 +62,7 @@ public class ResourceService {
                 .status(AvailableTimeStatus.OPEN)
                 .build());
         log.info("가능 시간 추가 availableTimeId={}, resourceId={}", availableTime.getId(), resourceId);
+
         return availableTime;
     }
 
@@ -67,8 +71,10 @@ public class ResourceService {
         if (!resourceRepository.existsById(resourceId)) {
             throw new BusinessException(ReservationErrorCode.RESOURCE_NOT_FOUND);
         }
+
         LocalDateTime from = date.atStartOfDay();
         LocalDateTime to = date.plusDays(1).atStartOfDay();
+
         return availableTimeRepository.findAllByResourceIdAndStartTimeBetween(resourceId, from, to);
     }
 
@@ -78,7 +84,9 @@ public class ResourceService {
                 .orElseThrow(() -> new BusinessException(ReservationErrorCode.AVAILABLE_TIME_NOT_FOUND));
         Resource resource = getById(availableTime.getResourceId());
         validateMerchantAccess(userId, resource.getMerchantId());
+
         availableTime.update(request.startTime(), request.endTime());
+
         return availableTime;
     }
 
@@ -88,6 +96,7 @@ public class ResourceService {
                 .orElseThrow(() -> new BusinessException(ReservationErrorCode.AVAILABLE_TIME_NOT_FOUND));
         Resource resource = getById(availableTime.getResourceId());
         validateMerchantAccess(userId, resource.getMerchantId());
+
         availableTimeRepository.delete(availableTime);
         log.info("가능 시간 삭제 availableTimeId={}, resourceId={}, userId={}", availableTimeId, resource.getId(), userId);
     }
@@ -96,8 +105,10 @@ public class ResourceService {
     public Resource update(Long userId, Long resourceId, ResourceUpdateRequest request) {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
+
         resource.update(request.name(), request.description(), request.price(), request.maxCapacity());
         log.info("리소스 수정 resourceId={}, userId={}", resourceId, userId);
+
         return resource;
     }
 
@@ -105,6 +116,7 @@ public class ResourceService {
     public void delete(Long userId, Long resourceId) {
         Resource resource = getById(resourceId);
         validateMerchantAccess(userId, resource.getMerchantId());
+
         resourceRepository.delete(resource);
         log.info("리소스 삭제 resourceId={}, userId={}", resourceId, userId);
     }
@@ -122,4 +134,5 @@ public class ResourceService {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
     }
+
 }

@@ -34,4 +34,5 @@ public class PaymentEventPublisher {
                 ));
         log.info("payment.failed 발행 reservationId={}", event.payment().getReservationId());
     }
+
 }

@@ -92,26 +92,32 @@ public class MerchantController {
         if (!merchant.getUserId().equals(principal.userId())) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
+
         List<Long> resourceIds = resourceRepository.findAllByMerchantId(merchantId).stream()
                 .map(Resource::getId)
                 .toList();
         if (resourceIds.isEmpty()) {
             return new AdminReservationPageResponse(List.of(), page, size, 0L, 0);
         }
+
         ReservationStatus reservationStatus = status != null ? ReservationStatus.valueOf(status) : null;
         PageResponse<ReservationResponse> pageResponse = reservationService.getByResourceIds(
                 resourceIds, reservationStatus, PageRequest.of(page, size));
+
         List<Long> userIds = pageResponse.content().stream()
                 .map(ReservationResponse::userId).distinct().toList();
         Map<Long, String> userNames = userIds.isEmpty() ? Map.of() :
                 userSyncRepository.findAllByIdIn(userIds).stream()
                         .collect(Collectors.toMap(UserSync::getId, UserSync::getName));
+
         List<AdminReservationResponse> content = pageResponse.content().stream()
                 .map(r -> new AdminReservationResponse(
                         r.id(), r.status().name(), r.resourceName(), r.startTime(), r.endTime(),
                         r.headCount(), r.amount(), r.userId(), userNames.get(r.userId())))
                 .toList();
+
         return new AdminReservationPageResponse(content, pageResponse.page(), pageResponse.size(),
                 pageResponse.totalElements(), pageResponse.totalPages());
     }
+
 }

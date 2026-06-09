@@ -43,8 +43,10 @@ public class AdminController {
     private AdminReservationResponse toAdminResponse(ReservationResponse r) {
         String userName = userSyncRepository.findById(r.userId())
                 .map(u -> u.getName()).orElse(null);
+
         return new AdminReservationResponse(
                 r.id(), r.status().name(), r.resourceName(),
                 r.startTime(), r.endTime(), r.headCount(), r.amount(), r.userId(), userName);
     }
+
 }

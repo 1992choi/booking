@@ -18,4 +18,5 @@ public class LogNotificationSender implements NotificationSender {
     public void send(Long userId, String email, NotificationType type) {
         log.info("[Mock 알림] userId={}, email={}, type={}", userId, email, type);
     }
+
 }

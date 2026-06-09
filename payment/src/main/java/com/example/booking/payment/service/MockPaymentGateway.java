@@ -9,4 +9,5 @@ public class MockPaymentGateway {
     public void charge(Payment payment) {
         // Mock: 항상 성공. 실제 PG 연동 시 교체 지점
     }
+
 }

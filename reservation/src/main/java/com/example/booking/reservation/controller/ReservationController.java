@@ -54,4 +54,5 @@ public class ReservationController {
                                       @PathVariable Long reservationId) {
         return reservationService.cancel(principal.userId(), reservationId);
     }
+
 }

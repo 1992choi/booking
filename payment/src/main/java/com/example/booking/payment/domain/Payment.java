@@ -59,4 +59,5 @@ public class Payment extends BaseEntity {
     public void refund() {
         this.status = PaymentStatus.REFUNDED;
     }
+
 }

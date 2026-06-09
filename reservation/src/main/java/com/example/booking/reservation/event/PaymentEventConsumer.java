@@ -34,4 +34,5 @@ public class PaymentEventConsumer {
             log.error("payment.failed 처리 실패: {}", message, e);
         }
     }
+
 }

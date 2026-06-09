@@ -38,4 +38,5 @@ public class UserEventPublisher {
         kafkaTemplate.send("user.deleted", new UserDeletedKafkaEvent(event.userId()));
         log.info("user.deleted 발행 userId={}", event.userId());
     }
+
 }

@@ -51,10 +51,12 @@ public class JwtIssuer {
         if (!"refresh".equals(claims.get("type", String.class))) {
             throw new IllegalArgumentException("Not a refresh token");
         }
+
         AuthPrincipal principal = new AuthPrincipal(
                 Long.parseLong(claims.getSubject()),
                 Role.valueOf(claims.get("role", String.class))
         );
+
         return new RefreshTokenClaims(principal, claims.getId(), claims.getExpiration().toInstant());
     }
 
@@ -70,4 +72,5 @@ public class JwtIssuer {
                 .signWith(key)
                 .compact();
     }
+
 }

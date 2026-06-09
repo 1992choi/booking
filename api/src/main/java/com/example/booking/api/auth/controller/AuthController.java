@@ -28,6 +28,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse signup(@Valid @RequestBody SignupRequest request) {
         User user = authService.register(request);
+
         return UserResponse.from(user);
     }
 
@@ -46,4 +47,5 @@ public class AuthController {
     public void logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
     }
+
 }

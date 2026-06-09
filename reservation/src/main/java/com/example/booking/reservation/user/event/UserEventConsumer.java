@@ -20,6 +20,7 @@ public class UserEventConsumer {
     public void onUserCreated(String message) {
         try {
             UserCreatedKafkaEvent event = objectMapper.readValue(message, UserCreatedKafkaEvent.class);
+
             userSyncRepository.save(UserSync.builder()
                     .id(event.userId())
                     .name(event.name())
@@ -36,6 +37,7 @@ public class UserEventConsumer {
     public void onUserUpdated(String message) {
         try {
             UserUpdatedKafkaEvent event = objectMapper.readValue(message, UserUpdatedKafkaEvent.class);
+
             userSyncRepository.findById(event.userId()).ifPresent(user -> {
                 user.update(event.name(), event.email(), event.phone());
                 userSyncRepository.save(user);
@@ -50,10 +52,12 @@ public class UserEventConsumer {
     public void onUserDeleted(String message) {
         try {
             UserDeletedKafkaEvent event = objectMapper.readValue(message, UserDeletedKafkaEvent.class);
+
             userSyncRepository.deleteById(event.userId());
             log.info("유저 삭제 완료 userId={}", event.userId());
         } catch (Exception e) {
             log.error("user.deleted 처리 실패: {}", message, e);
         }
     }
+
 }

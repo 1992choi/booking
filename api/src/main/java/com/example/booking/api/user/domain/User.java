@@ -52,4 +52,5 @@ public class User extends BaseEntity {
         this.name = name;
         this.phone = phone;
     }
+
 }

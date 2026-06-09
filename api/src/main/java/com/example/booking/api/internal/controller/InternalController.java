@@ -17,4 +17,5 @@ public class InternalController {
     public UserSnapshot getUser(@PathVariable Long id) {
         return UserSnapshot.from(userService.getById(id));
     }
+
 }

@@ -25,6 +25,7 @@ public class UserController {
     @GetMapping("/api/v1/users/me")
     public UserResponse getMe(@AuthenticationPrincipal AuthPrincipal principal) {
         User user = userService.getById(principal.userId());
+
         return UserResponse.from(user);
     }
 
@@ -39,4 +40,5 @@ public class UserController {
     public void deleteMe(@AuthenticationPrincipal AuthPrincipal principal) {
         userService.delete(principal.userId());
     }
+
 }

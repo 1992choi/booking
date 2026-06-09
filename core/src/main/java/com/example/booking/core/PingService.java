@@ -5,4 +5,5 @@ public class PingService {
     public String ping() {
         return "pong";
     }
+
 }

@@ -35,4 +35,5 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentLength(body.length);
         response.getOutputStream().write(body);
     }
+
 }

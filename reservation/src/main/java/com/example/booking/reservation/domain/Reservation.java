@@ -68,4 +68,5 @@ public class Reservation extends BaseEntity {
     public void confirm() {
         this.status = ReservationStatus.CONFIRMED;
     }
+
 }

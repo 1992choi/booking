@@ -49,6 +49,7 @@ public class AuthService {
                 .build());
         eventPublisher.publishEvent(new UserCreatedDomainEvent(user.getId(), user.getName(), user.getEmail(), user.getPhone()));
         log.info("회원가입 userId={}, email={}", user.getId(), user.getEmail());
+
         return user;
     }
 
@@ -64,6 +65,7 @@ public class AuthService {
         String accessToken = jwtIssuer.issue(user.getId(), user.getRole());
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), user.getRole());
         log.info("로그인 userId={}", user.getId());
+
         return TokenResponse.ofLogin(accessToken, refreshToken, jwtIssuer.accessTokenTtlSeconds());
     }
 
@@ -74,7 +76,9 @@ public class AuthService {
                 log.warn("블랙리스트 토큰으로 갱신 시도 userId={}", claims.principal().userId());
                 throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
             }
+
             String newAccessToken = jwtIssuer.issue(claims.principal().userId(), claims.principal().role());
+
             return TokenResponse.ofRefresh(newAccessToken, jwtIssuer.accessTokenTtlSeconds());
         } catch (JwtException | IllegalArgumentException e) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
@@ -90,4 +94,5 @@ public class AuthService {
             // 이미 만료되거나 유효하지 않은 토큰 — 무시 (멱등성 보장)
         }
     }
+
 }

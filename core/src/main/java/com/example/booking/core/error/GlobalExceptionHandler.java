@@ -18,6 +18,7 @@ public class GlobalExceptionHandler {
         log.warn("Business exception: code={}, status={}, message={}", ec.code(), ec.status(), ec.message());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(ec.status(), ec.message());
         pd.setProperty("code", ec.code());
+
         return ResponseEntity.status(ec.status()).body(pd);
     }
 
@@ -26,6 +27,7 @@ public class GlobalExceptionHandler {
         String detail = e.getBindingResult().getAllErrors().getFirst().getDefaultMessage();
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
         pd.setProperty("code", CommonErrorCode.BAD_REQUEST.code());
+
         return ResponseEntity.badRequest().body(pd);
     }
 
@@ -37,6 +39,8 @@ public class GlobalExceptionHandler {
                 CommonErrorCode.INTERNAL_ERROR.message()
         );
         pd.setProperty("code", CommonErrorCode.INTERNAL_ERROR.code());
+
         return ResponseEntity.internalServerError().body(pd);
     }
+
 }

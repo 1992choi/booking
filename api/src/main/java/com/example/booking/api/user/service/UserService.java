@@ -30,17 +30,21 @@ public class UserService {
     @Transactional
     public User update(Long userId, UserUpdateRequest request) {
         User user = getById(userId);
+
         user.update(request.name(), request.phone());
         eventPublisher.publishEvent(new UserUpdatedDomainEvent(user.getId(), user.getName(), user.getEmail(), user.getPhone()));
         log.info("유저 업데이트 userId={}", userId);
+
         return user;
     }
 
     @Transactional
     public void delete(Long userId) {
         User user = getById(userId);
+
         userRepository.delete(user);
         eventPublisher.publishEvent(new UserDeletedDomainEvent(userId));
         log.info("유저 삭제 userId={}", userId);
     }
+
 }

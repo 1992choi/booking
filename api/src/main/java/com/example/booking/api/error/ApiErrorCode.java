@@ -30,4 +30,5 @@ public enum ApiErrorCode implements ErrorCode {
     public String message() {
         return message;
     }
+
 }

@@ -54,4 +54,5 @@ public class AvailableTime extends BaseEntity {
     public void release() {
         this.status = AvailableTimeStatus.OPEN;
     }
+
 }

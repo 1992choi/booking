@@ -46,4 +46,5 @@ public class Resource extends BaseEntity {
         this.price = price;
         this.maxCapacity = maxCapacity;
     }
+
 }

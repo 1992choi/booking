@@ -45,4 +45,5 @@ public class Merchant extends BaseEntity {
         this.phone = phone;
         this.type = type;
     }
+
 }

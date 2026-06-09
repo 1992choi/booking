@@ -27,6 +27,7 @@ public class PaymentService {
     @Transactional
     public void process(ReservationCreatedKafkaEvent event) {
         log.info("결제 처리 시작 reservationId={}, userId={}, amount={}", event.reservationId(), event.userId(), event.amount());
+
         Payment payment = Payment.builder()
                 .reservationId(event.reservationId())
                 .userId(event.userId())
@@ -51,6 +52,7 @@ public class PaymentService {
     public PaymentResponse getByReservationId(Long reservationId) {
         Payment payment = paymentRepository.findByReservationId(reservationId)
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.NOT_FOUND));
+
         return PaymentResponse.from(payment);
     }
 
@@ -65,6 +67,8 @@ public class PaymentService {
 
         payment.refund();
         log.info("환불 처리 paymentId={}, reservationId={}", payment.getId(), reservationId);
+
         return PaymentResponse.from(payment);
     }
+
 }

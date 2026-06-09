@@ -34,6 +34,7 @@ public class MerchantService {
                 .type(request.type())
                 .build());
         log.info("업체 등록 merchantId={}, userId={}", merchant.getId(), userId);
+
         return merchant;
     }
 
@@ -60,8 +61,10 @@ public class MerchantService {
         if (!merchant.getUserId().equals(userId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
+
         merchant.update(request.name(), request.phone(), request.type());
         log.info("업체 수정 merchantId={}, userId={}", merchantId, userId);
+
         return merchant;
     }
 
@@ -70,4 +73,5 @@ public class MerchantService {
     public List<Merchant> getAll() {
         return merchantRepository.findAll();
     }
+
 }

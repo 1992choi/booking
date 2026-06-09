@@ -40,6 +40,7 @@ public class ResourceController {
                                      @PathVariable Long merchantId,
                                      @Valid @RequestBody ResourceCreateRequest request) {
         Resource resource = resourceService.register(principal.userId(), merchantId, request);
+
         return ResourceResponse.from(resource);
     }
 
@@ -49,6 +50,7 @@ public class ResourceController {
                                                   @PathVariable Long resourceId,
                                                   @Valid @RequestBody AvailableTimeCreateRequest request) {
         AvailableTime availableTime = resourceService.addAvailableTime(principal.userId(), resourceId, request);
+
         return AvailableTimeResponse.from(availableTime);
     }
 
@@ -89,4 +91,5 @@ public class ResourceController {
                 .map(AvailableTimeResponse::from)
                 .toList();
     }
+
 }

@@ -108,6 +108,68 @@ Transform vague tasks into verifiable goals before starting:
 
 For multi-step tasks, state a brief plan with success criteria per step.
 
+## Code style
+
+### Class body spacing
+Always add a blank line before the closing `}` of every class (mirrors the blank line that follows the opening `{`):
+
+```java
+public class Foo {
+
+    private final Bar bar;
+
+    public void doSomething() {
+        ...
+    }
+
+}
+```
+
+### Return statement separation
+`return` is a distinct concern (signalling completion). Always separate it from the preceding code with a blank line — unless the entire method body is a single `return`:
+
+```java
+// ✓
+public Foo get(Long id) {
+    Foo foo = repository.findById(id).orElseThrow(...);
+
+    return foo;
+}
+
+// ✓ single-statement body — no blank line needed
+public Foo get(Long id) {
+    return repository.findById(id).orElseThrow(...);
+}
+```
+
+### Concern-based grouping
+Within a method body, group statements by concern. Add a blank line whenever the concern changes. Typical concern boundaries in this codebase:
+
+| Concern | Examples |
+|---------|---------|
+| Load / find | `repo.findById(...)`, `service.getById(...)` |
+| Validate / guard | `if (...) throw ...`, access checks |
+| Perform operation | `entity.update(...)`, `repo.save(...)`, `service.process(...)` |
+| Publish / log | `eventPublisher.publishEvent(...)`, `kafkaTemplate.send(...)`, `log.info(...)` |
+| Return | `return ...` |
+| Deserialize (Kafka) | `objectMapper.readValue(...)` — always its own concern before the service call |
+
+```java
+// ✓
+public Foo update(Long userId, Long fooId, UpdateRequest request) {
+    Foo foo = findOrThrow(fooId);
+    validateAccess(userId, foo);
+
+    foo.update(request.name());
+    eventPublisher.publishEvent(new FooUpdatedEvent(foo.getId()));
+    log.info("업데이트 fooId={}", fooId);
+
+    return foo;
+}
+```
+
+See `docs/07-coding-conventions.md` for rationale and more examples.
+
 ## Documentation index
 
 `docs/` is the source of truth for design decisions:
@@ -117,5 +179,6 @@ For multi-step tasks, state a brief plan with success criteria per step.
 - `04-api-spec.md` — REST endpoints with service ownership table, ProblemDetail format
 - `05-module-core.md` — core library scope (entities/repos NOT here)
 - `06-1` through `06-4` — per-service module specs
+- `07-coding-conventions.md` — code style and formatting rules
 
 When implementing a feature, find its module spec under `06-*`, cross-reference the API in `04-api-spec.md`, and check the relevant ERD section in `03-erd.md`.

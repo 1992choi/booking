@@ -21,9 +21,11 @@ public class JwtVerifier {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+
         return new AuthPrincipal(
                 Long.parseLong(claims.getSubject()),
                 Role.valueOf(claims.get("role", String.class))
         );
     }
+
 }

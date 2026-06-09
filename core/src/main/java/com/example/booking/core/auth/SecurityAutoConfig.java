@@ -27,4 +27,5 @@ public class SecurityAutoConfig {
     public JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint(ObjectMapper objectMapper) {
         return new JwtAuthenticationEntryPoint(objectMapper);
     }
+
 }

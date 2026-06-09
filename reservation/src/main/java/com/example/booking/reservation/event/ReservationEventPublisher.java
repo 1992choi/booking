@@ -38,6 +38,7 @@ public class ReservationEventPublisher {
         } catch (Exception e) {
             log.error("슬롯 BLOCKED 처리 실패 availableTimeId={}", event.availableTimeId(), e);
         }
+
         kafkaTemplate.send("reservation.created",
                 new ReservationCreatedKafkaEvent(
                         event.reservationId(),
@@ -60,6 +61,7 @@ public class ReservationEventPublisher {
         } catch (Exception e) {
             log.error("슬롯 OPEN 복원 실패 availableTimeId={}", event.availableTimeId(), e);
         }
+
         kafkaTemplate.send("reservation.cancelled",
                 new ReservationCancelledKafkaEvent(
                         event.reservationId(),
@@ -67,4 +69,5 @@ public class ReservationEventPublisher {
                 ));
         log.info("reservation.cancelled 발행 reservationId={}, userId={}", event.reservationId(), event.userId());
     }
+
 }

@@ -85,14 +85,15 @@ public class ReservationService {
                 eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
                         reservation.getId(), userId, request.resourceId(), resource.getPrice(),
                         reservation.getAvailableTimeId())));
-
         log.info("예약 생성 userId={}, resourceId={}, slotCount={}", userId, request.resourceId(), reservations.size());
+
         return reservations.stream().map(ReservationResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
     public ReservationResponse getById(Long reservationId) {
         Reservation reservation = findOrThrow(reservationId);
+
         return ReservationResponse.from(reservation);
     }
 
@@ -116,6 +117,7 @@ public class ReservationService {
         eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
                 reservationId, userId, reservation.getAvailableTimeId()));
         log.info("예약 취소 reservationId={}, userId={}", reservationId, userId);
+
         return ReservationResponse.from(reservation);
     }
 
@@ -135,16 +137,20 @@ public class ReservationService {
     @Transactional
     public ReservationResponse confirm(Long reservationId) {
         Reservation reservation = findOrThrow(reservationId);
+
         reservation.confirm();
+
         return ReservationResponse.from(reservation);
     }
 
     @Transactional
     public ReservationResponse adminCancel(Long reservationId) {
         Reservation reservation = findOrThrow(reservationId);
+
         reservation.cancel();
         eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
                 reservationId, reservation.getUserId(), reservation.getAvailableTimeId()));
+
         return ReservationResponse.from(reservation);
     }
 
@@ -172,4 +178,5 @@ public class ReservationService {
         return reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new BusinessException(ReservationErrorCode.NOT_FOUND));
     }
+
 }

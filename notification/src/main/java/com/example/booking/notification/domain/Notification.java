@@ -57,4 +57,5 @@ public class Notification extends BaseEntity {
     public void markFailed() {
         this.status = NotificationStatus.FAILED;
     }
+
 }

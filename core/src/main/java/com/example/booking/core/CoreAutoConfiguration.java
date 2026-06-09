@@ -28,4 +28,5 @@ public class CoreAutoConfiguration {
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
     }
+
 }

@@ -55,4 +55,5 @@ public class NotificationService {
     public List<Notification> getMyNotifications(Long userId) {
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
     }
+
 }

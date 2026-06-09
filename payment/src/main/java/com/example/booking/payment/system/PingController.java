@@ -19,6 +19,8 @@ public class PingController {
         if (fail) {
             throw new BusinessException(CommonErrorCode.BAD_REQUEST);
         }
+
         return "[PAYMENT] " + pingService.ping();
     }
+
 }

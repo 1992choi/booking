@@ -69,6 +69,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         if (buf.length == 0) {
             return "";
         }
+
         return new String(buf, StandardCharsets.UTF_8);
     }
 
@@ -80,4 +81,5 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         String keys = String.join("|", SENSITIVE_KEYS);
         return Pattern.compile("\"(" + keys + ")\"\\s*:\\s*\"[^\"]*\"");
     }
+
 }
