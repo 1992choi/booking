@@ -2,9 +2,7 @@ package com.example.booking.reservation.admin.controller;
 
 import com.example.booking.reservation.admin.dto.AdminReservationResponse;
 import com.example.booking.reservation.dto.CalendarReservationResponse;
-import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.service.ReservationService;
-import com.example.booking.reservation.user.domain.UserSyncRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,7 +19,6 @@ import java.util.Map;
 public class AdminController {
 
     private final ReservationService reservationService;
-    private final UserSyncRepository userSyncRepository;
 
     @GetMapping("/api/v1/admin/reservations/calendar")
     public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(
@@ -32,21 +29,12 @@ public class AdminController {
 
     @PutMapping("/api/v1/admin/reservations/{reservationId}/confirm")
     public AdminReservationResponse confirm(@PathVariable Long reservationId) {
-        return toAdminResponse(reservationService.confirm(reservationId));
+        return reservationService.confirm(reservationId);
     }
 
     @PutMapping("/api/v1/admin/reservations/{reservationId}/cancel")
     public AdminReservationResponse cancel(@PathVariable Long reservationId) {
-        return toAdminResponse(reservationService.adminCancel(reservationId));
-    }
-
-    private AdminReservationResponse toAdminResponse(ReservationResponse r) {
-        String userName = userSyncRepository.findById(r.userId())
-                .map(u -> u.getName()).orElse(null);
-
-        return new AdminReservationResponse(
-                r.id(), r.status().name(), r.resourceName(),
-                r.startTime(), r.endTime(), r.headCount(), r.amount(), r.userId(), userName);
+        return reservationService.adminCancel(reservationId);
     }
 
 }
