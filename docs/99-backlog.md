@@ -92,15 +92,6 @@ MSA 환경에서 요청이 여러 서비스를 거칠 때 흐름 추적.
 
 ---
 
-## Rate Limiting (Bucket4j)
-
-외부 노출 API의 어뷰징 방지. 예약 생성(`POST /api/v1/reservations`) 등 비용이 큰 엔드포인트 우선 적용.
-
-- Bucket4j + Redis 기반 분산 rate limit (서비스 인스턴스가 여러 개여도 공유 카운터)
-- 초과 시 429 응답
-
----
-
 ## QueryDSL
 
 동적 쿼리가 필요한 목록 조회에 적용. 현재 `@Query` JPQL로 작성된 정적 쿼리를 보완.

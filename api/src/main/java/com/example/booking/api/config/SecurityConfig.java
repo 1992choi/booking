@@ -1,5 +1,6 @@
 package com.example.booking.api.config;
 
+import com.example.booking.api.auth.filter.LoginRateLimitFilter;
 import com.example.booking.core.auth.JwtAuthenticationEntryPoint;
 import com.example.booking.core.auth.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +25,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtAuthenticationFilter jwtAuthenticationFilter,
-                                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) throws Exception {
+                                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+                                           LoginRateLimitFilter loginRateLimitFilter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
@@ -36,6 +38,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginRateLimitFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 

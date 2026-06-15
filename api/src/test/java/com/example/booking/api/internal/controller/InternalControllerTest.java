@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.web.FilterChainProxy;
@@ -39,10 +40,14 @@ class InternalControllerTest {
     @MockitoBean
     KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Autowired
+    StringRedisTemplate redisTemplate;
+
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
+        redisTemplate.delete("rl:login:127.0.0.1");
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .addFilters(springSecurityFilterChain)
                 .build();
