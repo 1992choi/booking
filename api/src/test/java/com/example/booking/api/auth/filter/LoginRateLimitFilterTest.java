@@ -6,6 +6,7 @@ import io.github.bucket4j.distributed.proxy.ProxyManager;
 import io.github.bucket4j.distributed.proxy.RemoteBucketBuilder;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -54,7 +55,8 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void 토큰이_남아있으면_요청을_통과시킨다() throws Exception {
+    @DisplayName("토큰이 남아있으면 요청을 통과시킨다")
+    void tokenAvailable_passThrough() throws Exception {
         MockHttpServletRequest request = loginRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -69,7 +71,8 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void 토큰이_소진되면_429를_반환한다() throws Exception {
+    @DisplayName("토큰이 소진되면 429를 반환한다")
+    void tokenExhausted_returns429() throws Exception {
         MockHttpServletRequest request = loginRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -87,7 +90,8 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void 초과_응답_바디에_에러코드가_포함된다() throws Exception {
+    @DisplayName("초과 응답 바디에 에러코드가 포함된다")
+    void tokenExhausted_responseBodyContainsErrorCode() throws Exception {
         MockHttpServletRequest request = loginRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -104,7 +108,8 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void 로그인_외_경로는_필터를_통과한다() throws Exception {
+    @DisplayName("로그인 외 경로는 필터를 통과한다")
+    void nonLoginPath_passThrough() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signup");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -115,7 +120,8 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void GET_로그인_경로는_필터를_통과한다() throws Exception {
+    @DisplayName("GET 로그인 경로는 필터를 통과한다")
+    void getMethodOnLoginPath_passThrough() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/auth/login");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -126,8 +132,9 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
+    @DisplayName("X-Forwarded-For 헤더로 IP를 추출한다")
     @SuppressWarnings("unchecked")
-    void X_Forwarded_For_헤더로_IP를_추출한다() throws Exception {
+    void xForwardedForHeader_extractsClientIp() throws Exception {
         MockHttpServletRequest request = loginRequest();
         request.addHeader("X-Forwarded-For", "203.0.113.1, 10.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();

@@ -65,7 +65,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Merchant registration returns 201 with all fields")
+    @DisplayName("Merchant 등록 시 모든 필드를 포함하여 201 반환")
     void register_success() throws Exception {
         MerchantCreateRequest request = new MerchantCreateRequest("Sunset Pension", "02-1111-2222", MerchantType.PENSION);
 
@@ -82,7 +82,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Same user can register multiple merchants")
+    @DisplayName("동일 유저가 여러 Merchant를 등록할 수 있다")
     void register_allows_multiple() throws Exception {
         mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -100,7 +100,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Merchant registration without token returns 401")
+    @DisplayName("토큰 없이 Merchant 등록 시 401 반환")
     void register_unauthorized() throws Exception {
         MerchantCreateRequest request = new MerchantCreateRequest("No Auth", "02-9999-9999", MerchantType.PENSION);
 
@@ -113,7 +113,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Get my merchants returns registered merchant")
+    @DisplayName("내 Merchant 조회 시 등록된 Merchant를 반환한다")
     void getMyMerchants_success() throws Exception {
         mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -130,7 +130,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Get my merchants returns empty list when none registered")
+    @DisplayName("등록된 Merchant가 없으면 빈 목록을 반환한다")
     void getMyMerchants_empty() throws Exception {
         mockMvc.perform(get("/api/v1/merchants/me")
                         .header("Authorization", "Bearer token"))
@@ -139,7 +139,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Get all merchants returns merchants from all users")
+    @DisplayName("전체 Merchant 조회 시 모든 유저의 Merchant를 반환한다")
     void getMerchants_success() throws Exception {
         long userId1 = userIdSeq.incrementAndGet();
         long userId2 = userIdSeq.incrementAndGet();
@@ -169,7 +169,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Get single merchant returns details including resources")
+    @DisplayName("단건 Merchant 조회 시 Resource 포함 상세 정보를 반환한다")
     void getMerchant_success() throws Exception {
         String merchantResponse = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -197,7 +197,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Get non-existent merchant returns 404")
+    @DisplayName("존재하지 않는 Merchant 조회 시 404 반환")
     void getMerchant_not_found() throws Exception {
         mockMvc.perform(get("/api/v1/merchants/{merchantId}", 9999L))
                 .andExpect(status().isNotFound())
@@ -206,7 +206,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Merchant update by owner returns updated fields")
+    @DisplayName("소유자가 Merchant 수정 시 변경된 필드를 반환한다")
     void update_success() throws Exception {
         String response = mockMvc.perform(post("/api/v1/merchants")
                         .header("Authorization", "Bearer token")
@@ -229,7 +229,7 @@ class MerchantControllerTest {
     }
 
     @Test
-    @DisplayName("Update non-existent merchant returns 404")
+    @DisplayName("존재하지 않는 Merchant 수정 시 404 반환")
     void update_notFound() throws Exception {
         MerchantUpdateRequest update = new MerchantUpdateRequest("Name", "02-1111-1111", MerchantType.PENSION);
         mockMvc.perform(put("/api/v1/merchants/{merchantId}", 9999L)

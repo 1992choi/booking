@@ -19,7 +19,8 @@
 - 단위 테스트: 서비스 레이어 로직 (Mockito로 의존성 격리)
 - 통합 테스트: Repository 레이어 (`@DataJpaTest`), Kafka consumer/producer (`@SpringBootTest` + EmbeddedKafka)
 - 테스트 클래스 위치: `src/test/java/...` — 구현 클래스와 동일 패키지
-- 테스트 메서드명: `{시나리오}_then_{기대결과}` 형식 (한글 가능)
+- 테스트 메서드명: 반드시 영어로 작성 (예: `register_success`, `tokenExhausted_returns429`)
+- `@DisplayName`: 반드시 한글로 작성하여 테스트 의도를 설명 (예: `@DisplayName("토큰이 소진되면 429를 반환한다")`)
 
 **반드시 포함할 케이스:**
 - 정상 경로 (happy path)
