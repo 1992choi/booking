@@ -54,5 +54,12 @@ services:
       timeout: 3s
       retries: 10
 
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: booking-zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+
 volumes:
   booking-mysql-data:

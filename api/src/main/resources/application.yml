@@ -27,6 +27,16 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+    template:
+      observation-enabled: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
 
 booking:
   jwt:
