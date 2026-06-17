@@ -31,7 +31,7 @@ skill 파일은 `.claude/skills/`, 설계 산출물은 `.claude/tasks/` 에 위�
 | Java | 25 |
 | Docker / Docker Compose | 최신 |
 
-### 2. 인프라 기동 (MySQL + Kafka)
+### 2. 인프라 기동
 
 ```bash
 docker compose up -d
@@ -41,6 +41,8 @@ docker compose up -d
 |----------|------|------|
 | `booking-mysql` | 3306 | 계정 `root` / `root` |
 | `booking-kafka` | 9092 | KRaft 모드 (단일 브로커) |
+| `booking-redis` | 6379 | |
+| `booking-zipkin` | 9411 | 분산추적 UI |
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
 
@@ -49,10 +51,9 @@ docker compose up -d
 docker compose ps
 ```
 
-DB 초기화가 필요할 때:
+전체 초기화 (볼륨까지 삭제 후 재기동):
 ```bash
-docker compose down -v   # 볼륨까지 삭제 후 재기동
-docker compose up -d
+docker compose down -v && docker compose up -d
 ```
 
 ### 3. 빌드
@@ -72,9 +73,12 @@ docker compose up -d
 | payment | `./gradlew :payment:bootRun` | 8082 |
 | notification | `./gradlew :notification:bootRun` | 8083 |
 
-### 5. 정리
+### 5. 로컬 접속 URL
 
-```bash
-docker compose down          # 컨테이너만 제거 (데이터 유지)
-docker compose down -v       # 볼륨까지 삭제 (DB 초기화)
-```
+| 용도 | URL |
+|------|-----|
+| api 서비스 | http://localhost:8080 |
+| reservation 서비스 | http://localhost:8081 |
+| payment 서비스 | http://localhost:8082 |
+| notification 서비스 | http://localhost:8083 |
+| Zipkin (분산추적) | http://localhost:9411/zipkin/ |
