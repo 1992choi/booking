@@ -81,14 +81,15 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## 분산 추적 (Micrometer Tracing + Zipkin)
+## 관찰가능성 스택 고도화 (Grafana)
 
-MSA 환경에서 요청이 여러 서비스를 거칠 때 흐름 추적.
-`reservation → payment → notification` 체인의 지연/오류 원인 파악이 현재 로그만으로는 어려움.
+현재 Zipkin(분산추적)만 구성된 상태. Prometheus + Loki + Tempo + Grafana를 추가해 메트릭/로그/트레이스를 단일 화면에서 연결하여 볼 수 있도록 고도화.
 
-- Micrometer Tracing + Brave 의존성 추가 (각 서비스)
-- Zipkin 컨테이너 추가 (docker-compose)
-- TraceId/SpanId 자동 전파 확인
+- Prometheus: 각 서비스 메트릭 수집 (`spring-boot-starter-actuator` + micrometer 이미 적용)
+- Loki: 로그 수집 (Promtail 또는 Loki Logback Appender)
+- Tempo: Zipkin 대체 분산추적 백엔드 (OTel exporter를 OTLP로 교체)
+- Grafana: 메트릭/로그/트레이스 통합 대시보드
+- docker-compose에 위 4개 컨테이너 추가
 
 ---
 
