@@ -58,6 +58,8 @@ services:
     image: openzipkin/zipkin:3
     container_name: booking-zipkin
     restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "9411:9411"
 

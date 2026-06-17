@@ -1,3 +1,4 @@
 com.example.booking.core.CoreAutoConfiguration
 com.example.booking.core.JpaAuditingAutoConfiguration
 com.example.booking.core.auth.SecurityAutoConfig
+com.example.booking.core.tracing.TracingAutoConfiguration
