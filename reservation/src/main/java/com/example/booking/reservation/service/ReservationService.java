@@ -110,7 +110,7 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public PageResponse<ReservationResponse> getMyReservations(Long userId, ReservationStatus status, Pageable pageable) {
         return PageResponse.from(
-                reservationRepository.findByUserIdAndStatus(userId, status, pageable)
+                reservationRepository.findByUser(userId, status, pageable)
                         .map(ReservationResponse::from)
         );
     }
@@ -171,10 +171,8 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public PageResponse<ReservationResponse> getByResourceIds(List<Long> resourceIds, ReservationStatus status, Pageable pageable) {
         return PageResponse.from(
-                (status != null
-                        ? reservationRepository.findByResourceIdInAndStatus(resourceIds, status, pageable)
-                        : reservationRepository.findByResourceIdIn(resourceIds, pageable)
-                ).map(ReservationResponse::from)
+                reservationRepository.findByResources(resourceIds, status, pageable)
+                        .map(ReservationResponse::from)
         );
     }
 
