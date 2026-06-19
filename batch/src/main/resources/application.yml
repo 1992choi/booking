@@ -1,0 +1,28 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: batch
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_reservation?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+booking:
+  batch:
+    pending-expiry-minutes: 10
+    expire-cron: "0 */1 * * * *"
