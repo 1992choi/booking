@@ -12,6 +12,8 @@ import com.example.booking.reservation.error.ReservationErrorCode;
 import com.example.booking.reservation.event.ReservationCancelledDomainEvent;
 import com.example.booking.reservation.event.ReservationCreatedDomainEvent;
 import com.example.booking.reservation.admin.dto.AdminReservationResponse;
+import com.example.booking.reservation.merchant.domain.Merchant;
+import com.example.booking.reservation.merchant.domain.MerchantRepository;
 import com.example.booking.reservation.resource.domain.AvailableTime;
 import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
 import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
@@ -43,6 +45,7 @@ public class ReservationService {
     private final AvailableTimeRepository availableTimeRepository;
     private final UserSyncRepository userSyncRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final MerchantRepository merchantRepository;
 
     @Transactional
     public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
@@ -132,11 +135,20 @@ public class ReservationService {
     }
 
     @Transactional(readOnly = true)
-    public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(int year, int month) {
+    public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(Long userId, int year, int month) {
+        List<Long> merchantIds = merchantRepository.findAllByUserId(userId).stream()
+                .map(Merchant::getId).toList();
+        List<Long> resourceIds = resourceRepository.findAllByMerchantIdIn(merchantIds).stream()
+                .map(Resource::getId).toList();
+
+        if (resourceIds.isEmpty()) {
+            return new TreeMap<>();
+        }
+
         LocalDateTime from = LocalDate.of(year, month, 1).atStartOfDay();
         LocalDateTime to = from.plusMonths(1);
 
-        return reservationRepository.findByMonthRange(from, to).stream()
+        return reservationRepository.findByMonthRange(resourceIds, from, to).stream()
                 .collect(Collectors.groupingBy(
                         r -> r.getStartTime().toLocalDate(),
                         TreeMap::new,

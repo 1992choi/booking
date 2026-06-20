@@ -1,9 +1,11 @@
 package com.example.booking.reservation.admin.controller;
 
+import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.reservation.admin.dto.AdminReservationResponse;
 import com.example.booking.reservation.dto.CalendarReservationResponse;
 import com.example.booking.reservation.service.ReservationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -22,9 +24,10 @@ public class AdminController {
 
     @GetMapping("/api/v1/admin/reservations/calendar")
     public Map<LocalDate, List<CalendarReservationResponse>> getCalendar(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam int year,
             @RequestParam int month) {
-        return reservationService.getCalendar(year, month);
+        return reservationService.getCalendar(principal.userId(), year, month);
     }
 
     @PutMapping("/api/v1/admin/reservations/{reservationId}/confirm")

@@ -10,7 +10,7 @@ public interface ReservationRepositoryCustom {
 
     List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDateTime end);
 
-    List<Reservation> findByMonthRange(LocalDateTime from, LocalDateTime to);
+    List<Reservation> findByMonthRange(List<Long> resourceIds, LocalDateTime from, LocalDateTime to);
 
     int sumHeadCountByAvailableTimeId(Long availableTimeId);
 

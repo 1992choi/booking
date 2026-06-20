@@ -34,10 +34,11 @@ public class ReservationRepositoryImpl implements ReservationRepositoryCustom {
     }
 
     @Override
-    public List<Reservation> findByMonthRange(LocalDateTime from, LocalDateTime to) {
+    public List<Reservation> findByMonthRange(List<Long> resourceIds, LocalDateTime from, LocalDateTime to) {
         return queryFactory
                 .selectFrom(r)
                 .where(
+                        r.resourceId.in(resourceIds),
                         r.startTime.goe(from),
                         r.startTime.lt(to)
                 )

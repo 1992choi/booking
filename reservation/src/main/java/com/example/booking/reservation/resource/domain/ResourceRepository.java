@@ -7,4 +7,6 @@ import java.util.List;
 public interface ResourceRepository extends JpaRepository<Resource, Long> {
 
     List<Resource> findAllByMerchantId(Long merchantId);
+
+    List<Resource> findAllByMerchantIdIn(List<Long> merchantIds);
 }

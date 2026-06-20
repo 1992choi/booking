@@ -6,6 +6,9 @@ import com.example.booking.core.auth.Role;
 import com.example.booking.reservation.domain.Reservation;
 import com.example.booking.reservation.domain.ReservationRepository;
 import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.merchant.domain.Merchant;
+import com.example.booking.reservation.merchant.domain.MerchantRepository;
+import com.example.booking.reservation.merchant.domain.MerchantType;
 import com.example.booking.reservation.resource.domain.AvailableTime;
 import com.example.booking.reservation.resource.domain.AvailableTimeRepository;
 import com.example.booking.reservation.resource.domain.AvailableTimeStatus;
@@ -57,6 +60,9 @@ class AdminControllerTest {
     @Autowired
     AvailableTimeRepository availableTimeRepository;
 
+    @Autowired
+    MerchantRepository merchantRepository;
+
     @MockitoBean
     JwtVerifier jwtVerifier;
 
@@ -78,8 +84,14 @@ class AdminControllerTest {
     @Test
     @DisplayName("MERCHANT 권한으로 달력 예약 현황 조회 성공")
     void getCalendar_merchantSuccess() throws Exception {
+        Merchant merchant = merchantRepository.save(Merchant.builder()
+                .userId(userIdSeq.get())
+                .name("테스트 가맹점")
+                .phone("010-0000-0000")
+                .type(MerchantType.PENSION)
+                .build());
         Resource resource = resourceRepository.save(Resource.builder()
-                .merchantId(1L).name("별채 A").description("").price(150000L).maxCapacity(2).build());
+                .merchantId(merchant.getId()).name("별채 A").description("").price(150000L).maxCapacity(2).build());
         AvailableTime slot = availableTimeRepository.save(AvailableTime.builder()
                 .resourceId(resource.getId())
                 .startTime(LocalDateTime.of(2026, 7, 1, 14, 0))
