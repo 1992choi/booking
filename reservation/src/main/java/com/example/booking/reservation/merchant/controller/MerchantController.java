@@ -3,6 +3,7 @@ package com.example.booking.reservation.merchant.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.reservation.admin.dto.AdminReservationPageResponse;
 import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
 import com.example.booking.reservation.merchant.dto.MerchantResponse;
@@ -61,6 +62,15 @@ public class MerchantController {
     @GetMapping("/api/v1/merchants/{merchantId}")
     public MerchantDetailResponse getMerchant(@PathVariable Long merchantId) {
         return merchantService.getDetail(merchantId);
+    }
+
+    @GetMapping("/api/v1/merchants/{merchantId}/stats/daily")
+    public List<DailyMerchantStatsResponse> getDailyStats(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long merchantId,
+            @RequestParam int year,
+            @RequestParam int month) {
+        return merchantService.getDailyStats(principal.userId(), merchantId, year, month);
     }
 
     @GetMapping("/api/v1/merchants/{merchantId}/reservations")

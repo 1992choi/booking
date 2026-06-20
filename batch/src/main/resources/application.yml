@@ -26,3 +26,4 @@ booking:
   batch:
     pending-expiry-minutes: 10
     expire-cron: "0 */1 * * * *"
+    stats-cron: "0 0 1 * * *"

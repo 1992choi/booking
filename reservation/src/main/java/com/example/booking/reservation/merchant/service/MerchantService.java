@@ -8,8 +8,11 @@ import com.example.booking.reservation.domain.ReservationStatus;
 import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.error.ReservationErrorCode;
+import com.example.booking.reservation.merchant.domain.DailyMerchantStats;
+import com.example.booking.reservation.merchant.domain.DailyMerchantStatsRepository;
 import com.example.booking.reservation.merchant.domain.Merchant;
 import com.example.booking.reservation.merchant.domain.MerchantRepository;
+import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
 import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
@@ -27,6 +30,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,6 +44,7 @@ public class MerchantService {
     private final ResourceRepository resourceRepository;
     private final ReservationService reservationService;
     private final UserSyncRepository userSyncRepository;
+    private final DailyMerchantStatsRepository dailyMerchantStatsRepository;
 
     @Transactional
     @CacheEvict(value = "merchants", key = "'all'")
@@ -128,6 +133,23 @@ public class MerchantService {
 
         return new AdminReservationPageResponse(content, pageResponse.page(), pageResponse.size(),
                 pageResponse.totalElements(), pageResponse.totalPages());
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyMerchantStatsResponse> getDailyStats(Long userId, Long merchantId, int year, int month) {
+        Merchant merchant = getById(merchantId);
+        if (!merchant.getUserId().equals(userId)) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+
+        LocalDate from = LocalDate.of(year, month, 1);
+        LocalDate to = from.plusMonths(1).minusDays(1);
+
+        return dailyMerchantStatsRepository
+                .findAllByMerchantIdAndStatDateBetweenOrderByStatDateAsc(merchantId, from, to)
+                .stream()
+                .map(DailyMerchantStatsResponse::from)
+                .toList();
     }
 
 }
