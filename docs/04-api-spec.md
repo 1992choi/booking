@@ -5,9 +5,10 @@
 | Path 패턴 | 라우팅 대상 서비스 |
 |-----------|---------------------|
 | `/api/v1/auth/**`, `/api/v1/users/**` | api |
+| `/api/v1/admin/users/**` | api |
 | `/api/v1/merchants/**`, `/api/v1/resources/**`, `/api/v1/available-times/**` | reservation |
 | `/api/v1/reservations/**` | reservation |
-| `/api/v1/admin/**` | reservation |
+| `/api/v1/admin/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
 
 ---
@@ -196,6 +197,35 @@ Response 204 (No Content)
 ```
 
 > 탈퇴 성공 시 `user.deleted` Kafka 이벤트 발행 → 각 서비스의 로컬 users 테이블에서 삭제.
+
+---
+
+## 관리자 유저 API (api 서비스)
+
+ADMIN 역할이 있는 JWT 필요. 비인가 시 403 반환.
+
+### 유저 목록 조회
+```
+GET /api/v1/admin/users?role={USER|MERCHANT|ADMIN}
+Authorization: Bearer {jwt}  (ADMIN 역할)
+
+Response 200:
+[
+  {
+    "id": 1,
+    "name": "홍길동",
+    "email": "hong@example.com",
+    "phone": "010-1234-5678",
+    "role": "USER",
+    "createdAt": "2026-05-01T10:00:00"
+  }
+]
+
+Error 403 (AUTH_002): ADMIN 역할이 아닌 경우
+Error 400 (COMMON_400): role 값이 유효하지 않은 경우
+```
+
+> `role` 쿼리 파라미터를 생략하면 전체 유저 반환. `USER`, `MERCHANT`, `ADMIN` 중 하나를 지정하면 해당 역할만 필터링.
 
 ---
 
@@ -552,7 +582,7 @@ Error 409 (status 가 COMPLETED 가 아닐 때):
 
 ---
 
-## Admin API (reservation 서비스)
+## 관리자 예약 API (reservation 서비스)
 
 reservation 서비스가 직접 처리한다. MERCHANT 역할이 있는 JWT 필요.
 

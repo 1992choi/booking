@@ -5,6 +5,7 @@ import com.example.booking.api.user.domain.UserRepository;
 import com.example.booking.api.user.dto.UserUpdateRequest;
 import com.example.booking.api.user.event.UserDeletedDomainEvent;
 import com.example.booking.api.user.event.UserUpdatedDomainEvent;
+import com.example.booking.core.auth.Role;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.core.error.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,15 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional(readOnly = true)
+    public List<User> getAll(Role role) {
+        if (role == null) {
+            return userRepository.findAll();
+        }
+
+        return userRepository.findAllByRole(role);
+    }
 
     @Transactional(readOnly = true)
     public User getById(Long id) {

@@ -3,7 +3,10 @@ package com.example.booking.api.user.controller;
 import com.example.booking.api.auth.dto.LoginRequest;
 import com.example.booking.api.auth.dto.SignupRequest;
 import com.example.booking.api.auth.dto.TokenResponse;
+import com.example.booking.api.user.domain.User;
+import com.example.booking.api.user.domain.UserRepository;
 import com.example.booking.api.user.dto.UserUpdateRequest;
+import com.example.booking.core.auth.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +52,12 @@ class UserControllerTest {
 
     @Autowired
     StringRedisTemplate redisTemplate;
+
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     MockMvc mockMvc;
 
@@ -186,6 +198,80 @@ class UserControllerTest {
     void deleteMe_no_token() throws Exception {
         mockMvc.perform(delete("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("관리자가 필터 없이 전체 유저 조회 성공")
+    void getUsers_admin_noFilter_success() throws Exception {
+        String adminToken = createAdminAndLogin("admin1@example.com");
+        signupAndLogin("user1@example.com", "010-1111-0001");
+
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("관리자가 유저 타입으로 필터링해서 조회 성공")
+    void getUsers_admin_withRoleFilter_success() throws Exception {
+        String adminToken = createAdminAndLogin("admin2@example.com");
+        signupAndLogin("user2@example.com", "010-1111-0002");
+
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .param("role", "USER")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[*].role", everyItem(is("USER"))));
+    }
+
+    @Test
+    @DisplayName("일반 유저가 관리자 API 접근 시 403 반환")
+    void getUsers_notAdmin_forbidden() throws Exception {
+        String userToken = signupAndLogin("regular@example.com", "010-1111-0003");
+
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("토큰 없이 관리자 API 접근 시 401 반환")
+    void getUsers_noToken_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/users"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("잘못된 유저 타입으로 필터링 시 400 반환")
+    void getUsers_invalidRole_badRequest() throws Exception {
+        String adminToken = createAdminAndLogin("admin3@example.com");
+
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .param("role", "INVALID")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String createAdminAndLogin(String email) throws Exception {
+        User admin = User.builder()
+                .name("Admin")
+                .email(email)
+                .phone("010-0000-0000")
+                .password(passwordEncoder.encode("password123"))
+                .role(Role.ADMIN)
+                .build();
+        userRepository.save(admin);
+
+        LoginRequest login = new LoginRequest(email, "password123");
+        String response = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        return objectMapper.readValue(response, TokenResponse.class).accessToken();
     }
 
     private String signupAndLogin(String email, String phone) throws Exception {

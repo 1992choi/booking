@@ -84,6 +84,7 @@ Client → Bearer token
 
 ```
 /api/v1/auth/**                             → permitAll
+/api/v1/admin/**                            → ADMIN role 필요
 그 외                                        → authenticated
 ```
 
@@ -94,6 +95,7 @@ Client → Bearer token
 | `GET /api/v1/users/me` | 내 정보 조회 |
 | `PUT /api/v1/users/me` | 이름/전화번호 수정 → `user.updated` 이벤트 발행 |
 | `DELETE /api/v1/users/me` | 회원 탈퇴 (hard delete) → `user.deleted` 이벤트 발행 |
+| `GET /api/v1/admin/users?role=` | 유저 목록 조회 (ADMIN 전용, role 필터 선택) |
 
 ### Kafka 이벤트 발행
 
