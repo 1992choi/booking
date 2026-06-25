@@ -11,6 +11,8 @@
 | `/api/v1/admin/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
 
+> pg 서버(`localhost:8090`)는 ALB 뒤에 없는 독립 서버다. payment 서비스가 내부적으로 직접 호출하며, 외부 클라이언트는 접근하지 않는다.
+
 ---
 
 ## 공통
@@ -652,6 +654,65 @@ Response 200:
 > type: `CONFIRMED` / `CANCELLED`
 > channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
 > status: `SENT` / `FAILED`
+
+---
+
+## Mock PG API (pg 서버 — payment 서비스 전용)
+
+pg 서버는 외부 PG 시뮬레이션 용도다. payment 서비스만 호출하며, 인증 없이 동작한다. 요청의 20% 는 `402 Payment Required` 로 실패한다.
+
+### 거래 승인
+```
+POST /pg/approve
+Host: localhost:8090
+
+Request:
+{
+  "transactionId": "pay-1",
+  "amount": 50000
+}
+
+Response 200:
+{
+  "pgTransactionId": "PG-550e8400-e29b-...",
+  "approvedAt": "2026-05-01T13:00:00"
+}
+
+Response 402 (20% 확률):
+{
+  "code": "TRANSACTION_DECLINED",
+  "message": "잔액 부족"
+}
+```
+
+> `transactionId`: payment 서비스 내부 식별자 (멱등성 참조용).
+> `pgTransactionId`: pg 서버가 발급하는 PG 측 거래 ID. payment 서비스가 저장해 취소 시 사용.
+> 실패 메시지 예: `잔액 부족`, `카드 한도 초과`, `카드 정지`, `일시적 오류`
+
+### 거래 취소
+```
+POST /pg/cancel
+Host: localhost:8090
+
+Request:
+{
+  "pgTransactionId": "PG-550e8400-e29b-..."
+}
+
+Response 200:
+{
+  "pgTransactionId": "PG-550e8400-e29b-...",
+  "cancelledAt": "2026-05-01T15:00:00"
+}
+
+Response 402 (20% 확률):
+{
+  "code": "TRANSACTION_DECLINED",
+  "message": "취소 불가 거래"
+}
+```
+
+> 실패 메시지 예: `취소 불가 거래`, `이미 취소된 거래`, `일시적 오류`
 
 ---
 

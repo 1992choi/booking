@@ -21,10 +21,16 @@
    │ :8080  │ │   :8081      │ │  :8082  │ │   :8083      │
    └───┬────┘ └──────┬───────┘ └────┬────┘ └──────┬───────┘
        │             │              │              │
-       ▼             ▼              ▼              ▼
+       ▼             ▼              ▼  HTTP        ▼
    ┌────────┐  ┌──────────────┐ ┌─────────┐  ┌──────────────┐
    │ db_api │  │db_reservation│ │db_payment│ │db_notification│
-   └────────┘  └──────────────┘ └─────────┘  └──────────────┘
+   └────────┘  └──────────────┘ └────┬────┘  └──────────────┘
+                                      │ RestClient
+                                      ▼
+                              ┌───────────────┐
+                              │  pg  :8090    │  Mock PG 서버
+                              │  (no DB)      │  (외부 PG 시뮬레이션)
+                              └───────────────┘
 
                   ┌────────────────────────┐
                   │       Kafka            │
@@ -47,7 +53,8 @@ booking/
 ├── api               # 서비스 1
 ├── reservation       # 서비스 2
 ├── payment           # 서비스 3
-└── notification      # 서비스 4
+├── notification      # 서비스 4
+└── pg                # Mock PG 서버 (외부 PG 시뮬레이션)
 ```
 
 ### 모듈 의존 관계
@@ -57,10 +64,12 @@ api          ─── core
 reservation  ─── core
 payment      ─── core
 notification ─── core
+pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
 ```
 
 → 4개 서비스는 **서로 직접 의존하지 않는다**. 통신은 Kafka 만 사용.
 → core 만 공통 라이브러리로 임베드.
+→ pg 는 외부 PG 서버를 시뮬레이션하는 독립 서버. JWT/Security/DB/Kafka 없이 web + validation 만 사용.
 
 ### 배포 산출물
 
@@ -71,6 +80,7 @@ notification ─── core
 | reservation | O | X | Spring Boot 앱 |
 | payment | O | X | Spring Boot 앱 |
 | notification | O | X | Spring Boot 앱 |
+| pg | O | X | Mock PG 서버. 실제 PG 연동 시 제거 대상 |
 
 ---
 
@@ -80,8 +90,9 @@ notification ─── core
 |--------|------|----|
 | api | 인증 전용 — 회원(User) CRUD, JWT 발급/갱신 | db_api |
 | reservation | 예약 도메인 전체 — 업체(Merchant)/리소스(Resource)/가능시간(AvailableTime) CRUD, 예약 생성/조회/취소/관리, 동시성 처리(Redis 분산 락 + DB 락) | db_reservation |
-| payment | Mock 결제 처리. 결제 이력 조회/환불 | db_payment |
+| payment | 결제 처리. 결제 이력 조회/환불. pg 서버에 HTTP 로 거래 승인/취소 요청 | db_payment |
 | notification | Mock 알림 발송. 발송 이력 저장 | db_notification |
+| pg | Mock PG 서버 (외부 시스템). 거래 승인/취소 API. 20% 확률로 실패 반환 | 없음 (stateless) |
 
 ---
 
