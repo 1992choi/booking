@@ -6,6 +6,7 @@ import com.example.booking.core.auth.Role;
 import com.example.booking.payment.domain.Payment;
 import com.example.booking.payment.domain.PaymentRepository;
 import com.example.booking.payment.domain.PaymentStatus;
+import com.example.booking.payment.pg.PgGateway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +44,9 @@ class PaymentControllerTest {
 
     @MockitoBean
     KafkaTemplate<String, Object> kafkaTemplate;
+
+    @MockitoBean
+    PgGateway pgGateway;
 
     MockMvc mockMvc;
 
@@ -98,7 +102,7 @@ class PaymentControllerTest {
                 .amount(100000L)
                 .status(PaymentStatus.COMPLETED)
                 .build();
-        payment.complete();
+        payment.complete("PG-TEST-001");
         paymentRepository.save(payment);
 
         mockMvc.perform(post("/api/v1/payments/{reservationId}/refund", 2L)
@@ -139,7 +143,7 @@ class PaymentControllerTest {
                 .amount(100000L)
                 .status(PaymentStatus.COMPLETED)
                 .build();
-        payment.complete();
+        payment.complete("PG-TEST-001");
         paymentRepository.save(payment);
 
         mockMvc.perform(post("/api/v1/payments/{reservationId}/refund", 4L)

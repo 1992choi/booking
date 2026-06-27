@@ -9,6 +9,7 @@ import com.example.booking.payment.error.PaymentErrorCode;
 import com.example.booking.payment.event.PaymentCompletedDomainEvent;
 import com.example.booking.payment.event.PaymentFailedDomainEvent;
 import com.example.booking.payment.event.ReservationCreatedKafkaEvent;
+import com.example.booking.payment.pg.PgGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final MockPaymentGateway gateway;
+    private final PgGateway pgGateway;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -37,8 +38,8 @@ public class PaymentService {
         paymentRepository.save(payment);
 
         try {
-            gateway.charge(payment);
-            payment.complete();
+            String pgTransactionId = pgGateway.charge(payment);
+            payment.complete(pgTransactionId);
             eventPublisher.publishEvent(new PaymentCompletedDomainEvent(payment));
             log.info("결제 완료 paymentId={}, reservationId={}", payment.getId(), event.reservationId());
         } catch (PaymentDeclinedException e) {
@@ -63,6 +64,13 @@ public class PaymentService {
 
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
             throw new BusinessException(PaymentErrorCode.REFUND_NOT_ALLOWED);
+        }
+
+        try {
+            pgGateway.cancel(payment.getPgTransactionId());
+        } catch (PaymentDeclinedException e) {
+            log.warn("PG 환불 실패 paymentId={}, reason={}", payment.getId(), e.getMessage());
+            throw new BusinessException(PaymentErrorCode.REFUND_FAILED);
         }
 
         payment.refund();

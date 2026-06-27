@@ -42,11 +42,14 @@ public class Payment extends BaseEntity {
     @Column(nullable = false)
     private PaymentStatus status;
 
+    private String pgTransactionId;
+
     private LocalDateTime paidAt;
 
     private String failedReason;
 
-    public void complete() {
+    public void complete(String pgTransactionId) {
+        this.pgTransactionId = pgTransactionId;
         this.status = PaymentStatus.COMPLETED;
         this.paidAt = LocalDateTime.now();
     }
