@@ -17,14 +17,15 @@ public class ReservationEventConsumer {
 
     @KafkaListener(topics = "reservation.created", groupId = "payment-group")
     public void onReservationCreated(String message) {
-        try {
-            ReservationCreatedKafkaEvent event = objectMapper.readValue(message, ReservationCreatedKafkaEvent.class);
+        ReservationCreatedKafkaEvent event = objectMapper.readValue(message, ReservationCreatedKafkaEvent.class);
 
-            paymentService.process(event);
-            log.info("reservation.created 처리 완료 reservationId={}", event.reservationId());
-        } catch (Exception e) {
-            log.error("reservation.created 처리 실패: {}", message, e);
+        if (event.amount() < 0) {
+            log.warn("음수 금액 감지 — 재시도 대기 reservationId={}, amount={}", event.reservationId(), event.amount());
+            throw new IllegalArgumentException("음수 금액은 처리할 수 없습니다: " + event.amount());
         }
+
+        paymentService.process(event);
+        log.info("reservation.created 처리 완료 reservationId={}", event.reservationId());
     }
 
 }

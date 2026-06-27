@@ -14,6 +14,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -59,6 +61,8 @@ public class KafkaConfig {
             ConsumerFactory<String, String> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        // 5초 간격으로 무한 재시도 — 예외 전파 시 오프셋 미커밋으로 랙 발생
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(5000L, Long.MAX_VALUE)));
         return factory;
     }
 

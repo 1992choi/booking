@@ -11,7 +11,8 @@ VALUES ('관리자', 'admin@bookit.com', '010-1111-1111', '$2a$10$k6nl/zUrrsYBBD
        ('테스터', 'test@bookit.com', '010-2222-2222', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'USER', NOW(), NOW()),
        ('한강뷰펜션', 'pension@bookit.com', '010-4444-4444', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
        ('서울쿠킹클래스', 'class@bookit.com', '010-5555-5555', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
-       ('강남피트니스', 'facility@bookit.com', '010-6666-6666', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW());
+       ('강남피트니스', 'facility@bookit.com', '010-6666-6666', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
+       ('에러테스터', 'error@bookit.com', '010-9999-9999', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW());
 
 USE db_reservation;
 
@@ -186,3 +187,31 @@ FROM resources r
     SELECT DATE_ADD(CURDATE(), INTERVAL 2 DAY) + INTERVAL 16 HOUR
     ) slots
 WHERE u.email = 'facility@bookit.com' AND r.name = 'PT 1회 세션 (60분)';
+
+-- =============================================
+-- 7. 에러 시뮬레이션 가맹점 (error@bookit.com)
+--    Kafka consumer lag 등 오류 상황 학습용
+-- =============================================
+INSERT INTO merchants (user_id, name, phone, type, created_at, updated_at)
+SELECT id, '에러 시뮬레이션 가맹점', '010-9999-9999', 'FACILITY', NOW(), NOW()
+FROM db_api.users
+WHERE email = 'error@bookit.com';
+
+-- 음수 가격 상품: 예약 시 payment consumer에서 IllegalArgumentException 발생 → Kafka consumer lag 유발
+INSERT INTO resources (merchant_id, name, description, price, max_capacity, created_at, updated_at)
+SELECT m.id, '음수 가격 상품 (Kafka 랙 시뮬레이션)', 'price=-1000 으로 payment consumer에서 오류 발생 → 오프셋 미커밋 → consumer lag 확인용', -1000, 5, NOW(), NOW()
+FROM merchants m
+    JOIN db_api.users u ON m.user_id = u.id
+WHERE u.email = 'error@bookit.com';
+
+-- 음수 가격 상품 예약 가능 시간: 오전 10시~11시 (3일치)
+INSERT INTO available_times (resource_id, start_time, end_time, status, created_at, updated_at)
+SELECT r.id,
+       DATE_ADD(CURDATE(), INTERVAL n DAY) + INTERVAL 10 HOUR,
+       DATE_ADD(CURDATE(), INTERVAL n DAY) + INTERVAL 11 HOUR,
+       'OPEN', NOW(), NOW()
+FROM resources r
+    JOIN merchants m ON r.merchant_id = m.id
+    JOIN db_api.users u ON m.user_id = u.id
+    CROSS JOIN (SELECT 1 AS n UNION SELECT 2 UNION SELECT 3) days
+WHERE u.email = 'error@bookit.com';
