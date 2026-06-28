@@ -6,8 +6,8 @@ import com.example.booking.payment.pg.dto.PgApproveResponse;
 import com.example.booking.payment.pg.dto.PgCancelRequest;
 import com.example.booking.payment.pg.dto.PgErrorResponse;
 import com.example.booking.payment.service.PaymentDeclinedException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -57,7 +57,7 @@ public class PgGateway {
     private String parseDeclineReason(String body) {
         try {
             return objectMapper.readValue(body, PgErrorResponse.class).message();
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return "결제가 거절되었습니다.";
         }
     }
