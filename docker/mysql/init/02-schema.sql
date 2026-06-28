@@ -90,10 +90,11 @@ CREATE TABLE IF NOT EXISTS payments (
     user_id         BIGINT      NOT NULL,
     amount          BIGINT      NOT NULL,
     status          VARCHAR(50) NOT NULL,
-    paid_at         DATETIME(6),
-    failed_reason   VARCHAR(255),
-    created_at      DATETIME(6),
-    updated_at      DATETIME(6)
+    paid_at             DATETIME(6),
+    failed_reason       VARCHAR(255),
+    pg_transaction_id   VARCHAR(255),
+    created_at          DATETIME(6),
+    updated_at          DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- db_notification
