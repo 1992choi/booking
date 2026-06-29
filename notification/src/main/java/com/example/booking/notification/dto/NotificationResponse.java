@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public record NotificationResponse(
         Long id,
         Long reservationId,
+        String message,
         NotificationType type,
         NotificationChannel channel,
         NotificationStatus status,
@@ -20,6 +21,7 @@ public record NotificationResponse(
         return new NotificationResponse(
                 notification.getId(),
                 notification.getReservationId(),
+                notification.getMessage(),
                 notification.getType(),
                 notification.getChannel(),
                 notification.getStatus(),

@@ -56,6 +56,7 @@ public class NotificationService {
         Notification notification = Notification.builder()
                 .userId(userId)
                 .type(NotificationType.ADMIN_MESSAGE)
+                .message(message)
                 .channel(notificationSender.channel())
                 .status(NotificationStatus.FAILED)
                 .build();

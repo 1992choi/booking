@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id         BIGINT      NOT NULL,
     reservation_id  BIGINT,
+    message         TEXT,
     type            VARCHAR(50) NOT NULL,
     channel         VARCHAR(50) NOT NULL,
     status          VARCHAR(50) NOT NULL,

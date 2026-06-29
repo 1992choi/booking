@@ -35,6 +35,9 @@ public class Notification extends BaseEntity {
     @Column(name = "reservation_id")
     private Long reservationId;
 
+    @Column(name = "message")
+    private String message;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationType type;
