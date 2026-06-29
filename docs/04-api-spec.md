@@ -227,6 +227,22 @@ Error 403 (AUTH_002): ADMIN 역할이 아닌 경우
 Error 400 (COMMON_400): role 값이 유효하지 않은 경우
 ```
 
+### 유저에게 메시지 발송
+```
+POST /api/v1/admin/users/{userId}/message
+Authorization: Bearer {jwt}  (ADMIN 역할)
+
+Request:
+{
+  "message": "안녕하세요, 공지사항입니다."
+}
+
+Response 204 (No Content)
+```
+
+> api 서비스가 notification 서비스에 HTTP(`POST /api/v1/internal/messages`)로 발송을 위임한다.
+> notification 서비스는 발송 결과를 `notifications` 테이블에 `ADMIN_MESSAGE` 타입으로 저장한다.
+
 > `role` 쿼리 파라미터를 생략하면 전체 유저 반환. `USER`, `MERCHANT`, `ADMIN` 중 하나를 지정하면 해당 역할만 필터링.
 
 ---
@@ -718,10 +734,29 @@ Response 402 (20% 확률):
 
 ## 내부 API (서비스 간 호출 전용)
 
-`/api/v1/internal/**` 는 외부 노출 X (보안 그룹 / Gateway 에서 차단). JWT 토큰을 서비스 간 전달하여 검증.
+`/api/v1/internal/**` 는 외부 노출 X (보안 그룹 / Gateway 에서 차단). 인증 없이 서비스 간 직접 호출.
 
 ### api 서비스 내부 API
 
 | Endpoint | 용도 |
 |----------|------|
 | `GET /api/v1/internal/users/{id}` | 사용자 정보 조회 |
+
+### notification 서비스 내부 API
+
+| Endpoint | 호출 서비스 | 용도 |
+|----------|-------------|------|
+| `POST /api/v1/internal/messages` | api | 관리자 메시지 발송 |
+
+```
+POST /api/v1/internal/messages
+Host: notification:8083
+
+Request:
+{
+  "userId": 1,
+  "message": "안녕하세요, 공지사항입니다."
+}
+
+Response 204 (No Content)
+```

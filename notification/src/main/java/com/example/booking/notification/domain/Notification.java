@@ -32,7 +32,7 @@ public class Notification extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "reservation_id", nullable = false)
+    @Column(name = "reservation_id")
     private Long reservationId;
 
     @Enumerated(EnumType.STRING)

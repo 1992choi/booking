@@ -51,6 +51,33 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    @Transactional
+    public void sendAdminMessage(Long userId, String message) {
+        Notification notification = Notification.builder()
+                .userId(userId)
+                .type(NotificationType.ADMIN_MESSAGE)
+                .channel(notificationSender.channel())
+                .status(NotificationStatus.FAILED)
+                .build();
+
+        try {
+            Optional<UserSync> userOpt = userSyncRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                log.warn("유저 동기화 정보 없음 userId={}, 관리자 메시지 발송 스킵", userId);
+                notification.markFailed();
+            } else {
+                log.info("[관리자 메시지] userId={}, email={}, message={}", userId, userOpt.get().getEmail(), message);
+                notificationSender.send(userId, userOpt.get().getEmail(), NotificationType.ADMIN_MESSAGE);
+                notification.markSent();
+            }
+        } catch (Exception e) {
+            log.warn("관리자 메시지 발송 실패 userId={}", userId, e);
+            notification.markFailed();
+        }
+
+        notificationRepository.save(notification);
+    }
+
     @Transactional(readOnly = true)
     public List<Notification> getMyNotifications(Long userId) {
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
