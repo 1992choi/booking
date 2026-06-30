@@ -101,9 +101,21 @@ pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
 
 ### 동기 (HTTP / RestClient)
 
-| 호출 방향 | 엔드포인트 | 용도 |
-|-----------|-----------|------|
-| api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
+| 호출 방향 | 엔드포인트 | 용도 | 서킷브레이커 |
+|-----------|-----------|------|-------------|
+| api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 | ✓ (`notification` 인스턴스) |
+
+**서킷브레이커 설정 (api 서비스)**
+
+| 항목 | 값 |
+|------|----|
+| sliding-window-size | 5 |
+| failure-rate-threshold | 60% |
+| wait-duration-in-open-state | 10s |
+| permitted-calls-in-half-open | 2 |
+
+- OPEN 상태에서 요청이 들어오면 notification 서비스에 닿지 않고 즉시 503 (`API_004`) 반환
+- 10초 후 HALF-OPEN으로 전환, 2번의 시험 호출이 모두 성공하면 CLOSED 복귀
 
 ### 비동기 (Kafka)
 
@@ -211,3 +223,14 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
   - 1건만 성공 확인
   - 99건은 409 응답 확인
   - DB 중복 없음 확인
+
+---
+
+## 학습용 시뮬레이션 계정 (seed 데이터)
+
+`docker/mysql/init/03-seed-data.sql`에 포함된 시나리오 전용 계정. 비밀번호는 모두 `12341234`.
+
+| 이메일 | 이름 | 역할 | 시나리오 |
+|--------|------|------|----------|
+| `error@bookit.com` | 에러테스터 | MERCHANT | Kafka consumer lag — 음수 가격 상품 예약 시 payment consumer에서 `IllegalArgumentException` 발생 → 오프셋 미커밋 |
+| `circuit@bookit.com` | 서킷테스터 | USER | 서킷브레이커 OPEN — 해당 userId로 관리자 메시지 발송 시 notification 서비스가 항상 500 반환 → 실패율 임계치 초과 시 서킷 OPEN |

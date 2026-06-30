@@ -45,3 +45,13 @@ booking:
     refresh-token-ttl: P30D
   notification:
     url: ${BOOKING_NOTIFICATION_URL:http://localhost:8083}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      notification:
+        sliding-window-size: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        register-health-indicator: true

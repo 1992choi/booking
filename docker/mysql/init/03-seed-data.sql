@@ -12,7 +12,8 @@ VALUES ('관리자', 'admin@bookit.com', '010-1111-1111', '$2a$10$k6nl/zUrrsYBBD
        ('한강뷰펜션', 'pension@bookit.com', '010-4444-4444', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
        ('서울쿠킹클래스', 'class@bookit.com', '010-5555-5555', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
        ('강남피트니스', 'facility@bookit.com', '010-6666-6666', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
-       ('에러테스터', 'error@bookit.com', '010-9999-9999', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW());
+       ('에러테스터', 'error@bookit.com', '010-9999-9999', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW()),
+       ('서킷테스터', 'circuit@bookit.com', '010-0000-0000', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'USER', NOW(), NOW());
 
 USE db_reservation;
 

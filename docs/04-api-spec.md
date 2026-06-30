@@ -51,6 +51,8 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | COMMON_500 | 500 | 서버 오류 | core |
 | API_001 | 409 | 이메일 중복 | api |
 | API_002 | 401 | 이메일/비밀번호 불일치 | api |
+| API_003 | 429 | 요청 횟수 초과 | api |
+| API_004 | 503 | 알림 서비스 일시 불가 (서킷 오픈) | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
@@ -238,10 +240,13 @@ Request:
 }
 
 Response 204 (No Content)
+
+Error 503 (API_004): 서킷브레이커 OPEN 상태 — notification 서비스 호출 차단됨
 ```
 
 > api 서비스가 notification 서비스에 HTTP(`POST /api/v1/internal/messages`)로 발송을 위임한다.
 > notification 서비스는 발송 결과를 `notifications` 테이블에 `ADMIN_MESSAGE` 타입으로 저장한다.
+> api → notification 구간에 Resilience4j 서킷브레이커가 적용되어 있다. 5회 중 60% 이상 실패하면 OPEN 전환, 10초 후 HALF-OPEN으로 회복 시도한다.
 
 > `role` 쿼리 파라미터를 생략하면 전체 유저 반환. `USER`, `MERCHANT`, `ADMIN` 중 하나를 지정하면 해당 역할만 필터링.
 

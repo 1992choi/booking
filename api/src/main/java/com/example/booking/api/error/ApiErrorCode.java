@@ -11,7 +11,8 @@ public enum ApiErrorCode implements ErrorCode {
 
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "API_001", "이미 사용 중인 이메일입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "API_002", "이메일 또는 비밀번호가 일치하지 않습니다."),
-    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "API_003", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "API_003", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
+    NOTIFICATION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "API_004", "알림 서비스를 현재 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus status;
     private final String code;
