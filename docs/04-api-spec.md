@@ -246,7 +246,6 @@ Error 503 (API_004): 서킷브레이커 OPEN 상태 — notification 서비스 �
 
 > api 서비스가 notification 서비스에 HTTP(`POST /api/v1/internal/messages`)로 발송을 위임한다.
 > notification 서비스는 발송 결과를 `notifications` 테이블에 `ADMIN_MESSAGE` 타입으로 저장한다.
-> api → notification 구간에 Resilience4j 서킷브레이커가 적용되어 있다. 5회 중 60% 이상 실패하면 OPEN 전환, 10초 후 HALF-OPEN으로 회복 시도한다.
 
 > `role` 쿼리 파라미터를 생략하면 전체 유저 반환. `USER`, `MERCHANT`, `ADMIN` 중 하나를 지정하면 해당 역할만 필터링.
 

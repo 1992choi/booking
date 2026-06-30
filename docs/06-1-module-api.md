@@ -10,7 +10,7 @@
 | DB | db_api |
 | 외부 노출 | O |
 | 의존 | core (라이브러리) |
-| 호출하는 서비스 | 없음 |
+| 호출하는 서비스 | notification (HTTP — 관리자 메시지 발송) |
 
 ---
 
@@ -30,6 +30,7 @@ api/
     ├── auth/
     │   ├── controller/AuthController.java
     │   ├── service/AuthService.java
+    │   ├── filter/LoginRateLimitFilter.java (로그인 요청 rate limiting — Bucket4j)
     │   ├── JwtIssuer.java                  (토큰 발급 — api 서비스 단독)
     │   ├── RefreshTokenBlacklist.java      (Redis 기반 JTI 블랙리스트)
     │   ├── RefreshTokenClaims.java
@@ -47,12 +48,17 @@ api/
     │       ├── UserUpdatedKafkaEvent.java
     │       ├── UserDeletedKafkaEvent.java
     │       └── UserEventPublisher.java
+    ├── notification/
+    │   ├── NotificationClient.java         (RestClient 래퍼 — 서킷브레이커 적용)
+    │   └── dto/SendAdminMessageRequest.java
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
     ├── error/
     │   └── ApiErrorCode.java
     └── config/
         ├── SecurityConfig.java
+        ├── RestClientConfig.java           (notification RestClient 빈)
+        ├── RateLimitConfig.java
         └── KafkaConfig.java
 ```
 
@@ -96,6 +102,11 @@ Client → Bearer token
 | `PUT /api/v1/users/me` | 이름/전화번호 수정 → `user.updated` 이벤트 발행 |
 | `DELETE /api/v1/users/me` | 회원 탈퇴 (hard delete) → `user.deleted` 이벤트 발행 |
 | `GET /api/v1/admin/users?role=` | 유저 목록 조회 (ADMIN 전용, role 필터 선택) |
+| `POST /api/v1/admin/users/{userId}/message` | 특정 유저에게 관리자 메시지 발송 (notification 서비스에 HTTP 위임) |
+
+### 로그인 Rate Limiting
+
+`LoginRateLimitFilter` (Bucket4j + Redis) 가 `/api/v1/auth/login` 요청에 적용된다. 임계치 초과 시 429 (`API_003`) 반환.
 
 ### Kafka 이벤트 발행
 
@@ -121,3 +132,5 @@ Client → Bearer token
 |------|------|------|
 | API_001 | 409 | 이메일 중복 |
 | API_002 | 401 | 이메일/비밀번호 불일치 |
+| API_003 | 429 | 로그인 요청 횟수 초과 |
+| API_004 | 503 | 알림 서비스 일시 불가 (서킷브레이커 OPEN) |
