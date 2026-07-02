@@ -105,7 +105,7 @@ pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
 |-----------|-----------|------|
 | api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
 
-> api → notification 구간에 Resilience4j 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환.
+> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환.
 
 ### 비동기 (Kafka)
 

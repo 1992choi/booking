@@ -49,7 +49,7 @@ api/
     │       ├── UserDeletedKafkaEvent.java
     │       └── UserEventPublisher.java
     ├── notification/
-    │   ├── NotificationClient.java         (RestClient 래퍼 — 서킷브레이커 적용)
+    │   ├── NotificationClient.java         (RestClient 래퍼 — 재시도 + 서킷브레이커 적용)
     │   └── dto/SendAdminMessageRequest.java
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
