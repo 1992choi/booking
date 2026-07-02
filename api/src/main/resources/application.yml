@@ -47,6 +47,16 @@ booking:
     url: ${BOOKING_NOTIFICATION_URL:http://localhost:8083}
 
 resilience4j:
+  retry:
+    instances:
+      notification:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - org.springframework.web.client.RestClientResponseException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
   circuitbreaker:
     instances:
       notification:

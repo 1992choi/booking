@@ -3,6 +3,7 @@ package com.example.booking.api.notification;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.api.error.ApiErrorCode;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ public class NotificationClient {
 
     private final RestClient notificationRestClient;
 
+    @Retry(name = "notification")
     @CircuitBreaker(name = "notification", fallbackMethod = "fallback")
     public void sendAdminMessage(Long userId, String message) {
         notificationRestClient.post()
