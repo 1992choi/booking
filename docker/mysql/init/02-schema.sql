@@ -119,5 +119,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     status          VARCHAR(50) NOT NULL,
     sent_at         DATETIME(6),
     created_at      DATETIME(6),
-    updated_at      DATETIME(6)
+    updated_at      DATETIME(6),
+    UNIQUE KEY uk_notification_reservation_type (reservation_id, type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

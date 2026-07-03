@@ -26,6 +26,11 @@ public class NotificationService {
 
     @Transactional
     public void send(Long userId, Long reservationId, NotificationType type) {
+        if (notificationRepository.existsByReservationIdAndType(reservationId, type)) {
+            log.info("중복 알림 스킵 reservationId={}, type={}", reservationId, type);
+            return;
+        }
+
         Notification notification = Notification.builder()
                 .userId(userId)
                 .reservationId(reservationId)
