@@ -27,6 +27,11 @@ public class PaymentService {
 
     @Transactional
     public void process(ReservationCreatedKafkaEvent event) {
+        if (paymentRepository.findByReservationId(event.reservationId()).isPresent()) {
+            log.info("중복 결제 요청 스킵 reservationId={}", event.reservationId());
+            return;
+        }
+
         log.info("결제 처리 시작 reservationId={}, userId={}, amount={}", event.reservationId(), event.userId(), event.amount());
 
         Payment payment = Payment.builder()
