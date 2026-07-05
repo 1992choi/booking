@@ -216,3 +216,61 @@ FROM resources r
     JOIN db_api.users u ON m.user_id = u.id
     CROSS JOIN (SELECT 1 AS n UNION SELECT 2 UNION SELECT 3) days
 WHERE u.email = 'error@bookit.com';
+
+USE db_api;
+
+-- =============================================
+-- 8. 레이스 컨디션 테스트 계정 (race@bookit.com)
+--    최대 수용 인원 10명 리소스 + 단일 슬롯에 대량 동시 예약 요청을 쏴서
+--    Redis 분산락 / DB 비관적락 없이 overlap query만으로 동시성 방어가 되는지 확인
+--    password: 12341234 (BCrypt)
+-- =============================================
+INSERT INTO users (name, email, phone, password, role, created_at, updated_at)
+VALUES ('레이스테스터', 'race@bookit.com', '010-7777-7777', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'USER', NOW(), NOW()),
+       ('레이스테스트 시설', 'race-merchant@bookit.com', '010-7777-8888', '$2a$10$k6nl/zUrrsYBBDgclMglKetDayaPCEwg5voMQI3uRzBrOA2vuhLji', 'MERCHANT', NOW(), NOW());
+
+USE db_reservation;
+
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at
+FROM db_api.users
+WHERE email IN ('race@bookit.com', 'race-merchant@bookit.com');
+
+USE db_payment;
+
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at
+FROM db_api.users
+WHERE email IN ('race@bookit.com', 'race-merchant@bookit.com');
+
+USE db_notification;
+
+INSERT INTO users (id, name, email, phone, created_at, updated_at)
+SELECT id, name, email, phone, created_at, updated_at
+FROM db_api.users
+WHERE email IN ('race@bookit.com', 'race-merchant@bookit.com');
+
+USE db_reservation;
+
+INSERT INTO merchants (user_id, name, phone, type, created_at, updated_at)
+SELECT id, name, phone, 'FACILITY', NOW(), NOW()
+FROM db_api.users
+WHERE email = 'race-merchant@bookit.com';
+
+-- 레이스 컨디션 테스트 룸: 최대 수용 인원 10명
+INSERT INTO resources (merchant_id, name, description, price, max_capacity, created_at, updated_at)
+SELECT m.id, '레이스 컨디션 테스트 룸', '동시성 부하테스트용 리소스 - 최대 10명', 10000, 10, NOW(), NOW()
+FROM merchants m
+         JOIN db_api.users u ON m.user_id = u.id
+WHERE u.email = 'race-merchant@bookit.com';
+
+-- 레이스 컨디션 테스트 룸 예약 가능 시간: 단일 슬롯 (모든 동시 요청이 이 슬롯 하나를 두고 경쟁)
+INSERT INTO available_times (resource_id, start_time, end_time, status, created_at, updated_at)
+SELECT r.id,
+       DATE_ADD(CURDATE(), INTERVAL 1 DAY) + INTERVAL 10 HOUR,
+       DATE_ADD(CURDATE(), INTERVAL 1 DAY) + INTERVAL 11 HOUR,
+       'OPEN', NOW(), NOW()
+FROM resources r
+         JOIN merchants m ON r.merchant_id = m.id
+         JOIN db_api.users u ON m.user_id = u.id
+WHERE u.email = 'race-merchant@bookit.com' AND r.name = '레이스 컨디션 테스트 룸';

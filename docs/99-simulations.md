@@ -11,6 +11,7 @@
 |--------|------|------|----------|
 | `error@bookit.com` | 에러테스터 | MERCHANT | Kafka Consumer Lag |
 | `circuit@bookit.com` | 서킷테스터 | USER | 서킷브레이커 OPEN |
+| `test@bookit.com` | 테스터 | USER | 레이스 컨디션 (동시성 오버셀링) |
 
 ---
 
@@ -93,3 +94,41 @@ docker exec booking-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
 - OPEN 전: notification 서비스 로그에 `[CHAOS]` 경고 출력
 - OPEN 후: api 서비스가 notification에 요청을 보내지 않고 즉시 503 (`API_004`) 반환
 - 10초 후 HALF-OPEN 전환 → 정상 userId로 2번 성공하면 CLOSED 복귀
+
+---
+
+## 레이스 컨디션 (동시성 오버셀링)
+
+**계정:** `test@bookit.com`
+
+**대상 리소스:** `03-seed-data.sql`에서 생성되는 "레이스 컨디션 테스트 룸" (`max_capacity=10`, 슬롯 1개).
+
+**배경:** `docs/99-backlog.md`의 "동시성 보강" 항목(Redis 분산락, DB 비관적락)이 아직 미적용 상태라, 현재는 `validateSlots`의 overlap 쿼리만으로 정원(10명)을 방어하고 있다. 대량 동시 예약 요청을 쏴서 정원을 초과한 예약(오버셀링)이 생성되는지 확인한다.
+
+**k6 설치 (macOS):**
+
+```bash
+brew install k6
+```
+
+**실행:**
+
+```bash
+k6 run -e VUS=500 -e ITERATIONS=50000 load-test/k6/race-condition.js
+```
+
+| 옵션 | 기본값 | 의미 |
+|------|--------|------|
+| `VUS` | 200 | 동시 가상 유저 수 |
+| `ITERATIONS` | 50000 | 전체 요청(예약 시도) 건수 |
+| `API_BASE_URL` | `http://localhost:8080` | 로그인용 api 서비스 |
+| `RESERVATION_BASE_URL` | `http://localhost:8081` | 예약 생성용 reservation 서비스 |
+
+**관찰 포인트:**
+- `reservations` 테이블에서 해당 리소스로 생성된 행 개수를 확인. 10개를 초과하면 오버셀링 버그가 재현된 것.
+
+```sql
+SELECT COUNT(*) FROM db_reservation.reservations WHERE resource_id = (
+    SELECT id FROM db_reservation.resources WHERE name = '레이스 컨디션 테스트 룸'
+);
+```
