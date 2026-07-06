@@ -103,7 +103,9 @@ docker exec booking-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
 
 **대상 리소스:** `03-seed-data.sql`에서 생성되는 "레이스 컨디션 테스트 룸" (`max_capacity=10`, 슬롯 1개).
 
-**배경:** `docs/99-backlog.md`의 "동시성 보강" 항목(Redis 분산락, DB 비관적락)이 아직 미적용 상태라, 현재는 `validateSlots`의 overlap 쿼리만으로 정원(10명)을 방어하고 있다. 대량 동시 예약 요청을 쏴서 정원을 초과한 예약(오버셀링)이 생성되는지 확인한다.
+**배경:** 원래 `docs/99-backlog.md`의 "동시성 보강" 항목(Redis 분산락, DB 비관적락)이 미적용 상태였고, `validateSlots`의 overlap 쿼리만으로 정원(10명)을 방어하고 있어 대량 동시 예약 요청 시 오버셀링이 재현됐다.
+
+> **현재 상태 (적용 완료):** `ReservationService.create()`의 Redis 분산락(Redisson `RLock`)과 `findOverlapping`의 DB 비관적락(`PESSIMISTIC_WRITE`)이 모두 적용되어 더 이상 재현되지 않는다. 재현하려면 이 두 락 코드를 제거한(또는 적용 이전 커밋으로 되돌린) 상태에서 아래 절차를 따라야 한다.
 
 **k6 설치 (macOS):**
 
@@ -125,7 +127,7 @@ k6 run -e VUS=500 -e ITERATIONS=50000 load-test/k6/race-condition.js
 | `RESERVATION_BASE_URL` | `http://localhost:8081` | 예약 생성용 reservation 서비스 |
 
 **관찰 포인트:**
-- `reservations` 테이블에서 해당 리소스로 생성된 행 개수를 확인. 10개를 초과하면 오버셀링 버그가 재현된 것.
+- `reservations` 테이블에서 해당 리소스로 생성된 행 개수를 확인. 락 적용 이전 코드에서는 10개를 초과하면 오버셀링 버그가 재현된 것. 락 적용 후에는 10개를 넘지 않아야 정상이다.
 
 ```sql
 SELECT COUNT(*) FROM db_reservation.reservations WHERE resource_id = (

@@ -3,6 +3,7 @@ package com.example.booking.reservation.domain;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +31,7 @@ public class ReservationRepositoryImpl implements ReservationRepositoryCustom {
                         r.startTime.lt(end),
                         r.endTime.gt(start)
                 )
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetch();
     }
 

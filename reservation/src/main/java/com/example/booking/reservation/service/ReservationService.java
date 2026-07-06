@@ -23,6 +23,8 @@ import com.example.booking.reservation.user.domain.UserSync;
 import com.example.booking.reservation.user.domain.UserSyncRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,35 +43,58 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReservationService {
 
+    private static final String LOCK_PREFIX = "reservation:lock:";
+
     private final ReservationRepository reservationRepository;
     private final ResourceRepository resourceRepository;
     private final AvailableTimeRepository availableTimeRepository;
     private final UserSyncRepository userSyncRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final MerchantRepository merchantRepository;
+    private final RedissonClient redissonClient;
 
     @Transactional
     public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
-        Resource resource = resourceRepository.findById(request.resourceId())
-                .orElseThrow(() -> new BusinessException(ReservationErrorCode.RESOURCE_NOT_FOUND));
+        RLock lock = redissonClient.getLock(LOCK_PREFIX + request.resourceId());
 
-        if (request.headCount() > resource.getMaxCapacity()) {
-            throw new BusinessException(ReservationErrorCode.CAPACITY_EXCEEDED);
+        boolean acquired;
+        try {
+            acquired = lock.tryLock(3, 5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
         }
 
-        List<AvailableTime> slots = availableTimeRepository.findAllById(request.availableTimeIds());
-        validateSlots(slots, request.resourceId(), request.headCount(), resource.getMaxCapacity());
+        if (!acquired) {
+            throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
+        }
 
-        List<Reservation> reservations = buildReservations(slots, userId, resource, request.headCount());
-        reservationRepository.saveAll(reservations);
+        try {
+            Resource resource = resourceRepository.findById(request.resourceId())
+                    .orElseThrow(() -> new BusinessException(ReservationErrorCode.RESOURCE_NOT_FOUND));
 
-        reservations.forEach(reservation ->
-                eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
-                        reservation.getId(), userId, request.resourceId(), resource.getPrice(),
-                        reservation.getAvailableTimeId())));
-        log.info("예약 생성 userId={}, resourceId={}, slotCount={}", userId, request.resourceId(), reservations.size());
+            if (request.headCount() > resource.getMaxCapacity()) {
+                throw new BusinessException(ReservationErrorCode.CAPACITY_EXCEEDED);
+            }
 
-        return reservations.stream().map(ReservationResponse::from).toList();
+            List<AvailableTime> slots = availableTimeRepository.findAllById(request.availableTimeIds());
+            validateSlots(slots, request.resourceId(), request.headCount(), resource.getMaxCapacity());
+
+            List<Reservation> reservations = buildReservations(slots, userId, resource, request.headCount());
+            reservationRepository.saveAll(reservations);
+
+            reservations.forEach(reservation ->
+                    eventPublisher.publishEvent(new ReservationCreatedDomainEvent(
+                            reservation.getId(), userId, request.resourceId(), resource.getPrice(),
+                            reservation.getAvailableTimeId())));
+            log.info("예약 생성 userId={}, resourceId={}, slotCount={}", userId, request.resourceId(), reservations.size());
+
+            return reservations.stream().map(ReservationResponse::from).toList();
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     private void validateSlots(List<AvailableTime> slots, Long resourceId, int headCount, int maxCapacity) {

@@ -1,24 +1,5 @@
 # 99. Backlog
 
-## 동시성 보강
-
-### Redis 분산락
-예약 생성(`POST /api/v1/reservations`) 진입 시 Redisson `tryLock`으로 동일 resourceId 동시 요청을 직렬화.
-실패 시 409 RSV_002 반환.
-
-```java
-RLock lock = redissonClient.getLock("reservation:lock:" + resourceId);
-if (!lock.tryLock(3, 5, TimeUnit.SECONDS)) {
-    throw new BusinessException(ReservationErrorCode.LOCK_FAILED);
-}
-```
-
-### DB 비관적락
-`findOverlapping` 쿼리에 `@Lock(LockModeType.PESSIMISTIC_WRITE)` 추가.
-Redis 락이 뚫렸을 때의 마지막 방어선.
-
----
-
 ## Outbox 패턴 + 보상 트랜잭션
 
 ### 배경
