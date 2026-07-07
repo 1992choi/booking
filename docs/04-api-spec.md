@@ -10,6 +10,7 @@
 | `/api/v1/reservations/**` | reservation |
 | `/api/v1/admin/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
+| `/api/v1/reviews/**` | review |
 
 > pg 서버(`localhost:8090`)는 ALB 뒤에 없는 독립 서버다. payment 서비스가 내부적으로 직접 호출하며, 외부 클라이언트는 접근하지 않는다.
 
@@ -65,6 +66,10 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | PAY_002 | 409 | 환불 불가 상태 | payment |
 | PAY_003 | 404 | 결제 내역 없음 | payment |
 | NTF_001 | 404 | 알림 이력 없음 | notification |
+| REVIEW_001 | 404 | 리뷰 없음 | review |
+| REVIEW_002 | 403 | 본인 리뷰 아님 | review |
+| REVIEW_003 | 409 | 이미 리뷰 작성됨 | review |
+| REVIEW_004 | 422 | 예약이 CONFIRMED 상태 아님 | review |
 
 > 결제 실패는 5xx(서버 오류) 가 아니라 422(처리 가능하나 비즈니스 룰로 거절). 클라이언트가 인지하고 재시도/안내해야 함.
 
@@ -600,6 +605,96 @@ Error 409 (status 가 COMPLETED 가 아닐 때):
   "code": "PAY_002",
   "detail": "환불 가능 상태가 아닙니다."
 }
+```
+
+---
+
+## Review API (review 서비스)
+
+별점 없음 — 텍스트 코멘트만 남기는 리뷰. `reservationId` 당 리뷰 1개만 작성 가능하며, 본인이 `CONFIRMED` 예약을 한 경우에만 작성할 수 있다.
+
+### 리뷰 작성
+```
+POST /api/v1/reviews
+Authorization: Bearer {jwt}
+
+Request:
+{
+  "reservationId": 1,
+  "content": "정말 좋았어요!"
+}
+
+Response 201:
+{
+  "id": 1,
+  "reservationId": 1,
+  "merchantId": 5,
+  "userId": 2,
+  "content": "정말 좋았어요!",
+  "createdAt": "2026-05-01T14:00:00",
+  "updatedAt": "2026-05-01T14:00:00"
+}
+
+Error 403 (AUTH_002): 본인 예약이 아닌 reservationId
+Error 404 (COMMON_001): reservationId 에 해당하는 예약 없음
+Error 409 (REVIEW_003): 이미 리뷰를 작성한 예약
+Error 422 (REVIEW_004): 예약이 CONFIRMED 상태가 아님
+```
+
+> `merchantId`는 review 서비스가 `db_reservation`을 직접 읽기 전용 조회(`reservations.resource_id` → `resources.merchant_id`)해서 저장한 snapshot이다.
+
+### 업체별 리뷰 목록
+```
+GET /api/v1/reviews?merchantId={id}
+
+Response 200:
+[
+  {
+    "id": 1,
+    "reservationId": 1,
+    "merchantId": 5,
+    "userId": 2,
+    "content": "정말 좋았어요!",
+    "createdAt": "2026-05-01T14:00:00",
+    "updatedAt": "2026-05-01T14:00:00"
+  }
+]
+```
+
+### 리뷰 수정
+```
+PATCH /api/v1/reviews/{reviewId}
+Authorization: Bearer {jwt}  (작성자 본인만 가능)
+
+Request:
+{
+  "content": "수정된 리뷰입니다"
+}
+
+Response 200:
+{
+  "id": 1,
+  "reservationId": 1,
+  "merchantId": 5,
+  "userId": 2,
+  "content": "수정된 리뷰입니다",
+  "createdAt": "2026-05-01T14:00:00",
+  "updatedAt": "2026-05-01T15:00:00"
+}
+
+Error 403 (REVIEW_002): 작성자 본인이 아님
+Error 404 (REVIEW_001): 리뷰 없음
+```
+
+### 리뷰 삭제
+```
+DELETE /api/v1/reviews/{reviewId}
+Authorization: Bearer {jwt}  (작성자 본인만 가능)
+
+Response 204 (No Content)
+
+Error 403 (REVIEW_002): 작성자 본인이 아님
+Error 404 (REVIEW_001): 리뷰 없음
 ```
 
 ---

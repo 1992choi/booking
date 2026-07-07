@@ -4,10 +4,12 @@ MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 유저 정보�
 
 ```
 db_api          ← User
-db_reservation  ← UserSync, Merchant, Resource, AvailableTime, Reservation
+db_reservation  ← UserSync, Merchant, Resource, AvailableTime, Reservation, Review (review 서비스 소유, DB만 공유)
 db_payment      ← UserSync, Payment
 db_notification ← UserSync, Notification
 ```
+
+> `Review`는 review 서비스가 소유하는 테이블이지만 별도 DB를 만들지 않고 `db_reservation`을 reservation 서비스와 공유한다. review 서비스는 이 테이블에만 쓰기 권한이 있고, `Merchant`/`Reservation`/`Resource`는 읽기 전용으로만 조회한다.
 
 > 다른 서비스 도메인의 식별자(예: `user_id`, `resource_id`)는 단순 BIGINT 컬럼으로 보유한다. **FK 제약은 걸지 않는다** — 물리적으로 다른 DB이기 때문.
 
@@ -127,6 +129,19 @@ public abstract class BaseEntity {
 > - `Reservation.amount`: 예약 시점에 api 의 Resource.price 를 복사 (snapshot). 청구 기준이 되는 **약속된 가격**. Resource.price 가 나중에 바뀌어도 영향 없음.
 > - `Payment.amount`: 실제 결제 시도된 금액. 보통은 `Reservation.amount` 와 동일하지만, 부분 결제/할인 적용 등으로 달라질 수 있는 **결제 사실값**.
 
+### Review (review 서비스 소유 — `db_reservation` 공유)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGINT | PK |
+| reservation_id | BIGINT | Reservation.id (FK X), UNIQUE — 예약 1건당 리뷰 1개 |
+| merchant_id | BIGINT | Merchant.id (FK X) — 작성 시점에 조회한 snapshot |
+| user_id | BIGINT | db_api.User.id (FK X) — 작성자 |
+| content | TEXT | 코멘트 (별점 없음) |
+| created_at | DATETIME | |
+| updated_at | DATETIME | |
+
+> `Reservation`이 이후 `CANCELLED` 되어도 리뷰는 그대로 유지된다 (별도 이벤트 구독 없음).
+
 ---
 
 ## db_payment (payment 서비스 소유)
@@ -208,6 +223,7 @@ Resource (reservation)
 Reservation (reservation)
   └─ 1:1 → Payment (payment)
   └─ 1:N → Notification (notification)
+  └─ 1:1(optional) → Review (review)
 ```
 
 ---

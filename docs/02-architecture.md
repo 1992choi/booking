@@ -44,6 +44,10 @@
                   └────────────────────────┘
 ```
 
+### review 모듈 (Kotlin, 학습용)
+
+`review` (`:8084`)는 위 4개 서비스와 별개로 독립 배포되는 학습용 모듈이다. 새 DB를 만들지 않고 `db_reservation`을 reservation 서비스와 공유하며, 자신이 쓰기 권한을 갖는 테이블은 신설 `reviews` 하나뿐이다. 리뷰 작성 자격 검증(`본인이 CONFIRMED 예약을 했는가`)은 `reservations`/`resources` 테이블을 JDBC로 직접 읽기 전용 조회해서 처리하며, reservation 서비스에 대한 REST 호출이나 Kafka 구독은 전혀 없다. 자세한 내용은 `06-5-module-review.md` 참고.
+
 ---
 
 ## 멀티 모듈 구조 (Gradle)
@@ -55,7 +59,8 @@ booking/
 ├── reservation       # 서비스 2
 ├── payment           # 서비스 3
 ├── notification      # 서비스 4
-└── pg                # Mock PG 서버 (외부 PG 시뮬레이션)
+├── pg                # Mock PG 서버 (외부 PG 시뮬레이션)
+└── review            # 학습용 모듈 (Kotlin) — db_reservation 공유
 ```
 
 ### 모듈 의존 관계
@@ -66,11 +71,13 @@ reservation  ─── core
 payment      ─── core
 notification ─── core
 pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
+review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는 그대로 소비 가능
 ```
 
 → 4개 서비스는 **서로 직접 의존하지 않는다**. 통신은 Kafka 만 사용.
 → core 만 공통 라이브러리로 임베드.
 → pg 는 외부 PG 서버를 시뮬레이션하는 독립 서버. JWT/Security/DB/Kafka 없이 web + validation 만 사용.
+→ review 는 reservation 서비스에 의존하지 않는다 (REST 호출 없음). `db_reservation`을 공유 DB로 직접 연결할 뿐이다.
 
 ### 배포 산출물
 
@@ -82,6 +89,7 @@ pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
 | payment | O | X | Spring Boot 앱 |
 | notification | O | X | Spring Boot 앱 |
 | pg | O | X | Mock PG 서버. 실제 PG 연동 시 제거 대상 |
+| review | O | X | Spring Boot 앱 (Kotlin) |
 
 ---
 

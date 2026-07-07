@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS reservations (
     INDEX idx_reservation_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS reviews (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reservation_id  BIGINT       NOT NULL UNIQUE,
+    merchant_id     BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL,
+    content         TEXT         NOT NULL,
+    created_at      DATETIME(6),
+    updated_at      DATETIME(6),
+    INDEX idx_review_merchant (merchant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- db_payment
 USE db_payment;
 
