@@ -74,26 +74,6 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## QueryDSL
-
-동적 쿼리가 필요한 목록 조회에 적용. 현재 `@Query` JPQL로 작성된 정적 쿼리를 보완.
-
-- 적용 대상: 예약 목록 (`status`, `date` 필터 조합), 업체별 예약 캘린더 조회
-- `JPAQueryFactory` 빈 등록 + Q클래스 생성 설정 (각 서비스 `build.gradle`)
-
----
-
-## batch 모듈 (Spring Batch)
-
-독립 모듈(`batch`)로 추가. 구체적인 기능은 미정이나 아래 방향 중 하나 이상 적용 예정.
-
-- **통계 처리**: 일별/월별 예약 건수, 매출 집계
-- **이벤트 트리거**: 미완료 예약 자동 만료 (PENDING 상태 N시간 초과 시 CANCELLED), 슬롯 복원
-- Chunk 기반 처리, JobParameter로 실행 기준 제어
-- `docker-compose`에 배치 실행 환경 추가
-
----
-
 ## CQRS
 
 예약 조회(Read)와 생성/취소(Write) 모델 분리. 현재는 동일 엔티티로 읽기/쓰기를 모두 처리.
