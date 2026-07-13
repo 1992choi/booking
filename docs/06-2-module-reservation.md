@@ -21,6 +21,8 @@ reservation 서비스가 자체 DB 에 소유:
 - Resource (예약 대상)
 - AvailableTime (예약 가능 시간대)
 - Reservation
+- DailyMerchantStats (업체 일별 예약 통계 — batch 모듈이 집계, reservation 은 조회만)
+- UserSync (api 서비스의 User 를 Kafka 로 동기화한 읽기 전용 로컬 사본)
 
 ---
 
@@ -37,6 +39,8 @@ reservation/
     ├── domain/
     │   ├── Reservation.java
     │   ├── ReservationRepository.java
+    │   ├── ReservationRepositoryCustom.java     (QueryDSL 커스텀 조회)
+    │   ├── ReservationRepositoryImpl.java       (findOverlapping — PESSIMISTIC_WRITE)
     │   └── ReservationStatus.java
     ├── merchant/
     │   ├── controller/MerchantController.java
@@ -44,7 +48,9 @@ reservation/
     │   ├── domain/
     │   │   ├── Merchant.java
     │   │   ├── MerchantRepository.java
-    │   │   └── MerchantType.java
+    │   │   ├── MerchantType.java
+    │   │   ├── DailyMerchantStats.java          (batch 가 집계, 여기선 조회만)
+    │   │   └── DailyMerchantStatsRepository.java
     │   └── dto/
     ├── resource/
     │   ├── controller/ResourceController.java
@@ -59,15 +65,23 @@ reservation/
     ├── admin/
     │   ├── controller/AdminController.java
     │   └── dto/
+    ├── user/                                    (api 서비스 User 의 Kafka 동기화 사본)
+    │   ├── domain/UserSync.java
+    │   ├── domain/UserSyncRepository.java
+    │   └── event/UserEventConsumer.java         (Kafka consume — user.created/updated/deleted)
     ├── event/
     │   ├── ReservationEventPublisher.java   (Kafka produce — AFTER_COMMIT)
-    │   └── PaymentEventConsumer.java        (Kafka consume — payment.failed)
+    │   └── PaymentEventConsumer.java        (Kafka consume — payment.completed/payment.failed)
+    ├── system/
+    │   └── PingController.java
     ├── error/
     │   └── ReservationErrorCode.java
     ├── dto/
     └── config/
         ├── SecurityConfig.java
-        └── CacheConfig.java                 (Redis 캐시 설정)
+        ├── CacheConfig.java                 (Redis 캐시 설정)
+        ├── RedissonConfig.java              (Redis 분산 락 클라이언트)
+        └── KafkaConfig.java
 ```
 
 
@@ -77,27 +91,34 @@ reservation/
 
 ### 예약 생성 흐름
 
-1. `ResourceRepository` 로 resource 조회 (가격 · maxCapacity snapshot)
-2. `headCount > maxCapacity` → 422 RSV_003
-3. 각 슬롯별 검증:
+1. `RLock lock = redissonClient.getLock("reservation:lock:" + resourceId)` 로 tryLock(waitTime=3s, leaseTime=5s). 획득 실패 시 409 RSV_002 (LOCK_FAILED)
+2. (락 보유 중) `ResourceRepository` 로 resource 조회 (가격 · maxCapacity snapshot)
+3. `headCount > maxCapacity` → 422 RSV_003
+4. 각 슬롯별 검증 — `findOverlapping` 은 `PESSIMISTIC_WRITE` 락을 걸고 조회:
    - `slot.status == BLOCKED` → 409 RSV_001
    - `findOverlapping().sumHeadCount + headCount > maxCapacity` → 409 RSV_001
-4. Reservation INSERT. `amount` · `resourceName` 은 resource snapshot 으로 저장 (이후 변경돼도 불변)
-5. 도메인 이벤트 발행 → `ReservationEventPublisher` 가 `AFTER_COMMIT` 에:
+5. Reservation INSERT. `amount` · `resourceName` 은 resource snapshot 으로 저장 (이후 변경돼도 불변)
+6. `finally` 블록에서 `lock.unlock()`
+7. 도메인 이벤트 발행 → `ReservationEventPublisher` 가 `AFTER_COMMIT` 에:
    - `sumHeadCountByAvailableTimeId >= maxCapacity` 이면 `AvailableTime.status` → BLOCKED
    - Kafka `reservation.created` publish
 
 ### 주요 쿼리
 
 ```java
-// 시간 겹침 조회
-@Query("""
-    SELECT r FROM Reservation r
-    WHERE r.resourceId = :resourceId
-      AND r.status <> ReservationStatus.CANCELLED
-      AND r.startTime < :end AND r.endTime > :start
-""")
-List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDateTime end);
+// 시간 겹침 조회 (QueryDSL, ReservationRepositoryImpl) — 비관적 락으로 동시 갱신 방지
+@Override
+public List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, LocalDateTime end) {
+    return queryFactory.selectFrom(r)
+            .where(
+                    r.resourceId.eq(resourceId),
+                    r.status.ne(ReservationStatus.CANCELLED),
+                    r.startTime.lt(end),
+                    r.endTime.gt(start)
+            )
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+            .fetch();
+}
 
 // 슬롯 점유 인원 합산 (CANCELLED 제외)
 @Query("""
@@ -159,4 +180,8 @@ GET /api/v1/resources/*/available-times         → permitAll
 ### consume
 | 토픽 | 처리 |
 |------|------|
+| payment.completed | 예약 상태 → CONFIRMED |
 | payment.failed | 예약 상태 → CANCELLED, reservation.cancelled 이벤트 발행 |
+| user.created | `UserSync` 로컬 사본 INSERT |
+| user.updated | `UserSync` 로컬 사본 UPDATE (존재할 때만) |
+| user.deleted | `UserSync` 로컬 사본 DELETE |

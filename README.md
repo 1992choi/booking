@@ -1,6 +1,6 @@
 # Booking
 
-범위 기반 예약 플랫폼 (MSA). 4개 서비스(`api`, `reservation`, `payment`, `notification`) + 공통 라이브러리 `core`로 구성.
+범위 기반 예약 플랫폼 (MSA). 4개 서비스(`api`, `reservation`, `payment`, `notification`) + 공통 라이브러리 `core`, 그리고 학습/운영 보조 목적의 `review`(Kotlin) · `batch` · `pg`(Mock PG) 모듈로 구성.
 
 설계 문서는 [`docs/`](./docs) 참고. 시작점: [`docs/01-overview.md`](./docs/01-overview.md).
 
@@ -64,7 +64,7 @@ docker compose down -v && docker compose up -d
 
 ### 4. 서비스 기동
 
-각 서비스는 별도 포트로 동작.
+각 서비스는 별도 포트로 동작. `batch`는 HTTP 를 노출하지 않고 스케줄러로만 동작한다.
 
 | 서비스 | 명령 | 포트 |
 |--------|------|------|
@@ -72,6 +72,9 @@ docker compose down -v && docker compose up -d
 | reservation | `./gradlew :reservation:bootRun` | 8081 |
 | payment | `./gradlew :payment:bootRun` | 8082 |
 | notification | `./gradlew :notification:bootRun` | 8083 |
+| review | `./gradlew :review:bootRun` | 8084 |
+| pg (Mock PG) | `./gradlew :pg:bootRun` | 8090 |
+| batch | `./gradlew :batch:bootRun` | (HTTP 없음, `@Scheduled` 배치 실행) |
 
 ### 5. 로컬 접속 URL
 
@@ -81,4 +84,26 @@ docker compose down -v && docker compose up -d
 | reservation 서비스 | http://localhost:8081 |
 | payment 서비스 | http://localhost:8082 |
 | notification 서비스 | http://localhost:8083 |
+| review 서비스 | http://localhost:8084 |
+| Mock PG 서버 | http://localhost:8090 |
 | Zipkin (분산추적) | http://localhost:9411/zipkin/ |
+
+---
+
+## 기술 스택
+
+공통(core 라이브러리, 모든 서비스에 임베드): Spring Boot 4 · Java 25 · JWT(jjwt) 발급/검증 · Micrometer Tracing + OpenTelemetry Zipkin exporter(분산추적).
+
+| 기술 | 용도 | 적용 모듈 |
+|------|------|-----------|
+| Spring Data JPA | ORM | api, reservation, payment, notification, batch, review |
+| QueryDSL | 동적 쿼리, 겹침 조회 시 비관적 락(PESSIMISTIC_WRITE) | reservation |
+| Kafka (spring-kafka) | 서비스 간 비동기 이벤트 | api, reservation, payment, notification |
+| Redis + Bucket4j | 로그인 요청 rate limit | api |
+| Redis + Redisson | 예약 생성 시 분산 락(오버셀링 방지) | reservation |
+| Spring Cache + Redis | 업체 조회 캐싱 | reservation |
+| Resilience4j | notification 호출 재시도 + 서킷브레이커 | api |
+| Spring Batch | 예약 만료 처리 · 업체 일별 통계 집계 배치 | batch |
+| Kotlin + Spring Boot | 업체 리뷰 기능 (학습용) | review |
+| MySQL | 서비스별 DB (database-per-service). batch/review 는 db_reservation 공유 | api, reservation, payment, notification, batch, review |
+| Zipkin | 분산 트레이싱 UI | 전 서비스 |

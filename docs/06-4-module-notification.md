@@ -48,7 +48,10 @@ notification/
     ├── user/
     │   ├── domain/UserSync.java
     │   └── event/UserEventConsumer.java     (user.created/updated/deleted 구독)
+    ├── system/
+    │   └── PingController.java
     └── config/
+        ├── SecurityConfig.java
         └── KafkaConfig.java
 ```
 
@@ -69,6 +72,16 @@ notification/
 | Endpoint | 호출 서비스 | 처리 |
 |----------|-------------|------|
 | `POST /api/v1/internal/messages` | api | 관리자 메시지 발송 → `ADMIN_MESSAGE` 이력 저장 |
+
+---
+
+## 접근 제어 (SecurityConfig)
+
+```
+/ping                    → permitAll
+/api/v1/internal/**      → permitAll (게이트웨이/보안그룹 레벨 차단 전제)
+그 외                     → authenticated
+```
 
 ## Kafka
 

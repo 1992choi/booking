@@ -49,7 +49,10 @@ payment/
     │   └── PaymentErrorCode.java
     ├── dto/
     │   └── PaymentResponse.java
+    ├── system/
+    │   └── PingController.java
     └── config/
+        ├── SecurityConfig.java
         ├── KafkaConfig.java
         └── RestClientConfig.java         (pg 서버 RestClient 빈)
 ```
@@ -61,6 +64,26 @@ payment/
 `reservation.created` consume → Payment 레코드 생성 (PENDING) → `PgGateway.charge()` 로 pg 서버(`:8090`)에 HTTP 승인 요청 → 성공이면 COMPLETED, 실패(402 또는 네트워크 오류)면 FAILED 로 상태 전이 → `AFTER_COMMIT` 에 결과 이벤트 Kafka publish.
 
 pg 서버는 요청의 20% 확률로 402를 반환한다. 실제 PG 연동 시 `PgGateway` 만 교체하면 된다.
+
+---
+
+## 접근 제어 (SecurityConfig)
+
+```
+/ping    → permitAll
+그 외     → authenticated
+```
+
+---
+
+## PaymentErrorCode
+
+| code | HTTP | 설명 |
+|------|------|------|
+| PAY_001 | 422 | 결제 실패 (비즈니스 결과) |
+| PAY_002 | 409 | 환불 불가 상태 |
+| PAY_003 | 404 | 결제 내역 없음 |
+| PAY_004 | 422 | 환불 처리 실패 |
 
 ---
 

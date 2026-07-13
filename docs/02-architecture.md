@@ -48,6 +48,10 @@
 
 `review` (`:8084`)는 위 4개 서비스와 별개로 독립 배포되는 학습용 모듈이다. 새 DB를 만들지 않고 `db_reservation`을 reservation 서비스와 공유하며, 자신이 쓰기 권한을 갖는 테이블은 신설 `reviews` 하나뿐이다. 리뷰 작성 자격 검증(`본인이 CONFIRMED 예약을 했는가`)은 `reservations`/`resources` 테이블을 JDBC로 직접 읽기 전용 조회해서 처리하며, reservation 서비스에 대한 REST 호출이나 Kafka 구독은 전혀 없다. 자세한 내용은 `06-5-module-review.md` 참고.
 
+### batch 모듈 (Spring Batch)
+
+`batch`는 HTTP로 외부에 노출되지 않는 배치 전용 모듈이다. `db_reservation`을 reservation 서비스와 공유하며, `@Scheduled` 트리거로 두 Job을 실행한다: `expirePendingReservationsJob`(매분, `booking.batch.pending-expiry-minutes`가 지난 `PENDING` 예약을 만료 처리) · `dailyMerchantStatsJob`(매일 새벽 1시, 전일자 업체별 예약 통계를 `daily_merchant_stats`에 집계). reservation 서비스에 대한 REST 호출이나 Kafka 구독 없이 DB를 직접 읽고 쓴다.
+
 ---
 
 ## 멀티 모듈 구조 (Gradle)
@@ -59,6 +63,7 @@ booking/
 ├── reservation       # 서비스 2
 ├── payment           # 서비스 3
 ├── notification      # 서비스 4
+├── batch             # 배치 전용 모듈 — db_reservation 공유, HTTP 미노출
 ├── pg                # Mock PG 서버 (외부 PG 시뮬레이션)
 └── review            # 학습용 모듈 (Kotlin) — db_reservation 공유
 ```
@@ -70,6 +75,7 @@ api          ─── core
 reservation  ─── core
 payment      ─── core
 notification ─── core
+batch        ─── core
 pg           ─── (없음)   # 완전 독립. core도 사용하지 않음
 review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는 그대로 소비 가능
 ```
@@ -78,6 +84,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 → core 만 공통 라이브러리로 임베드.
 → pg 는 외부 PG 서버를 시뮬레이션하는 독립 서버. JWT/Security/DB/Kafka 없이 web + validation 만 사용.
 → review 는 reservation 서비스에 의존하지 않는다 (REST 호출 없음). `db_reservation`을 공유 DB로 직접 연결할 뿐이다.
+→ batch 도 review 와 마찬가지로 reservation 서비스에 의존하지 않고 `db_reservation`을 직접 연결한다.
 
 ### 배포 산출물
 
@@ -88,6 +95,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | reservation | O | X | Spring Boot 앱 |
 | payment | O | X | Spring Boot 앱 |
 | notification | O | X | Spring Boot 앱 |
+| batch | O | X | Spring Batch 앱. HTTP 미노출, `@Scheduled` 로 Job 실행 |
 | pg | O | X | Mock PG 서버. 실제 PG 연동 시 제거 대상 |
 | review | O | X | Spring Boot 앱 (Kotlin) |
 
@@ -173,23 +181,28 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
 
 ## 동시성 처리 전략 (reservation 서비스)
 
-### 현재 구현 (headCount 기반 검사)
+### 현재 구현 (Redis 분산 락 + DB 비관적 락 + headCount 기반 검사)
 
-슬롯에 `maxCapacity` 가 있어, 단순 겹침 여부가 아니라 현재 점유 인원 합산으로 예약 가능 여부를 판단한다.
+슬롯에 `maxCapacity` 가 있어, 단순 겹침 여부가 아니라 현재 점유 인원 합산으로 예약 가능 여부를 판단한다. 동시 요청에 의한 오버셀링을 막기 위해 리소스 단위 Redis 분산 락(Redisson)으로 요청을 직렬화하고, 락 내부에서 겹침 조회 쿼리에 DB 비관적 락(`PESSIMISTIC_WRITE`)을 걸어 이중으로 방어한다.
 
 ```
 요청
-  → headCount > resource.maxCapacity → 422 RSV_003
-  → 각 슬롯별:
-      - slot.status == BLOCKED → 409 RSV_001
-      - findOverlapping().sumHeadCount + 요청 headCount > maxCapacity → 409 RSV_001
-  → Reservation INSERT
+  → Redisson RLock("reservation:lock:{resourceId}") tryLock(waitTime=3s, leaseTime=5s)
+      - 획득 실패/인터럽트 → 409 RSV_002 (LOCK_FAILED)
+  → (락 보유 중)
+      → headCount > resource.maxCapacity → 422 RSV_003
+      → 각 슬롯별:
+          - slot.status == BLOCKED → 409 RSV_001
+          - findOverlapping()[PESSIMISTIC_WRITE].sumHeadCount + 요청 headCount > maxCapacity → 409 RSV_001
+      → Reservation INSERT
+  → finally: lock.unlock()
   → AFTER_COMMIT:
       - sumHeadCountByAvailableTimeId >= maxCapacity → AvailableTime BLOCKED
       - Kafka produce reservation.created
 ```
 
 > `INDEX (resource_id, start_time, end_time)` — 겹침 쿼리 성능용. UNIQUE 제약은 부분 겹침(`14:00–15:00` vs `14:30–15:30`)을 막지 못하므로 사용하지 않는다.
+> Redis 락은 여러 애플리케이션 인스턴스 간 요청을 직렬화하기 위한 것이고, DB 비관적 락은 락 만료(leaseTime 초과) 등으로 직렬화가 깨지는 경우를 대비한 마지막 방어선이다. 두 레이어 중 하나만으로는 오버셀링을 완전히 막을 수 없다.
 
 
 ---

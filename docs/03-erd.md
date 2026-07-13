@@ -4,12 +4,14 @@ MSA 원칙에 따라 각 서비스가 자기 DB 만 소유한다. 유저 정보�
 
 ```
 db_api          ← User
-db_reservation  ← UserSync, Merchant, Resource, AvailableTime, Reservation, Review (review 서비스 소유, DB만 공유)
+db_reservation  ← UserSync, Merchant, Resource, AvailableTime, Reservation, DailyMerchantStats, Review (review 서비스 소유, DB만 공유)
 db_payment      ← UserSync, Payment
 db_notification ← UserSync, Notification
 ```
 
 > `Review`는 review 서비스가 소유하는 테이블이지만 별도 DB를 만들지 않고 `db_reservation`을 reservation 서비스와 공유한다. review 서비스는 이 테이블에만 쓰기 권한이 있고, `Merchant`/`Reservation`/`Resource`는 읽기 전용으로만 조회한다.
+
+> `DailyMerchantStats`는 batch 모듈이 매일 새벽 1시 배치로 집계/저장하고, reservation 서비스는 조회만 한다. batch 도 별도 DB 없이 `db_reservation`을 공유한다.
 
 > 다른 서비스 도메인의 식별자(예: `user_id`, `resource_id`)는 단순 BIGINT 컬럼으로 보유한다. **FK 제약은 걸지 않는다** — 물리적으로 다른 DB이기 때문.
 
@@ -129,6 +131,18 @@ public abstract class BaseEntity {
 > - `Reservation.amount`: 예약 시점에 api 의 Resource.price 를 복사 (snapshot). 청구 기준이 되는 **약속된 가격**. Resource.price 가 나중에 바뀌어도 영향 없음.
 > - `Payment.amount`: 실제 결제 시도된 금액. 보통은 `Reservation.amount` 와 동일하지만, 부분 결제/할인 적용 등으로 달라질 수 있는 **결제 사실값**.
 
+### DailyMerchantStats (업체 일별 예약 통계 — batch 모듈이 집계)
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | BIGINT | PK |
+| stat_date | DATE | 집계 대상 일자 |
+| merchant_id | BIGINT | FK → Merchant |
+| confirmed_count | INT | 해당일 CONFIRMED 예약 건수 |
+| cancelled_count | INT | 해당일 CANCELLED 예약 건수 |
+| total_revenue | BIGINT | 해당일 CONFIRMED 예약 매출 합계 |
+
+> UNIQUE: `(stat_date, merchant_id)`. batch 모듈의 `dailyMerchantStatsJob`이 매일 새벽 1시 전일자 데이터를 집계해 저장하고, reservation 서비스는 `GET /api/v1/merchants/{merchantId}/stats/daily` 로 조회만 한다.
+
 ### Review (review 서비스 소유 — `db_reservation` 공유)
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
@@ -168,6 +182,7 @@ public abstract class BaseEntity {
 | status | ENUM | PENDING / COMPLETED / FAILED / REFUNDED |
 | paid_at | DATETIME | 결제 시각 |
 | failed_reason | VARCHAR | 실패 사유 (nullable) |
+| pg_transaction_id | VARCHAR | Mock PG 승인 거래 ID (nullable) |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 
@@ -192,13 +207,16 @@ public abstract class BaseEntity {
 |------|------|------|
 | id | BIGINT | PK |
 | user_id | BIGINT | db_api.User.id (FK X) |
-| reservation_id | BIGINT | db_reservation.Reservation.id (FK X) |
-| type | ENUM | CONFIRMED / CANCELLED |
+| reservation_id | BIGINT | db_reservation.Reservation.id (FK X), nullable — ADMIN_MESSAGE 는 예약과 무관 |
+| message | TEXT | 메시지 본문 (nullable) — 주로 ADMIN_MESSAGE 에 사용 |
+| type | ENUM | CONFIRMED / CANCELLED / ADMIN_MESSAGE |
 | channel | ENUM | EMAIL / SMS / KAKAO / LOG |
 | status | ENUM | SENT / FAILED |
 | sent_at | DATETIME | |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
+
+> UNIQUE: `(reservation_id, type)` — 동일 예약에 같은 타입의 알림 중복 저장 방지.
 
 ---
 
@@ -215,6 +233,7 @@ User (api)
 
 Merchant (reservation)
   └─ 1:N → Resource (reservation)
+  └─ 1:N → DailyMerchantStats (reservation, batch 가 집계)
 
 Resource (reservation)
   └─ 1:N → AvailableTime (reservation)

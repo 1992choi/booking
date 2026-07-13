@@ -10,6 +10,7 @@
 | `/api/v1/reservations/**` | reservation |
 | `/api/v1/admin/reservations/**` | reservation |
 | `/api/v1/payments/**` | payment |
+| `/api/v1/notifications/**` | notification |
 | `/api/v1/reviews/**` | review |
 
 > pg 서버(`localhost:8090`)는 ALB 뒤에 없는 독립 서버다. payment 서비스가 내부적으로 직접 호출하며, 외부 클라이언트는 접근하지 않는다.
@@ -65,7 +66,7 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | PAY_001 | 422 | 결제 실패 (비즈니스 결과) | payment |
 | PAY_002 | 409 | 환불 불가 상태 | payment |
 | PAY_003 | 404 | 결제 내역 없음 | payment |
-| NTF_001 | 404 | 알림 이력 없음 | notification |
+| PAY_004 | 422 | 환불 처리 실패 | payment |
 | REVIEW_001 | 404 | 리뷰 없음 | review |
 | REVIEW_002 | 403 | 본인 리뷰 아님 | review |
 | REVIEW_003 | 409 | 이미 리뷰 작성됨 | review |
@@ -381,6 +382,27 @@ Error 404 (RSV_006): 업체 없음
 
 > reservation 서비스가 merchantId 로 resourceId 목록을 조회한 뒤 직접 예약 목록을 반환. 리소스가 없으면 빈 페이지를 반환.
 
+### 업체 일별 통계 조회
+```
+GET /api/v1/merchants/{merchantId}/stats/daily?year=2026&month=5
+Authorization: Bearer {jwt}  (해당 업체 소유자만 가능)
+
+Response 200:
+[
+  {
+    "statDate": "2026-05-01",
+    "confirmedCount": 3,
+    "cancelledCount": 1,
+    "totalRevenue": 450000
+  }
+]
+
+Error 403 (AUTH_002): 본인 소유 업체가 아닌 경우
+Error 404 (RSV_006): 업체 없음
+```
+
+> `daily_merchant_stats`는 batch 모듈이 매일 새벽 1시 배치로 전일자 데이터를 집계해 저장한 결과이며, 이 API 는 조회만 한다.
+
 ---
 
 ## Resource API (reservation 서비스)
@@ -455,6 +477,40 @@ Authorization: Bearer {jwt}  (업체 소유자(MERCHANT 역할)만 가능 — �
 Response 204
 
 Error 403: 본인 소유가 아닌 resource 삭제 시도
+```
+
+### 가능 시간 수정
+```
+PUT /api/v1/available-times/{id}
+Authorization: Bearer {jwt}  (업체 소유자(MERCHANT 역할)만 가능 — 본인 소유 resource)
+
+Request:
+{
+  "startTime": "2026-05-01T15:00:00",
+  "endTime": "2026-05-01T16:00:00"
+}
+
+Response 200:
+{
+  "availableTimeId": 1,
+  "startTime": "2026-05-01T15:00:00",
+  "endTime": "2026-05-01T16:00:00",
+  "status": "OPEN"
+}
+
+Error 403: 본인 소유가 아닌 resource 의 가능 시간 수정 시도
+Error 404 (RSV_008): 가능 시간 없음
+```
+
+### 가능 시간 삭제
+```
+DELETE /api/v1/available-times/{id}
+Authorization: Bearer {jwt}  (업체 소유자(MERCHANT 역할)만 가능 — 본인 소유 resource)
+
+Response 204
+
+Error 403: 본인 소유가 아닌 resource 의 가능 시간 삭제 시도
+Error 404 (RSV_008): 가능 시간 없음
 ```
 
 ### 가능 시간 조회
@@ -758,6 +814,7 @@ Response 200:
   {
     "id": 1,
     "reservationId": 1,
+    "message": null,
     "type": "CONFIRMED",
     "channel": "LOG",
     "status": "SENT",
@@ -766,7 +823,7 @@ Response 200:
 ]
 ```
 
-> type: `CONFIRMED` / `CANCELLED`
+> type: `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` (`ADMIN_MESSAGE`는 `reservationId` 없이 `message` 필드에 본문이 채워짐)
 > channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
 > status: `SENT` / `FAILED`
 
