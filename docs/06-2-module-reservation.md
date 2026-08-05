@@ -148,6 +148,7 @@ Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict
 GET /api/v1/merchants                           → permitAll
 GET /api/v1/merchants/*                         → permitAll
 GET /api/v1/resources/*/available-times         → permitAll
+/ping                                           → permitAll
 /api/v1/admin/**                                → hasRole("MERCHANT")
 그 외                                            → authenticated
 ```

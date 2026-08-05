@@ -2,7 +2,7 @@
 
 ## 시스템 구성 (MSA)
 
-4개의 독립 배포 서비스 + 1개의 공통 라이브러리.
+핵심 4개의 독립 배포 서비스(api/reservation/payment/notification) + 1개의 공통 라이브러리(core). 여기에 배치 전용 `batch`, Mock PG `pg`, 학습용 `review` 3개 모듈이 추가로 독립 배포된다 (아래 "멀티 모듈 구조" 참고).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -120,6 +120,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | 호출 방향 | 엔드포인트 | 용도 |
 |-----------|-----------|------|
 | api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
+| payment → pg | `POST /pg/approve`, `POST /pg/cancel` | Mock PG 서버에 거래 승인/취소 요청 |
 
 > api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환.
 
@@ -130,10 +131,10 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | `user.created` | api | reservation, payment, notification | userId, name, email, phone |
 | `user.updated` | api | reservation, payment, notification | userId, name, email, phone |
 | `user.deleted` | api | reservation, payment, notification | userId |
-| `reservation.created` | reservation | payment | reservationId, userId, resourceId, startTime, endTime, amount |
-| `payment.completed` | payment | notification | paymentId, reservationId, userId, amount, paidAt |
-| `payment.failed` | payment | reservation | paymentId, reservationId, reason |
-| `reservation.cancelled` | reservation | notification | reservationId, userId, reason, cancelledAt |
+| `reservation.created` | reservation | payment | reservationId, userId, resourceId, amount |
+| `payment.completed` | payment | reservation, notification | paymentId, reservationId, userId |
+| `payment.failed` | payment | reservation | reservationId, userId |
+| `reservation.cancelled` | reservation | notification | reservationId, userId |
 
 ### 이벤트 페이로드 예시
 
@@ -143,8 +144,6 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
   "reservationId": 1,
   "userId": 10,
   "resourceId": 5,
-  "startTime": "2026-05-01T14:00:00",
-  "endTime": "2026-05-01T15:00:00",
   "amount": 50000
 }
 ```
@@ -154,9 +153,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 {
   "paymentId": 1,
   "reservationId": 1,
-  "userId": 10,
-  "amount": 50000,
-  "paidAt": "2026-05-01T13:00:00"
+  "userId": 10
 }
 ```
 
@@ -223,6 +220,8 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
        ↑↓
    [MSK Kafka]
 ```
+
+> 핵심 4개 서비스만 표시한 예시다. `review`는 같은 방식으로 ECS task + ALB 라우팅을 추가하면 되고(`db_reservation` RDS 공유), `batch`는 ALB 라우팅 없이 ECS Scheduled Task(또는 Lambda)로 별도 운영한다. `pg`는 실제 PG사 연동 시 제거되는 로컬/스테이징 전용 목이므로 AWS 구성에서 제외한다.
 
 ---
 

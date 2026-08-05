@@ -4,37 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is a **range-based reservation platform** designed as MSA. The repo currently holds a **single-module Spring Boot skeleton** (`BookingApplication` only) — modules and features described in `docs/` are the **target design**, not yet implemented. Read `docs/01-overview.md` first to orient on the gap between current code and target.
+This is a **range-based reservation platform** built as MSA. The modules and features described in `docs/` are implemented — read `docs/01-overview.md` first for the requirements/feature overview, then the relevant `06-*` module spec before touching a service.
 
 ## Build / run
 
 | Command | Purpose |
 |---------|---------|
-| `./gradlew build` | Full build + tests |
-| `./gradlew bootRun` | Run the app locally |
+| `./gradlew build` | Full build + tests (all modules) |
+| `./gradlew :api:bootRun` (or `:reservation`/`:payment`/`:notification`/`:review`/`:pg`/`:batch`) | Run one service locally — root has no boot plugin, so a bare `bootRun` fails |
 | `./gradlew test` | All tests |
 | `./gradlew test --tests <FQCN>` | Single test class |
 | `./gradlew test --tests <FQCN.method>` | Single test method |
 
 Gradle wrapper is pinned to **9.4.1**; toolchain is **Java 25**; Spring Boot **4.0.5**. Don't downgrade without a reason — this combo was deliberately chosen as the latest-stable trio (see prior conversation context in `docs/01-overview.md`).
 
-## Architecture (target — see `docs/02-architecture.md` for full detail)
+## Architecture (see `docs/02-architecture.md` for full detail)
 
-Four independent Spring Boot services + one shared library:
+Four core Spring Boot services + one shared library, plus three auxiliary independently-deployed modules:
 
 ```
-api (8080)          ─ Auth only: JWT issuance, User CRUD
-reservation (8081)  ─ Full booking domain: Merchant/Resource/AvailableTime CRUD + Reservation, Redis distributed lock, DB pessimistic lock
-payment (8082)      ─ Mock payment processing
-notification (8083) ─ Mock notification dispatch
-core (library)      ─ BaseEntity, ErrorCode interface, ProblemDetail handler, JwtVerifier
+api (8080)            ─ Auth only: JWT issuance, User CRUD
+reservation (8081)    ─ Full booking domain: Merchant/Resource/AvailableTime CRUD + Reservation, Redis distributed lock, DB pessimistic lock
+payment (8082)        ─ Mock payment processing (the one module using hexagonal/ports-and-adapters)
+notification (8083)   ─ Mock notification dispatch
+core (library)        ─ BaseEntity, ErrorCode interface, ProblemDetail handler, JwtVerifier, request logging + tracing autoconfig
+
+batch (no HTTP)       ─ Spring Batch: expires stale PENDING reservations, aggregates daily merchant stats. Shares db_reservation, no REST/Kafka.
+pg (8090)             ─ Mock external PG server. No DB, no core dependency, no security — payment calls it over RestClient.
+review (8084, Kotlin) ─ Merchant review CRUD (learning module). Shares db_reservation, reads Reservation/Resource read-only, no REST/Kafka to reservation.
 ```
 
 Services communicate via:
-- **Synchronous**: Spring 6 `RestClient` + Resilience4j (payment/notification → api for user info only)
-- **Asynchronous**: Kafka (`reservation.created`, `payment.completed`, `payment.failed`, `reservation.cancelled`)
+- **Synchronous**: Spring 6 `RestClient` — api → notification (admin message dispatch; Resilience4j retry + circuit breaker) and payment → pg (PG gateway approve/cancel)
+- **Asynchronous**: Kafka — `user.created`/`user.updated`/`user.deleted` (api → reservation, payment, notification; keeps each service's local `users` table in sync so nothing does a synchronous user lookup), `reservation.created` (reservation → payment), `payment.completed` (payment → reservation, notification), `payment.failed` (payment → reservation), `reservation.cancelled` (reservation → notification)
 
-Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, `db_payment`, `db_notification`). **No cross-service FK constraints** — other services' identifiers are stored as plain `BIGINT` columns.
+Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, `db_payment`, `db_notification`). `batch` and `review` share `db_reservation` with reservation instead of provisioning a new DB. **No cross-service FK constraints** — other services' identifiers are stored as plain `BIGINT` columns.
 
 ## Conventions that bite if missed
 
@@ -47,7 +51,7 @@ Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, 
 
 **ErrorCode is split**:
 - `core` defines the `ErrorCode` interface and `CommonErrorCode` (only truly cross-cutting: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `BAD_REQUEST`, `INTERNAL_ERROR`)
-- Each service defines its own enum (`ApiErrorCode`, `ReservationErrorCode`, `PaymentErrorCode`, `NotificationErrorCode`) implementing `ErrorCode`
+- Each service defines its own enum where it has domain-specific failures (`ApiErrorCode`, `ReservationErrorCode`, `PaymentErrorCode`, `ReviewErrorCode`) implementing `ErrorCode` — `notification` has no domain error codes of its own and relies on `CommonErrorCode` alone
 - Don't dump domain codes (e.g., `RESERVATION_CONFLICT`) into core
 
 **Status codes that surprise people**:
@@ -67,9 +71,9 @@ Database-per-service: each service owns its own DB (`db_api`, `db_reservation`, 
 - `Reservation.amount` = price snapshot at booking time (immutable, billing baseline)
 - `Payment.amount` = actually charged amount (may differ due to discount/partial payment)
 
-**Internal endpoints**: `/api/v1/internal/**` is for service-to-service calls. It must be blocked from external exposure at the gateway/security-group layer. Never put `permitAll()` on it.
+**Internal endpoints**: `/api/v1/internal/**` is for service-to-service calls and must be blocked from external exposure at the gateway/security-group layer — treat that as the real security boundary, not each service's `SecurityConfig`. The two current implementations diverge: `api`'s internal endpoint still requires a valid JWT (`anyRequest().authenticated()` catches it), while `notification`'s is `permitAll()` on the assumption the gateway blocks it (see `docs/06-4-module-notification.md`). Match whichever pattern the service you're touching already uses; don't silently "fix" one to match the other.
 
-**Notification types**: only `CONFIRMED` and `CANCELLED` exist. Earlier drafts mentioned `RESERVED` — there is no such type in the spec.
+**Notification types**: `CONFIRMED`, `CANCELLED`, and `ADMIN_MESSAGE` (admin-initiated, no `reservationId`) exist. Earlier drafts mentioned `RESERVED` — there is no such type in the spec.
 
 ## Coding behavior
 
@@ -173,12 +177,14 @@ See `docs/07-coding-conventions.md` for rationale and more examples.
 ## Documentation index
 
 `docs/` is the source of truth for design decisions:
-- `01-overview.md` — requirements, tech stack, current vs target state
-- `02-architecture.md` — service topology, communication, concurrency, AWS layout
+- `01-overview.md` — requirements, tech stack, feature scope by module
+- `02-architecture.md` — service topology, communication, concurrency, AWS layout (covers `batch`/`pg`/`review` too)
 - `03-erd.md` — per-service ERD (logical FK relationships, no physical FKs)
 - `04-api-spec.md` — REST endpoints with service ownership table, ProblemDetail format
 - `05-module-core.md` — core library scope (entities/repos NOT here)
-- `06-1` through `06-4` — per-service module specs
+- `06-1` through `06-5` — per-service module specs (api/reservation/payment/notification/review). `batch` has no dedicated `06-*` doc — its job/tasklet details live in `02-architecture.md` and `03-erd.md`.
 - `07-coding-conventions.md` — code style and formatting rules
+- `99-backlog.md` — proposed but **not yet implemented** work (Outbox pattern, observability stack, CQRS)
+- `99-simulations.md` — seeded accounts/scenarios for reproducing failure modes locally (Kafka consumer lag, circuit breaker, race condition)
 
 When implementing a feature, find its module spec under `06-*`, cross-reference the API in `04-api-spec.md`, and check the relevant ERD section in `03-erd.md`.
