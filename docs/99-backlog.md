@@ -64,13 +64,13 @@ payment.completed → reservation confirm 실패
 
 ## 관찰가능성 스택 고도화 (Grafana)
 
-현재 Zipkin(분산추적)만 구성된 상태. Prometheus + Loki + Tempo + Grafana를 추가해 메트릭/로그/트레이스를 단일 화면에서 연결하여 볼 수 있도록 고도화.
+현재 Zipkin(분산추적) + Prometheus(메트릭)까지 구성된 상태. Loki + Tempo + Grafana를 추가해 메트릭/로그/트레이스를 단일 화면에서 연결하여 볼 수 있도록 고도화.
 
-- Prometheus: 각 서비스 메트릭 수집 (`spring-boot-starter-actuator` + micrometer 이미 적용)
+- ~~Prometheus: 각 서비스 메트릭 수집~~ — **완료.** `docker-compose.yml`의 `prometheus` 컨테이너가 `docker/prometheus/prometheus.yml` 스크랩 설정으로 api/reservation/payment/notification의 `/actuator/prometheus`를 수집 (`micrometer-registry-prometheus` 추가 + `management.endpoints.web.exposure.include: health,prometheus` + SecurityConfig에 `/actuator/**` permitAll 필요했음). batch/pg/review는 actuator 자체가 없어 대상 아님.
 - Loki: 로그 수집 (Promtail 또는 Loki Logback Appender)
 - Tempo: Zipkin 대체 분산추적 백엔드 (OTel exporter를 OTLP로 교체)
-- Grafana: 메트릭/로그/트레이스 통합 대시보드
-- docker-compose에 위 4개 컨테이너 추가
+- Grafana: 메트릭/로그/트레이스 통합 대시보드 (Prometheus를 데이터소스로 우선 연결 가능)
+- docker-compose에 위 3개 컨테이너 추가
 
 ---
 

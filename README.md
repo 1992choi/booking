@@ -43,6 +43,7 @@ docker compose up -d
 | `booking-kafka` | 9092 | KRaft 모드 (단일 브로커) |
 | `booking-redis` | 6379 | |
 | `booking-zipkin` | 9411 | 분산추적 UI |
+| `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (batch/pg/review는 actuator 미적용이라 대상 아님) |
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
 
@@ -87,6 +88,7 @@ docker compose down -v && docker compose up -d
 | review 서비스 | http://localhost:8084 |
 | Mock PG 서버 | http://localhost:8090 |
 | Zipkin (분산추적) | http://localhost:9411/zipkin/ |
+| Prometheus (메트릭) | http://localhost:9090 |
 
 ---
 
@@ -107,3 +109,4 @@ docker compose down -v && docker compose up -d
 | Kotlin + Spring Boot | 업체 리뷰 기능 (학습용) | review |
 | MySQL | 서비스별 DB (database-per-service). batch/review 는 db_reservation 공유 | api, reservation, payment, notification, batch, review |
 | Zipkin | 분산 트레이싱 UI | 전 서비스 |
+| Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
