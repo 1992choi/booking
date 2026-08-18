@@ -149,6 +149,7 @@ GET /api/v1/merchants                           → permitAll
 GET /api/v1/merchants/*                         → permitAll
 GET /api/v1/resources/*/available-times         → permitAll
 /ping                                           → permitAll
+/actuator/**                                    → permitAll
 /api/v1/admin/**                                → hasRole("MERCHANT")
 그 외                                            → authenticated
 ```

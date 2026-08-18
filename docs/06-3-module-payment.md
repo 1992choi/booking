@@ -92,8 +92,9 @@ pg 서버는 요청의 20% 확률로 402를 반환한다. 실제 PG 연동 시 `
 ## 접근 제어 (SecurityConfig)
 
 ```
-/ping    → permitAll
-그 외     → authenticated
+/ping           → permitAll
+/actuator/**    → permitAll
+그 외            → authenticated
 ```
 
 ---

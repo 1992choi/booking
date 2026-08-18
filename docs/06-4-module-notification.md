@@ -79,6 +79,7 @@ notification/
 
 ```
 /ping                    → permitAll
+/actuator/**             → permitAll
 /api/v1/internal/**      → permitAll (게이트웨이/보안그룹 레벨 차단 전제)
 그 외                     → authenticated
 ```

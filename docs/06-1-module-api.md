@@ -91,6 +91,7 @@ Client → Bearer token
 ```
 /api/v1/auth/**                             → permitAll
 /ping                                       → permitAll
+/actuator/**                                → permitAll
 /api/v1/admin/**                            → ADMIN role 필요
 그 외 (내부 API 포함)                        → authenticated
 ```
