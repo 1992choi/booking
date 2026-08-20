@@ -74,12 +74,24 @@ services:
     ports:
       - "9090:9090"
 
+  loki:
+    image: grafana/loki:latest
+    container_name: booking-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - booking-loki-data:/loki
+    ports:
+      - "3100:3100"
+
   grafana:
     image: grafana/grafana:latest
     container_name: booking-grafana
     restart: unless-stopped
     depends_on:
       - prometheus
+      - loki
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -92,3 +104,4 @@ services:
 volumes:
   booking-mysql-data:
   booking-grafana-data:
+  booking-loki-data:

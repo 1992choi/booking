@@ -67,10 +67,10 @@ payment.completed → reservation confirm 실패
 현재 Zipkin(분산추적) + Prometheus(메트릭)까지 구성된 상태. Loki + Tempo + Grafana를 추가해 메트릭/로그/트레이스를 단일 화면에서 연결하여 볼 수 있도록 고도화.
 
 - ~~Prometheus: 각 서비스 메트릭 수집~~ — **완료.** `docker-compose.yml`의 `prometheus` 컨테이너가 `docker/prometheus/prometheus.yml` 스크랩 설정으로 api/reservation/payment/notification의 `/actuator/prometheus`를 수집 (`micrometer-registry-prometheus` 추가 + `management.endpoints.web.exposure.include: health,prometheus` + SecurityConfig에 `/actuator/**` permitAll 필요했음). batch/pg/review는 actuator 자체가 없어 대상 아님.
-- ~~Grafana: 메트릭/로그/트레이스 통합 대시보드~~ — **완료.** `docker-compose.yml`의 `grafana` 컨테이너가 `docker/grafana/provisioning/datasources/prometheus.yml`로 Prometheus 데이터소스를 자동 프로비저닝. `localhost:3000` (admin/admin). Loki/Tempo 연동 전까지는 Prometheus 메트릭만 조회 가능.
-- Loki: 로그 수집 (Promtail 또는 Loki Logback Appender). Grafana Explore로 조회.
+- ~~Grafana: 메트릭/로그/트레이스 통합 대시보드~~ — **완료.** `docker-compose.yml`의 `grafana` 컨테이너가 `docker/grafana/provisioning/datasources/`에서 Prometheus/Loki 데이터소스를 자동 프로비저닝. `localhost:3000` (admin/admin). Tempo 연동 전까지는 트레이스는 Zipkin UI에서 별도 조회.
+- ~~Loki: 로그 수집~~ — **완료.** `docker-compose.yml`의 `loki` 컨테이너(`docker/loki/loki-config.yml`, 단일 프로세스 filesystem 스토리지)에 api/reservation/payment/notification이 `loki-logback-appender`(Loki4j)로 로그를 직접 push. 각 서비스의 `logback-spring.xml`이 Spring Boot 기본 `base.xml`을 include한 뒤 `LOKI` appender를 추가로 붙이는 방식(콘솔 로깅은 그대로 유지). 서비스가 호스트에서 `bootRun`으로 뜨는 구조라 Promtail(컨테이너 로그 파일 tailing)보다 Zipkin/Prometheus와 같은 host→docker push 패턴이 일관적이라 Logback Appender를 선택. `docker/grafana/provisioning/datasources/loki.yml`로 Grafana에 Loki 데이터소스 자동 프로비저닝, Explore에서 `{app="payment"}` 형태로 조회. batch/pg/review는 Prometheus와 동일한 이유로 대상 아님.
 - Tempo: Zipkin 대체 분산추적 백엔드 (OTel exporter를 OTLP로 교체)
-- docker-compose에 위 3개 컨테이너 추가
+- docker-compose에 Tempo 컨테이너 추가
 
 ---
 
