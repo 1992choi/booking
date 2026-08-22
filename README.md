@@ -42,9 +42,9 @@ docker compose up -d
 | `booking-mysql` | 3306 | 계정 `root` / `root` |
 | `booking-kafka` | 9092 | KRaft 모드 (단일 브로커) |
 | `booking-redis` | 6379 | |
-| `booking-zipkin` | 9411 | 분산추적 UI |
+| `booking-tempo` | 3200, 4317, 4318 | 분산추적 수집기(OTLP gRPC/HTTP). 조회는 Grafana Explore에서 |
 | `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (batch/pg/review는 actuator 미적용이라 대상 아님) |
-| `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/prometheus.yml`로 Prometheus 데이터소스 자동 연결 |
+| `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결 |
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
 
@@ -88,7 +88,6 @@ docker compose down -v && docker compose up -d
 | notification 서비스 | http://localhost:8083 |
 | review 서비스 | http://localhost:8084 |
 | Mock PG 서버 | http://localhost:8090 |
-| Zipkin (분산추적) | http://localhost:9411/zipkin/ |
 | Prometheus (메트릭) | http://localhost:9090 |
 | Grafana (대시보드) | http://localhost:3000 |
 
@@ -96,7 +95,7 @@ docker compose down -v && docker compose up -d
 
 ## 기술 스택
 
-공통(core 라이브러리, 모든 서비스에 임베드): Spring Boot 4 · Java 25 · JWT(jjwt) 발급/검증 · Micrometer Tracing + OpenTelemetry Zipkin exporter(분산추적).
+공통(core 라이브러리, 모든 서비스에 임베드): Spring Boot 4 · Java 25 · JWT(jjwt) 발급/검증 · Micrometer Tracing + OpenTelemetry OTLP exporter(분산추적).
 
 | 기술 | 용도 | 적용 모듈 |
 |------|------|-----------|
@@ -110,6 +109,6 @@ docker compose down -v && docker compose up -d
 | Spring Batch | 예약 만료 처리 · 업체 일별 통계 집계 배치 | batch |
 | Kotlin + Spring Boot | 업체 리뷰 기능 (학습용) | review |
 | MySQL | 서비스별 DB (database-per-service). batch/review 는 db_reservation 공유 | api, reservation, payment, notification, batch, review |
-| Zipkin | 분산 트레이싱 UI | 전 서비스 |
+| Tempo | 분산 트레이싱 수집(OTLP), Grafana Explore에서 조회 | 전 서비스 |
 | Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) | api, reservation, payment, notification |

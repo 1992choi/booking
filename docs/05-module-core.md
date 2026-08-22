@@ -18,7 +18,7 @@
 | 에러 코드 | `ErrorCode` 인터페이스, `CommonErrorCode` (횡단적인 것만) | 도메인 에러 코드 (각 서비스가 enum 정의) |
 | 인증 | `JwtVerifier` (검증만), `AuthPrincipal`, `Role` | 토큰 발급 (api 서비스 단독) |
 | 예외 | `BusinessException`, `GlobalExceptionHandler` | 도메인 예외 클래스 |
-| 관측성 | 요청 로깅 필터(`RequestLoggingFilter`), Micrometer Tracing + OTel Zipkin exporter, `/ping` 헬스체크(`PingService`) | 서비스별 커스텀 메트릭 |
+| 관측성 | 요청 로깅 필터(`RequestLoggingFilter`), Micrometer Tracing + OTel OTLP exporter, `/ping` 헬스체크(`PingService`) | 서비스별 커스텀 메트릭 |
 
 ---
 
@@ -47,7 +47,7 @@ core/
     ├── logging/
     │   └── RequestLoggingFilter.java
     └── tracing/
-        └── TracingAutoConfiguration.java (@AutoConfiguration — Micrometer Tracing + OTel Zipkin exporter)
+        └── TracingAutoConfiguration.java (@AutoConfiguration — Micrometer Tracing + OTel OTLP exporter)
 ```
 
 ---
@@ -85,4 +85,4 @@ public enum Role { USER, MERCHANT, ADMIN }
 | `CoreAutoConfiguration` | 항상 | `PingService`, `GlobalExceptionHandler`, `RequestLoggingFilter`(최우선 순위 — 인증 실패도 로깅) |
 | `JpaAuditingAutoConfiguration` | `EntityManager` 클래스패스에 있을 때 | `@EnableJpaAuditing` (BaseEntity 의 createdAt/updatedAt 자동 채움). `pg` 모듈처럼 JPA 를 쓰지 않으면 비활성 |
 | `SecurityAutoConfig` | `booking.jwt.secret` 프로퍼티가 설정됐을 때 | `JwtVerifier`, `JwtAuthenticationFilter`, `JwtAuthenticationEntryPoint` |
-| `TracingAutoConfiguration` | OpenTelemetry/Micrometer Tracing 클래스패스에 있을 때 | Zipkin export 용 `OpenTelemetry`/`Tracer` 빈 |
+| `TracingAutoConfiguration` | OpenTelemetry/Micrometer Tracing 클래스패스에 있을 때 | OTLP export 용 `OpenTelemetry`/`Tracer` 빈 |

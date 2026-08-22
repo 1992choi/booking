@@ -54,14 +54,18 @@ services:
       timeout: 3s
       retries: 10
 
-  zipkin:
-    image: openzipkin/zipkin:3
-    container_name: booking-zipkin
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: booking-tempo
     restart: unless-stopped
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+    command: -config.file=/etc/tempo/tempo.yml
+    volumes:
+      - ./docker/tempo/tempo.yml:/etc/tempo/tempo.yml
+      - booking-tempo-data:/var/tempo
     ports:
-      - "9411:9411"
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
 
   prometheus:
     image: prom/prometheus:latest
@@ -92,6 +96,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -105,3 +110,4 @@ volumes:
   booking-mysql-data:
   booking-grafana-data:
   booking-loki-data:
+  booking-tempo-data:

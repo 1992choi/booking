@@ -13,7 +13,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
-import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter;
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
@@ -33,9 +33,9 @@ public class TracingAutoConfiguration {
     @ConditionalOnMissingBean
     public OpenTelemetry openTelemetry(
             @Value("${spring.application.name:application}") String appName,
-            @Value("${management.otlp.tracing.endpoint:http://localhost:9411/v1/traces}") String endpoint) {
+            @Value("${management.otlp.tracing.endpoint:http://localhost:4318/v1/traces}") String endpoint) {
 
-        ZipkinSpanExporter exporter = ZipkinSpanExporter.builder()
+        OtlpHttpSpanExporter exporter = OtlpHttpSpanExporter.builder()
                 .setEndpoint(endpoint)
                 .build();
 

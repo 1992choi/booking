@@ -62,15 +62,34 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## 관찰가능성 스택 고도화 (Grafana)
+## 서비스 간 분산추적 연결 (Kafka/RestClient observation propagation 누락)
 
-현재 Zipkin(분산추적) + Prometheus(메트릭)까지 구성된 상태. Loki + Tempo + Grafana를 추가해 메트릭/로그/트레이스를 단일 화면에서 연결하여 볼 수 있도록 고도화.
+### 배경
 
-- ~~Prometheus: 각 서비스 메트릭 수집~~ — **완료.** `docker-compose.yml`의 `prometheus` 컨테이너가 `docker/prometheus/prometheus.yml` 스크랩 설정으로 api/reservation/payment/notification의 `/actuator/prometheus`를 수집 (`micrometer-registry-prometheus` 추가 + `management.endpoints.web.exposure.include: health,prometheus` + SecurityConfig에 `/actuator/**` permitAll 필요했음). batch/pg/review는 actuator 자체가 없어 대상 아님.
-- ~~Grafana: 메트릭/로그/트레이스 통합 대시보드~~ — **완료.** `docker-compose.yml`의 `grafana` 컨테이너가 `docker/grafana/provisioning/datasources/`에서 Prometheus/Loki 데이터소스를 자동 프로비저닝. `localhost:3000` (admin/admin). Tempo 연동 전까지는 트레이스는 Zipkin UI에서 별도 조회.
-- ~~Loki: 로그 수집~~ — **완료.** `docker-compose.yml`의 `loki` 컨테이너(`docker/loki/loki-config.yml`, 단일 프로세스 filesystem 스토리지)에 api/reservation/payment/notification이 `loki-logback-appender`(Loki4j)로 로그를 직접 push. 각 서비스의 `logback-spring.xml`이 Spring Boot 기본 `base.xml`을 include한 뒤 `LOKI` appender를 추가로 붙이는 방식(콘솔 로깅은 그대로 유지). 서비스가 호스트에서 `bootRun`으로 뜨는 구조라 Promtail(컨테이너 로그 파일 tailing)보다 Zipkin/Prometheus와 같은 host→docker push 패턴이 일관적이라 Logback Appender를 선택. `docker/grafana/provisioning/datasources/loki.yml`로 Grafana에 Loki 데이터소스 자동 프로비저닝, Explore에서 `{app="payment"}` 형태로 조회. batch/pg/review는 Prometheus와 동일한 이유로 대상 아님.
-- Tempo: Zipkin 대체 분산추적 백엔드 (OTel exporter를 OTLP로 교체)
-- docker-compose에 Tempo 컨테이너 추가
+Tempo 전환 후 실제로 서비스 간 흐름이 하나의 트레이스로 이어지는지 검증한 결과, **끊어져 있음을 확인**했다. `/api/v1/auth/signup` 호출로 `user.created`를 발행시키고 Tempo에서 추적해보면, `api`의 스팬만 담긴 트레이스로 끝나고 `reservation`이 그 이벤트를 소비하며 만든 스팬은 전혀 다른(연결 안 된) traceId로 찍힌다. Kafka 토픽을 직접 consume해서 헤더를 까보면 `traceparent`가 아예 없다(`NO_HEADERS`). Zipkin이었을 때도 동일 원인으로 동작하지 않았을 것이므로 이번 Tempo 전환으로 생긴 회귀가 아니라 기존부터 있던 문제다.
+
+**원인**: `api`/`reservation`/`payment`/`notification` 4개 서비스 모두 `config/KafkaConfig.java`에서 `KafkaTemplate`/`ConcurrentKafkaListenerContainerFactory`를 직접 `new`로 생성해 `@Bean` 등록한다. `application.yml`에는 이미 `spring.kafka.template.observation-enabled: true` / `listener.observation-enabled: true`가 설정돼 있지만, 이 프로퍼티는 Spring Boot가 자동구성한 `KafkaTemplate`/컨테이너 팩토리에만 적용된다 — 수동 `@Bean`이 존재하면 Boot 자동구성이 통째로 back off 되어 프로퍼티가 조용히 무시된다. 그 결과 `ObservationRegistry`가 전혀 주입되지 않고, `TracingAutoConfiguration`이 등록한 `PropagatingSenderTracingObservationHandler`/`PropagatingReceiverTracingObservationHandler`도 Kafka 송수신에는 관여하지 못한다.
+
+동일한 패턴으로 `api`의 `RestClientConfig`(`notificationRestClient`)와 `payment`의 `RestClientConfig`(`pgRestClient`)도 Spring이 주입하는 `RestClient.Builder` 빈 대신 static `RestClient.builder()`를 직접 호출해서 Boot의 observation 자동구성(`ObservationRestClientCustomizer`)을 우회한다 — `api→notification`(관리자 메시지 발송), `payment→pg` 동기 호출도 트레이스가 이어지지 않는다.
+
+**현재 상태 정리**
+- 단일 서비스 내부(동일 요청 스레드) 흐름: 정상 연결됨
+- 서비스 간 Kafka 이벤트 체인(`reservation.created`→payment, `payment.completed`→reservation/notification, `user.*` 등): 끊김
+- `api→notification`, `payment→pg` 동기 REST 호출: 끊김
+
+### 해결 방향
+
+- Kafka: 각 서비스 `KafkaConfig`의 수동 `KafkaTemplate`/`ConcurrentKafkaListenerContainerFactory`에 `ObservationRegistry`를 주입하고 `setObservationEnabled(true)`를 명시적으로 호출 (또는 payment의 커스텀 `CommonErrorHandler`처럼 yml만으로 표현 안 되는 설정은 유지하되, 나머지는 수동 빈을 걷어내고 이미 존재하는 `spring.kafka.*` yml 프로퍼티 기반 Boot 자동구성에 맡기는 방법도 검토)
+- RestClient: `RestClient.builder()` static 호출 대신 Spring이 주입하는 `RestClient.Builder` 빈을 받아 `.baseUrl(...)`만 얹는 방식으로 변경
+
+### 적용 대상
+
+| 서비스 | 파일 |
+|--------|------|
+| api | `config/KafkaConfig.java`, `config/RestClientConfig.java` |
+| reservation | `config/KafkaConfig.java` |
+| payment | `config/KafkaConfig.java`, `config/RestClientConfig.java` |
+| notification | `config/KafkaConfig.java` |
 
 ---
 
