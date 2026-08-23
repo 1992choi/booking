@@ -28,6 +28,12 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id:reservation-group}")
     private String groupId;
 
+    @Value("${spring.kafka.template.observation-enabled:false}")
+    private boolean templateObservationEnabled;
+
+    @Value("${spring.kafka.listener.observation-enabled:false}")
+    private boolean listenerObservationEnabled;
+
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -40,7 +46,10 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
+        template.setObservationEnabled(templateObservationEnabled);
+
+        return template;
     }
 
     @Bean
@@ -59,6 +68,8 @@ public class KafkaConfig {
             ConsumerFactory<String, String> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setObservationEnabled(listenerObservationEnabled);
+
         return factory;
     }
 

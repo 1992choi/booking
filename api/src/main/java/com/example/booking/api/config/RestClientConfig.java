@@ -9,8 +9,10 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    public RestClient notificationRestClient(@Value("${booking.notification.url}") String notificationUrl) {
-        return RestClient.builder().baseUrl(notificationUrl).build();
+    public RestClient notificationRestClient(
+            RestClient.Builder restClientBuilder, @Value("${booking.notification.url}") String notificationUrl) {
+
+        return restClientBuilder.baseUrl(notificationUrl).build();
     }
 
 }

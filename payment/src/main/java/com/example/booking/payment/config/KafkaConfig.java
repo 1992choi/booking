@@ -30,6 +30,12 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id:payment-group}")
     private String groupId;
 
+    @Value("${spring.kafka.template.observation-enabled:false}")
+    private boolean templateObservationEnabled;
+
+    @Value("${spring.kafka.listener.observation-enabled:false}")
+    private boolean listenerObservationEnabled;
+
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -42,7 +48,10 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
+        template.setObservationEnabled(templateObservationEnabled);
+
+        return template;
     }
 
     @Bean
@@ -61,6 +70,7 @@ public class KafkaConfig {
             ConsumerFactory<String, String> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setObservationEnabled(listenerObservationEnabled);
         // 5초 간격으로 무한 재시도 — 예외 전파 시 오프셋 미커밋으로 랙 발생
         factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(5000L, Long.MAX_VALUE)));
         return factory;

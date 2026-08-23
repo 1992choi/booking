@@ -23,6 +23,9 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id:notification-group}")
     private String groupId;
 
+    @Value("${spring.kafka.listener.observation-enabled:false}")
+    private boolean listenerObservationEnabled;
+
     @Bean
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -39,6 +42,8 @@ public class KafkaConfig {
             ConsumerFactory<String, String> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setObservationEnabled(listenerObservationEnabled);
+
         return factory;
     }
 

@@ -9,8 +9,8 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    public RestClient pgRestClient(@Value("${booking.pg.url}") String pgUrl) {
-        return RestClient.builder().baseUrl(pgUrl).build();
+    public RestClient pgRestClient(RestClient.Builder restClientBuilder, @Value("${booking.pg.url}") String pgUrl) {
+        return restClientBuilder.baseUrl(pgUrl).build();
     }
 
 }
