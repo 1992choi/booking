@@ -18,4 +18,5 @@ dependencies {
     compileOnly 'org.springframework.boot:spring-boot-micrometer-observation'
     compileOnly 'io.micrometer:micrometer-tracing-bridge-otel'
     compileOnly 'io.opentelemetry:opentelemetry-exporter-otlp'
+    compileOnly 'org.springframework.boot:spring-boot-starter-data-mongodb'
 }

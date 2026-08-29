@@ -7,7 +7,7 @@
 | 항목 | 값 |
 |------|-----|
 | 포트 | 8081 |
-| DB | db_reservation |
+| DB | db_reservation (MySQL) + db_reservation_audit (MongoDB, 감사 로그 전용) |
 | 외부 노출 | O |
 | 의존 | core (라이브러리) |
 | 호출하는 서비스 | 없음 |
@@ -102,6 +102,7 @@ reservation/
 7. 도메인 이벤트 발행 → `ReservationEventPublisher` 가 `AFTER_COMMIT` 에:
    - `sumHeadCountByAvailableTimeId >= maxCapacity` 이면 `AvailableTime.status` → BLOCKED
    - Kafka `reservation.created` publish
+8. `core`의 `AuditService.record("RESERVATION_CREATED", ...)` 호출 — MongoDB `audit_logs` 컬렉션에 기록 (예약 취소도 동일하게 `RESERVATION_CANCELLED` 기록. 아래 "감사 로그" 참고)
 
 ### 주요 쿼리
 
@@ -139,6 +140,19 @@ Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict
 |-----------|----|------|------------|
 | `merchant` | `{merchantId}` | 업체 상세 | 업체 수정 |
 | `merchants` | `all` | 전체 업체 목록 | 업체 등록 · 수정 |
+
+---
+
+## 감사 로그 (MongoDB)
+
+사용자 공개 API 중 의미 있는 액션만 `core`의 `AuditService`(`05-module-core.md` 참고)로 기록한다. `/api/v1/internal/**`, `adminCancel`/`confirm` 등 관리자·서비스 간 호출은 대상에서 제외.
+
+| 액션 | 기록 시점 | detail |
+|------|----------|--------|
+| `RESERVATION_CREATED` | `ReservationService.create()` 성공 시 | `resourceId`, `reservationIds` |
+| `RESERVATION_CANCELLED` | `ReservationService.cancel()` 성공 시 (사용자 본인 취소) | `reservationId` |
+
+MongoDB 연결은 `db_reservation`(MySQL)과 별개로 `db_reservation_audit`(MongoDB)를 사용하며, 기록 실패는 예약 생성/취소 자체를 막지 않는다(`AuditService` 내부에서 예외를 흡수하고 warn 로그만 남김).
 
 ---
 

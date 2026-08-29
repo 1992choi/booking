@@ -12,6 +12,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  mongodb:
+    uri: mongodb://localhost:27017/db_reservation_audit_test
 
 booking:
   jwt:

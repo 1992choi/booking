@@ -1,5 +1,6 @@
 package com.example.booking.reservation.service;
 
+import com.example.booking.core.audit.AuditService;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.reservation.domain.Reservation;
 import com.example.booking.reservation.domain.ReservationRepository;
@@ -52,6 +53,7 @@ public class ReservationService {
     private final ApplicationEventPublisher eventPublisher;
     private final MerchantRepository merchantRepository;
     private final RedissonClient redissonClient;
+    private final AuditService auditService;
 
     @Transactional
     public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
@@ -88,6 +90,9 @@ public class ReservationService {
                             reservation.getId(), userId, request.resourceId(), resource.getPrice(),
                             reservation.getAvailableTimeId())));
             log.info("예약 생성 userId={}, resourceId={}, slotCount={}", userId, request.resourceId(), reservations.size());
+            auditService.record("RESERVATION_CREATED", userId, Map.of(
+                    "resourceId", request.resourceId(),
+                    "reservationIds", reservations.stream().map(Reservation::getId).toList()));
 
             return reservations.stream().map(ReservationResponse::from).toList();
         } finally {
@@ -156,6 +161,7 @@ public class ReservationService {
         eventPublisher.publishEvent(new ReservationCancelledDomainEvent(
                 reservationId, userId, reservation.getAvailableTimeId()));
         log.info("예약 취소 reservationId={}, userId={}", reservationId, userId);
+        auditService.record("RESERVATION_CANCELLED", userId, Map.of("reservationId", reservationId));
 
         return ReservationResponse.from(reservation);
     }

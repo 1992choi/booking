@@ -54,6 +54,20 @@ services:
       timeout: 3s
       retries: 10
 
+  mongodb:
+    image: mongo:8.0
+    container_name: booking-mongodb
+    restart: unless-stopped
+    volumes:
+      - booking-mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   tempo:
     image: grafana/tempo:2.6.1
     container_name: booking-tempo
@@ -111,3 +125,4 @@ volumes:
   booking-grafana-data:
   booking-loki-data:
   booking-tempo-data:
+  booking-mongodb-data:
