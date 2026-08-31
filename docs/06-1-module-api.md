@@ -7,7 +7,7 @@
 | 항목 | 값 |
 |------|-----|
 | 포트 | 8080 |
-| DB | db_api |
+| DB | db_api (MySQL) + db_api_audit (MongoDB, 감사 로그 전용) |
 | 외부 노출 | O |
 | 의존 | core (라이브러리) |
 | 호출하는 서비스 | notification (HTTP — 관리자 메시지 발송) |
@@ -109,6 +109,16 @@ Client → Bearer token
 ### 로그인 Rate Limiting
 
 `LoginRateLimitFilter` (Bucket4j + Redis) 가 `/api/v1/auth/login` 요청에 적용된다. 임계치 초과 시 429 (`API_003`) 반환.
+
+### 감사 로그 (MongoDB)
+
+`core`의 `AuditService`(`05-module-core.md` 참고)로 로그인 성공만 기록한다. 로그인 실패는 기록하지 않는다.
+
+| 액션 | 기록 시점 | detail |
+|------|----------|--------|
+| `LOGIN` | `AuthService.login()` 성공 시 | `email` |
+
+MongoDB 연결은 `db_api`(MySQL)와 별개로 `db_api_audit`(MongoDB)를 사용하며, 기록 실패는 로그인 자체를 막지 않는다.
 
 ### Kafka 이벤트 발행
 

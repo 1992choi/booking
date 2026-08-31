@@ -12,6 +12,7 @@ import com.example.booking.api.error.ApiErrorCode;
 import com.example.booking.api.user.domain.User;
 import com.example.booking.api.user.domain.UserRepository;
 import com.example.booking.api.user.event.UserCreatedDomainEvent;
+import com.example.booking.core.audit.AuditService;
 import com.example.booking.core.auth.Role;
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.core.error.CommonErrorCode;
@@ -23,6 +24,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,7 @@ public class AuthService {
     private final JwtIssuer jwtIssuer;
     private final RefreshTokenBlacklist refreshTokenBlacklist;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditService auditService;
 
     @Transactional
     public User register(SignupRequest request) {
@@ -65,6 +69,7 @@ public class AuthService {
         String accessToken = jwtIssuer.issue(user.getId(), user.getRole());
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), user.getRole());
         log.info("로그인 userId={}", user.getId());
+        auditService.record("LOGIN", user.getId(), Map.of("email", user.getEmail()));
 
         return TokenResponse.ofLogin(accessToken, refreshToken, jwtIssuer.accessTokenTtlSeconds());
     }

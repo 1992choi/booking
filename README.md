@@ -42,7 +42,7 @@ docker compose up -d
 | `booking-mysql` | 3306 | 계정 `root` / `root` |
 | `booking-kafka` | 9092 | KRaft 모드 (단일 브로커) |
 | `booking-redis` | 6379 | |
-| `booking-mongodb` | 27017 | 인증 없음(개발용). reservation의 감사 로그(`db_reservation_audit`) 전용 |
+| `booking-mongodb` | 27017 | 인증 없음(개발용). api/reservation의 감사 로그(`db_api_audit`/`db_reservation_audit`) 전용 |
 | `booking-tempo` | 3200, 4317, 4318 | 분산추적 수집기(OTLP gRPC/HTTP). 조회는 Grafana Explore에서 |
 | `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (batch/pg/review는 actuator 미적용이라 대상 아님) |
 | `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결 |
@@ -56,14 +56,14 @@ docker exec -it booking-mongodb mongosh
 mongosh "mongodb://localhost:27017/db_reservation_audit"
 ```
 
-감사 로그 조회 (mongosh 접속 후):
+감사 로그 조회 (mongosh 접속 후, 서비스별로 DB가 분리돼 있음 — `db_reservation_audit` 또는 `db_api_audit`):
 ```text
 use db_reservation_audit
 
 // 최근 기록 10건
 db.audit_logs.find().sort({ createdAt: -1 }).limit(10)
 
-// 특정 액션만
+// 특정 액션만 (reservation: RESERVATION_CREATED/RESERVATION_CANCELLED, api: LOGIN)
 db.audit_logs.find({ action: "RESERVATION_CREATED" })
 
 // 특정 유저의 활동만
@@ -137,4 +137,4 @@ docker compose down -v && docker compose up -d
 | Tempo | 분산 트레이싱 수집(OTLP), Grafana Explore에서 조회 | 전 서비스 |
 | Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) | api, reservation, payment, notification |
-| MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | reservation |
+| MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
