@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package com.example.booking.pg.grpc;
+
+option java_package = "com.example.booking.pg.grpc";
+option java_multiple_files = true;
+
+// payment 모듈 src/main/proto/pg.proto 와 동일한 파일을 유지해야 한다 (공유 gradle 모듈 없이 양쪽에 중복 배치).
+service PgService {
+    rpc Approve(ApproveRequest) returns (ApproveResponse);
+    rpc Cancel(CancelRequest) returns (CancelResponse);
+}
+
+message ApproveRequest {
+    string transaction_id = 1;
+    int64 amount = 2;
+}
+
+message ApproveResponse {
+    string pg_transaction_id = 1;
+    string approved_at = 2;
+}
+
+message CancelRequest {
+    string pg_transaction_id = 1;
+}
+
+message CancelResponse {
+    string pg_transaction_id = 1;
+    string cancelled_at = 2;
+}

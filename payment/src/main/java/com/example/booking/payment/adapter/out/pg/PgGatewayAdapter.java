@@ -10,6 +10,7 @@ import com.example.booking.payment.domain.Payment;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -17,6 +18,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
+@ConditionalOnProperty(name = "booking.pg.protocol", havingValue = "rest", matchIfMissing = true)
 @RequiredArgsConstructor
 public class PgGatewayAdapter implements PgClientPort {
 

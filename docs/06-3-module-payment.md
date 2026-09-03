@@ -59,8 +59,9 @@ payment/
     │       │   ├── PaymentPersistenceAdapter.java  (LoadPaymentPort/SavePaymentPort 구현)
     │       │   └── PaymentMapper.java              (도메인 ↔ JPA 엔티티 변환)
     │       ├── pg/
-    │       │   ├── PgGatewayAdapter.java           (PgClientPort 구현, RestClient로 pg 서버 호출)
-    │       │   └── dto/
+    │       │   ├── PgGatewayAdapter.java           (PgClientPort 구현, RestClient — 기본, booking.pg.protocol=rest)
+    │       │   ├── PgGrpcGatewayAdapter.java       (PgClientPort 구현, gRPC — booking.pg.protocol=grpc 일 때만 활성화)
+    │       │   └── dto/                            (REST DTO. gRPC는 pg.proto 생성 클래스 직접 사용)
     │       └── messaging/
     │           ├── PaymentEventPublisher.java      (@TransactionalEventListener(AFTER_COMMIT) → Kafka)
     │           └── PaymentCompletedKafkaEvent.java / PaymentFailedKafkaEvent.java
@@ -74,7 +75,8 @@ payment/
     └── config/
         ├── SecurityConfig.java
         ├── KafkaConfig.java
-        └── RestClientConfig.java         (pg 서버 RestClient 빈)
+        ├── RestClientConfig.java         (pg 서버 RestClient 빈)
+        └── PgGrpcClientConfig.java       (ManagedChannel/PgServiceBlockingStub 빈, booking.pg.protocol=grpc 일 때만)
 ```
 
 Kafka 발행(`PaymentEventPublisher`)은 별도 아웃바운드 포트로 감싸지 않는다 — `ApplicationEventPublisher.publishEvent(...)`가 이미 애플리케이션 서비스와 Kafka 사이를 분리하고, `AFTER_COMMIT` 시점 관찰은 Spring 트랜잭션 이벤트 메커니즘에 본질적으로 묶이는 인프라 관심사라 포트를 씌워도 같은 인터페이스를 한 번 더 감싸는 것에 불과하기 때문이다.
@@ -83,9 +85,21 @@ Kafka 발행(`PaymentEventPublisher`)은 별도 아웃바운드 포트로 감싸
 
 ## 핵심 로직
 
-`reservation.created` consume → Payment 레코드 생성 (PENDING) → `PgGatewayAdapter.charge()` 로 pg 서버(`:8090`)에 HTTP 승인 요청 → 성공이면 COMPLETED, 실패(402 또는 네트워크 오류)면 FAILED 로 상태 전이 → `AFTER_COMMIT` 에 결과 이벤트 Kafka publish.
+`reservation.created` consume → Payment 레코드 생성 (PENDING) → `PgClientPort.charge()` 로 pg 서버에 승인 요청 → 성공이면 COMPLETED, 실패(REST: 402 또는 네트워크 오류 / gRPC: `FAILED_PRECONDITION` 등)면 FAILED 로 상태 전이 → `AFTER_COMMIT` 에 결과 이벤트 Kafka publish.
 
-pg 서버는 요청의 20% 확률로 402를 반환한다. 실제 PG 연동 시 `PgClientPort`의 구현체(`PgGatewayAdapter`)만 교체하면 된다 — 이게 포트/어댑터 분리의 핵심 이점이다.
+pg 서버는 요청의 20% 확률로 실패를 반환한다(REST 402, gRPC `FAILED_PRECONDITION`). 실제 PG 연동 시 `PgClientPort`의 구현체만 교체하면 된다 — 이게 포트/어댑터 분리의 핵심 이점이며, REST/gRPC 두 어댑터가 이미 그 예시로 공존한다.
+
+### PG 연동 프로토콜: REST vs gRPC
+
+`PgClientPort`(out-port)는 REST(`PgGatewayAdapter`)와 gRPC(`PgGrpcGatewayAdapter`) 두 구현체가 공존하며, `booking.pg.protocol` 프로퍼티(`rest`(기본)/`grpc`)로 `@ConditionalOnProperty` 기반 단일 활성화된다. `PaymentService`는 어느 쪽이 활성화됐는지 알 필요가 없다.
+
+| | REST (`PgGatewayAdapter`) | gRPC (`PgGrpcGatewayAdapter`) |
+|---|---|---|
+| pg 엔드포인트 | `POST /pg/approve`, `/pg/cancel` (`:8090`) | `PgService.Approve`, `.Cancel` (`:50051`, `pg.proto`) |
+| 실패 신호 | HTTP 402 + `PgErrorResponse` 본문 파싱 | `StatusRuntimeException`(`FAILED_PRECONDITION`) + description |
+| 활성 조건 | `booking.pg.protocol=rest` (기본값) | `booking.pg.protocol=grpc` |
+
+`pg` 서버는 REST/gRPC 두 프로토콜을 동시에 노출한다(`PgController` + `PgGrpcService`, 둘 다 내부적으로 동일한 `PgService`를 호출). `.proto` 파일은 공유 gradle 모듈 없이 `pg`/`payment` 양쪽에 동일하게 복사돼 있다.
 
 ---
 

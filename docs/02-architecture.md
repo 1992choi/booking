@@ -107,7 +107,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 |--------|------|----|
 | api | 인증 전용 — 회원(User) CRUD, JWT 발급/갱신 | db_api |
 | reservation | 예약 도메인 전체 — 업체(Merchant)/리소스(Resource)/가능시간(AvailableTime) CRUD, 예약 생성/조회/취소/관리, 동시성 처리(Redis 분산 락 + DB 락) | db_reservation |
-| payment | 결제 처리. 결제 이력 조회/환불. pg 서버에 HTTP 로 거래 승인/취소 요청 | db_payment |
+| payment | 결제 처리. 결제 이력 조회/환불. pg 서버에 거래 승인/취소 요청(HTTP 기본, gRPC 옵션 — `booking.pg.protocol`) | db_payment |
 | notification | Mock 알림 발송. 발송 이력 저장 | db_notification |
 | pg | Mock PG 서버 (외부 시스템). 거래 승인/취소 API. 20% 확률로 실패 반환 | 없음 (stateless) |
 
@@ -120,9 +120,17 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | 호출 방향 | 엔드포인트 | 용도 |
 |-----------|-----------|------|
 | api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
-| payment → pg | `POST /pg/approve`, `POST /pg/cancel` | Mock PG 서버에 거래 승인/취소 요청 |
+| payment → pg | `POST /pg/approve`, `POST /pg/cancel` | Mock PG 서버에 거래 승인/취소 요청 (기본값) |
 
 > api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환.
+
+### 동기 (gRPC, 선택)
+
+| 호출 방향 | 서비스 | 용도 |
+|-----------|--------|------|
+| payment → pg | `PgService.Approve`, `PgService.Cancel` (`pg.proto`) | REST 대신 gRPC로 동일 기능 호출 |
+
+`payment`의 `booking.pg.protocol` 프로퍼티(`rest`(기본) / `grpc`)로 전환한다. `PgClientPort`의 구현체가 REST(`PgGatewayAdapter`)/gRPC(`PgGrpcGatewayAdapter`) 두 개 공존하며 `@ConditionalOnProperty`로 하나만 활성화된다 — 포트/어댑터 분리 덕분에 `PaymentService` 쪽 코드는 프로토콜 전환과 무관하다. `pg`는 REST(`:8090`)와 gRPC(`:50051`)를 동시에 노출한다. `.proto` 파일은 공유 모듈 없이 `pg`/`payment` 양쪽에 동일하게 복사돼 있다(수동 동기화 필요).
 
 ### 비동기 (Kafka)
 

@@ -100,7 +100,7 @@ docker compose down -v && docker compose up -d
 | payment | `./gradlew :payment:bootRun` | 8082 |
 | notification | `./gradlew :notification:bootRun` | 8083 |
 | review | `./gradlew :review:bootRun` | 8084 |
-| pg (Mock PG) | `./gradlew :pg:bootRun` | 8090 |
+| pg (Mock PG) | `./gradlew :pg:bootRun` | 8090 (REST), 50051 (gRPC) |
 | batch | `./gradlew :batch:bootRun` | (HTTP 없음, `@Scheduled` 배치 실행) |
 
 ### 5. 로컬 접속 URL
@@ -138,3 +138,4 @@ docker compose down -v && docker compose up -d
 | Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) | api, reservation, payment, notification |
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
+| gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |

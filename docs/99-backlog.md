@@ -200,24 +200,33 @@ api, reservation, payment, notification (pg/batch는 내부/HTTP 없음이라 �
 
 ---
 
-## gRPC 도입 (payment → pg)
+## ~~gRPC 도입 (payment → pg)~~ — **완료.**
 
 ### 배경
 
-서비스 간 동기 호출은 지금 전부 REST(Spring `RestClient`)다. gRPC는 실무·스터디 모두에서 자주 다뤄지는 통신 방식인데 이 프로젝트엔 전혀 없다. `payment → pg` 호출(PG 승인/취소)이 두 서비스 모두 내부용이고 외부 클라이언트가 REST로 직접 호출할 일이 없어 프로토콜을 바꾸기 가장 부담 적은 지점이다.
+서비스 간 동기 호출은 지금 전부 REST(Spring `RestClient`)다. gRPC는 실무·스터디 모두에서 자주 다뤄지는 통신 방식인데 이 프로젝트엔 전혀 없었다. `payment → pg` 호출(PG 승인/취소)이 두 서비스 모두 내부용이고 외부 클라이언트가 REST로 직접 호출할 일이 없어 프로토콜을 바꾸기 가장 부담 적은 지점이었다.
 
-### 해결 방향
+### 적용 내용
 
-- `pg`에 `.proto` 정의(승인/취소 RPC) + gRPC 서버 추가
-- `payment`가 기존 `pgRestClient` 대신 gRPC 클라이언트로 호출하도록 교체
-- 기존 REST 엔드포인트는 당장 제거하지 않고 병행(비교/롤백 여지)하다가 안정화되면 정리
+- `pg`/`payment` 양쪽에 동일한 `pg.proto`(`Approve`/`Cancel` RPC) 배치 — 공유 gradle 모듈 없이 파일 복사로 계약 공유(`protobuf-gradle-plugin` 0.10.0 + grpc-java 1.83.1 + protobuf-java 4.36.0)
+- `pg`: `PgGrpcService`(`PgServiceImplBase` 구현, 기존 `PgService` 재사용 — 실패율 로직 중복 없음) + `GrpcServerLifecycle`(`SmartLifecycle`로 `io.grpc.Server` 수동 기동/종료, 포트 `50051`). REST(`:8090`)와 동시에 노출.
+- `payment`: `PgClientPort`의 두 번째 구현체 `PgGrpcGatewayAdapter` 추가. 기존 `PgGatewayAdapter`(REST)와 신규 어댑터 모두 `@ConditionalOnProperty(booking.pg.protocol)`로 상호 배타적으로 활성화(`rest`가 기본값, `grpc`로 전환 가능) — `PaymentService`는 어느 프로토콜인지 알 필요 없음(포트/어댑터 분리의 실제 효과).
+- gRPC 실패는 `Status.FAILED_PRECONDITION` + description으로 표현하고, 클라이언트에서 기존 `PaymentDeclinedException`으로 번역해 REST 어댑터와 동일한 예외 계약 유지.
+
+**겪은 문제**: 기본 gRPC 포트로 자주 쓰는 `9090`을 처음에 골랐는데, 로컬에 Docker Desktop이 이미 `9090`을 점유하고 있어서 `pg` 테스트가 `BindException`으로 실패했다 — gRPC 관례 포트인 `50051`로 바꿔서 해결.
+
+### 검증
+
+- `PgGrpcServiceTest`(pg, mock `StreamObserver`로 성공/거절 응답 검증), `PgGrpcGatewayAdapterTest`(payment, mock `PgServiceBlockingStub`로 에러 변환 검증) 신규 작성
+- `pg`/`payment` 전체 테스트 통과
+- 실제로 `pg`(gRPC 서버 포함)와 `payment`(`booking.pg.protocol=grpc`)를 띄우고 Kafka `reservation.created`를 직접 produce해 결제가 실제 gRPC 왕복으로 COMPLETED 처리되는 것을 MySQL `payments` 테이블에서 확인(`pg_transaction_id`가 `PG-<uuid>` 형식으로 정상 채워짐). 기본값(REST)도 동일한 방식으로 회귀 확인.
 
 ### 적용 대상
 
 | 서비스 | 비고 |
 |--------|------|
-| pg | gRPC 서버 추가 |
-| payment | gRPC 클라이언트로 pg 호출 교체 |
+| pg | gRPC 서버 추가(REST와 병행) |
+| payment | `PgClientPort`에 gRPC 어댑터 추가, `booking.pg.protocol`로 전환 |
 
 ---
 
