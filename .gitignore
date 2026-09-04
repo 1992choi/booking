@@ -16,3 +16,6 @@ out/
 
 ### Claude Code (project-local overrides) ###
 .claude/settings.local.json
+
+### Secrets ###
+.env

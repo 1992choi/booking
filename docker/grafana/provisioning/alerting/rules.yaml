@@ -1,0 +1,44 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: booking-alerts
+    folder: booking-alerts
+    interval: 1m
+    rules:
+      - uid: http-5xx-rate
+        title: "HTTP 5xx 발생"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: critical
+        annotations:
+          summary: "최근 5분간 5xx 응답이 발생했습니다"
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: sum(increase(http_server_requests_seconds_count{status=~"5.."}[5m]))
+              instant: true
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: ["A"]
+              refId: C

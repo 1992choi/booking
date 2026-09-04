@@ -114,6 +114,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?.env 파일에 SLACK_WEBHOOK_URL이 설정되지 않았습니다.}
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - booking-grafana-data:/var/lib/grafana

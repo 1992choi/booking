@@ -33,6 +33,18 @@ skill 파일은 `.claude/skills/`, 설계 산출물은 `.claude/tasks/` 에 위�
 
 ### 2. 인프라 기동
 
+Grafana가 Slack 알림 웹훅을 필요로 하므로, 먼저 `.env`를 만든다.
+
+```bash
+echo "SLACK_WEBHOOK_URL=<발급받은 웹훅 URL>" > .env
+```
+
+`SLACK_WEBHOOK_URL` 발급 방법:
+1. https://api.slack.com/apps → **Create New App** → **From scratch** → 워크스페이스 선택
+2. 왼쪽 메뉴 **Incoming Webhooks** → 상단 토글 ON
+3. **Add New Webhook to Workspace** → 알림 받을 채널 선택 → **Allow**
+4. 생성된 `https://hooks.slack.com/services/...` URL을 `.env`에 붙여넣기
+
 ```bash
 docker compose up -d
 ```
@@ -45,7 +57,7 @@ docker compose up -d
 | `booking-mongodb` | 27017 | 인증 없음(개발용). api/reservation의 감사 로그(`db_api_audit`/`db_reservation_audit`) 전용 |
 | `booking-tempo` | 3200, 4317, 4318 | 분산추적 수집기(OTLP gRPC/HTTP). 조회는 Grafana Explore에서 |
 | `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (batch/pg/review는 actuator 미적용이라 대상 아님) |
-| `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결 |
+| `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결. `docker/grafana/provisioning/alerting/`로 Slack 알림(5xx 발생 시) 자동 구성 |
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
 
@@ -72,6 +84,21 @@ db.audit_logs.find({ userId: 1 })
 // 전체 건수
 db.audit_logs.countDocuments()
 ```
+
+**Grafana → Slack 알림 동작 방식**: Spring이 Grafana로 에러를 보내는 단계는 없다 — 체인의 유일한 push는 마지막 Grafana→Slack 한 구간뿐이고, 나머지는 전부 주기적으로 "가서 물어보는"(pull) 방식이다.
+1. Spring/Micrometer가 `http_server_requests_seconds_count{status=...}` 카운터를 `/actuator/prometheus`에 노출(수동적, 아무 데도 안 보냄)
+2. Prometheus가 15초마다 이 값을 스크랩해서 자기 DB에 저장
+3. Grafana 알럿 룰이 1분마다 Prometheus에 직접 쿼리를 날려 임계치 초과 여부를 스스로 판단(`firing`으로 전이) — "이상하다"는 판단은 Grafana가 내림
+4. Notification Policy가 Contact Point(Slack)로 라우팅, Contact Point가 Slack Incoming Webhook URL로 HTTP POST(체인의 유일한 push)
+
+Contact Point/Notification Policy/Alert Rule은 `docker/grafana/provisioning/alerting/*.yaml`로 선언돼 있다. **파일명은 무관** — Grafana는 해당 디렉토리의 모든 `.yaml`을 열어 최상위 키(`contactPoints:`/`policies:`/`groups:`)로 종류를 판단한다.
+
+Slack 알림 테스트 (api 서비스를 띄운 상태에서):
+```bash
+# 인증 없이 강제 500을 발생시키는 테스트 전용 엔드포인트
+curl http://localhost:8080/api/v1/test/error500
+```
+Prometheus가 5xx 증가를 스크랩(최대 15초)한 뒤 Grafana 알럿 룰(`HTTP 5xx 발생`, 1분 주기 평가)이 `firing`으로 전환되면 Slack으로 알림이 온다. `http://localhost:3000/alerting/list`에서 룰 상태를 바로 확인할 수 있다.
 
 상태 확인:
 ```bash
@@ -136,6 +163,6 @@ docker compose down -v && docker compose up -d
 | MySQL | 서비스별 DB (database-per-service). batch/review 는 db_reservation 공유 | api, reservation, payment, notification, batch, review |
 | Tempo | 분산 트레이싱 수집(OTLP), Grafana Explore에서 조회 | 전 서비스 |
 | Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
-| Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) | api, reservation, payment, notification |
+| Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) + Alerting(5xx 발생 시 Slack 알림) | api, reservation, payment, notification |
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
 | gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |

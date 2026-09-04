@@ -72,34 +72,6 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## 사용자 활동 감사 로그 (MongoDB)
-
-**완료.** 명시적 호출(`auditService.record(...)`) 방식으로 의미 있는 사용자 액션만 기록. `core`에 MongoDB 기반 감사 기록 공용 컴포넌트를 두고 각 서비스가 필요한 지점에서 호출하는 방식. 각각 독립적으로 구현.
-
-### 1. ~~reservation 예약 생성/취소 감사~~ — **완료.**
-
-`core`에 `AuditAutoConfiguration`/`AuditService`(`MongoTemplate` 기반, `MongoTemplate` 클래스패스에 있을 때만 활성화)를 추가하고, `reservation`의 `ReservationService.create()`/`cancel()`(사용자 공개 API만, `/internal`·`adminCancel`·`confirm` 등은 제외)에서 `auditService.record(...)`를 호출해 `audit_logs` 컬렉션에 기록. `reservation` 전용 MongoDB 연결(`db_reservation_audit`, JPA/MySQL과 별개)을 추가하고, `docker-compose.yml`에 `mongodb` 컨테이너를 추가.
-
-Spring Boot 4에서 Mongo 연결 프로퍼티가 `spring.data.mongodb.*`가 아니라 `spring.mongodb.*`로 이동한 걸 모르고 처음엔 `spring.data.mongodb.*`로 설정해서 조용히 기본 `test` DB로 연결되는 문제를 겪었다 — `spring.mongodb.host/port/database`(또는 `uri`)로 고쳐서 해결.
-
-`ReservationAuditTest`를 새로 추가해 실제 MongoDB에 감사 로그가 기록되는지 검증(기존 88개 테스트 전체 통과 확인).
-
-### 2. ~~api 로그인 감사~~ — **완료.**
-
-`api`의 `AuthService.login()` 성공 시점에 `auditService.record("LOGIN", userId, Map.of("email", ...))` 호출 (로그인 실패는 기록하지 않음). `reservation`과 마찬가지로 `db_api`(MySQL)와 별개인 `db_api_audit`(MongoDB) 연결을 추가. `core`의 `AuditAutoConfiguration`을 그대로 재사용해서 reservation 때보다 작업량이 적었음(`spring.mongodb.*` 프로퍼티 이슈도 이미 알고 있었어서 처음부터 올바르게 설정).
-
-`AuthAuditTest` 신규 작성 — 로그인 성공 시 감사 로그 기록, 로그인 실패 시 기록 안 됨을 검증. 처음엔 테스트 이메일을 고정 문자열로 써서 반복 실행 시(=Mongo 데이터가 rollback 안 되고 누적됨) 실패하는 문제가 있었는데, `UUID` 기반으로 매번 고유한 이메일을 쓰도록 고쳐서 해결. api 전체 테스트 통과 확인, 실제 `bootRun`으로 띄워서 로그인 후 MongoDB에 `service: 'api', action: 'LOGIN'` 문서가 기록되는 것도 확인.
-
-### 적용 대상
-
-| 서비스 | 비고 |
-|--------|------|
-| core | MongoDB 기반 감사 기록 공용 컴포넌트 추가 |
-| reservation | 예약 생성/취소 지점에 감사 로그 기록, MongoDB 컨테이너/의존성 추가 |
-| api | 로그인 지점에 감사 로그 기록, MongoDB 의존성 추가 |
-
----
-
 ## Kafka DLQ / 재시도 전략
 
 ### 배경
@@ -197,36 +169,6 @@ api, reservation, payment, notification (pg/batch는 내부/HTTP 없음이라 �
 ### 적용 대상
 
 레포 전체 (`.github/workflows/ci.yml` 신규)
-
----
-
-## ~~gRPC 도입 (payment → pg)~~ — **완료.**
-
-### 배경
-
-서비스 간 동기 호출은 지금 전부 REST(Spring `RestClient`)다. gRPC는 실무·스터디 모두에서 자주 다뤄지는 통신 방식인데 이 프로젝트엔 전혀 없었다. `payment → pg` 호출(PG 승인/취소)이 두 서비스 모두 내부용이고 외부 클라이언트가 REST로 직접 호출할 일이 없어 프로토콜을 바꾸기 가장 부담 적은 지점이었다.
-
-### 적용 내용
-
-- `pg`/`payment` 양쪽에 동일한 `pg.proto`(`Approve`/`Cancel` RPC) 배치 — 공유 gradle 모듈 없이 파일 복사로 계약 공유(`protobuf-gradle-plugin` 0.10.0 + grpc-java 1.83.1 + protobuf-java 4.36.0)
-- `pg`: `PgGrpcService`(`PgServiceImplBase` 구현, 기존 `PgService` 재사용 — 실패율 로직 중복 없음) + `GrpcServerLifecycle`(`SmartLifecycle`로 `io.grpc.Server` 수동 기동/종료, 포트 `50051`). REST(`:8090`)와 동시에 노출.
-- `payment`: `PgClientPort`의 두 번째 구현체 `PgGrpcGatewayAdapter` 추가. 기존 `PgGatewayAdapter`(REST)와 신규 어댑터 모두 `@ConditionalOnProperty(booking.pg.protocol)`로 상호 배타적으로 활성화(`rest`가 기본값, `grpc`로 전환 가능) — `PaymentService`는 어느 프로토콜인지 알 필요 없음(포트/어댑터 분리의 실제 효과).
-- gRPC 실패는 `Status.FAILED_PRECONDITION` + description으로 표현하고, 클라이언트에서 기존 `PaymentDeclinedException`으로 번역해 REST 어댑터와 동일한 예외 계약 유지.
-
-**겪은 문제**: 기본 gRPC 포트로 자주 쓰는 `9090`을 처음에 골랐는데, 로컬에 Docker Desktop이 이미 `9090`을 점유하고 있어서 `pg` 테스트가 `BindException`으로 실패했다 — gRPC 관례 포트인 `50051`로 바꿔서 해결.
-
-### 검증
-
-- `PgGrpcServiceTest`(pg, mock `StreamObserver`로 성공/거절 응답 검증), `PgGrpcGatewayAdapterTest`(payment, mock `PgServiceBlockingStub`로 에러 변환 검증) 신규 작성
-- `pg`/`payment` 전체 테스트 통과
-- 실제로 `pg`(gRPC 서버 포함)와 `payment`(`booking.pg.protocol=grpc`)를 띄우고 Kafka `reservation.created`를 직접 produce해 결제가 실제 gRPC 왕복으로 COMPLETED 처리되는 것을 MySQL `payments` 테이블에서 확인(`pg_transaction_id`가 `PG-<uuid>` 형식으로 정상 채워짐). 기본값(REST)도 동일한 방식으로 회귀 확인.
-
-### 적용 대상
-
-| 서비스 | 비고 |
-|--------|------|
-| pg | gRPC 서버 추가(REST와 병행) |
-| payment | `PgClientPort`에 gRPC 어댑터 추가, `booking.pg.protocol`로 전환 |
 
 ---
 
