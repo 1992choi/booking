@@ -142,6 +142,16 @@ docker compose down -v && docker compose up -d
 | Mock PG 서버 | http://localhost:8090 |
 | Prometheus (메트릭) | http://localhost:9090 |
 | Grafana (대시보드) | http://localhost:3000 |
+| Swagger UI (api) | http://localhost:8080/swagger-ui.html |
+| Swagger UI (reservation) | http://localhost:8081/swagger-ui.html |
+| Swagger UI (payment) | http://localhost:8082/swagger-ui.html |
+| Swagger UI (notification) | http://localhost:8083/swagger-ui.html |
+
+**Swagger UI 사용법**
+1. 위 URL 접속 (인증 불필요, 각 서비스가 떠 있어야 함)
+2. 인증이 필요한 API는 `api`의 `/api/v1/auth/login`으로 먼저 토큰 발급
+3. Swagger UI 우측 상단 **Authorize** 버튼 클릭 → `accessToken` 값만 입력(`Bearer` 접두사는 자동으로 붙음) → **Authorize**
+4. 이후 각 엔드포인트의 **Try it out** → **Execute**로 직접 호출 가능. `Authorization` 헤더가 자동으로 실려서 나감
 
 ---
 
@@ -166,3 +176,4 @@ docker compose down -v && docker compose up -d
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) + Alerting(5xx 발생 시 Slack 알림) | api, reservation, payment, notification |
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
 | gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |
+| springdoc-openapi (Swagger UI) | 실행 중인 코드 기준 API 문서/테스트 UI (`/swagger-ui.html`, `/v3/api-docs`) | api, reservation, payment, notification |

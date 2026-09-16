@@ -20,6 +20,7 @@
 | 예외 | `BusinessException`, `GlobalExceptionHandler` | 도메인 예외 클래스 |
 | 관측성 | 요청 로깅 필터(`RequestLoggingFilter`), Micrometer Tracing + OTel OTLP exporter, `/ping` 헬스체크(`PingService`) | 서비스별 커스텀 메트릭 |
 | 감사 로그 | `AuditService` (MongoDB 기반, 명시적 호출 방식) | 서비스별 감사 대상 지점 판단 (각 서비스가 호출 위치 결정) |
+| API 문서 | Swagger UI용 JWT Bearer 시큐리티 스킴 전역 등록 | springdoc 의존성 자체(각 서비스가 필요 시 추가) |
 
 ---
 
@@ -49,10 +50,12 @@ core/
     │   └── RequestLoggingFilter.java
     ├── tracing/
     │   └── TracingAutoConfiguration.java (@AutoConfiguration — Micrometer Tracing + OTel OTLP exporter)
-    └── audit/
-        ├── AuditAutoConfiguration.java  (@AutoConfiguration — MongoTemplate 클래스패스에 있을 때만)
-        ├── AuditService.java           (MongoDB audit_logs 컬렉션에 기록, 실패해도 예외 전파하지 않음)
-        └── AuditLog.java               (record — service/action/userId/detail/createdAt)
+    ├── audit/
+    │   ├── AuditAutoConfiguration.java  (@AutoConfiguration — MongoTemplate 클래스패스에 있을 때만)
+    │   ├── AuditService.java           (MongoDB audit_logs 컬렉션에 기록, 실패해도 예외 전파하지 않음)
+    │   └── AuditLog.java               (record — service/action/userId/detail/createdAt)
+    └── openapi/
+        └── OpenApiAutoConfiguration.java (@AutoConfiguration — springdoc OpenAPI 클래스패스에 있을 때만. JWT Bearer 시큐리티 스킴을 전역 등록해 Swagger UI에 Authorize 버튼 노출)
 ```
 
 ---
@@ -83,7 +86,7 @@ public enum Role { USER, MERCHANT, ADMIN }
 
 ## AutoConfiguration
 
-각 서비스가 core 를 임베드하면 아래 5개 `@AutoConfiguration` 이 자동 등록된다 (`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`).
+각 서비스가 core 를 임베드하면 아래 6개 `@AutoConfiguration` 이 자동 등록된다 (`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`).
 
 | AutoConfiguration | 활성 조건 | 등록하는 것 |
 |---|---|---|
@@ -92,3 +95,4 @@ public enum Role { USER, MERCHANT, ADMIN }
 | `SecurityAutoConfig` | `booking.jwt.secret` 프로퍼티가 설정됐을 때 | `JwtVerifier`, `JwtAuthenticationFilter`, `JwtAuthenticationEntryPoint` |
 | `TracingAutoConfiguration` | OpenTelemetry/Micrometer Tracing 클래스패스에 있을 때 | OTLP export 용 `OpenTelemetry`/`Tracer` 빈 |
 | `AuditAutoConfiguration` | `MongoTemplate` 클래스패스에 있을 때 | `AuditService` (MongoDB `audit_logs` 컬렉션에 사용자 활동 기록) |
+| `OpenApiAutoConfiguration` | springdoc `OpenAPI` 클래스패스에 있을 때 | JWT Bearer 시큐리티 스킴이 등록된 `OpenAPI` 빈 (Swagger UI Authorize 버튼) |

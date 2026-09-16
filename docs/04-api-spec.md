@@ -2,6 +2,8 @@
 
 각 endpoint 가 어느 서비스에 속하는지 표기한다. 클라이언트는 ALB/Gateway 를 거쳐 path 기반으로 라우팅된 서비스에 도달한다.
 
+> api/reservation/payment/notification은 springdoc-openapi로 Swagger UI(`/swagger-ui.html`)와 OpenAPI 스펙(`/v3/api-docs`)을 실행 중인 코드 기준으로 제공한다(접근 자체는 인증 없이 가능). `core`가 JWT Bearer 시큐리티 스킴을 전역 등록해두어 Swagger UI 우측 상단 **Authorize**에 토큰만 넣으면 인증 필요한 API도 바로 호출해볼 수 있다(사용법은 `README.md` 참고). 이 문서는 서비스 소유권 등 코드에서 안 드러나는 맥락 위주로 보고, 엔드포인트 요청/응답 상세는 Swagger UI를 참고.
+
 | Path 패턴 | 라우팅 대상 서비스 |
 |-----------|---------------------|
 | `/api/v1/auth/**`, `/api/v1/users/**` | api |
