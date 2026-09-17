@@ -164,8 +164,8 @@ class MerchantControllerTest {
         given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(userId1, Role.USER));
         mockMvc.perform(get("/api/v1/merchants"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.name == 'Pension A')]").exists())
-                .andExpect(jsonPath("$[?(@.name == 'Class B')]").exists());
+                .andExpect(jsonPath("$.content[?(@.name == 'Pension A')]").exists())
+                .andExpect(jsonPath("$.content[?(@.name == 'Class B')]").exists());
     }
 
     @Test

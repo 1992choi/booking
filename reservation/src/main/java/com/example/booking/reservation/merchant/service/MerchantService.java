@@ -15,6 +15,7 @@ import com.example.booking.reservation.merchant.domain.MerchantRepository;
 import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
+import com.example.booking.reservation.merchant.dto.MerchantSummaryResponse;
 import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
 import com.example.booking.reservation.resource.domain.Resource;
 import com.example.booking.reservation.resource.domain.ResourceRepository;
@@ -26,7 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +50,7 @@ public class MerchantService {
     private final DailyMerchantStatsRepository dailyMerchantStatsRepository;
 
     @Transactional
-    @CacheEvict(value = "merchants", key = "'all'")
+    @CacheEvict(value = "merchants", allEntries = true)
     public Merchant register(Long userId, MerchantCreateRequest request) {
         Merchant merchant = merchantRepository.save(Merchant.builder()
                 .userId(userId)
@@ -75,7 +78,7 @@ public class MerchantService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "merchant", key = "#merchantId"),
-            @CacheEvict(value = "merchants", key = "'all'")
+            @CacheEvict(value = "merchants", allEntries = true)
     })
     public Merchant update(Long userId, Long merchantId, MerchantUpdateRequest request) {
         Merchant merchant = merchantRepository.findById(merchantId)
@@ -91,9 +94,11 @@ public class MerchantService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "merchants", key = "'all'")
-    public List<Merchant> getAll() {
-        return merchantRepository.findAll();
+    @Cacheable(value = "merchants", key = "#pageable")
+    public PageResponse<MerchantSummaryResponse> getAll(Pageable pageable) {
+        Page<Merchant> merchants = merchantRepository.findAll(pageable);
+
+        return PageResponse.from(merchants.map(MerchantSummaryResponse::from));
     }
 
     @Transactional(readOnly = true)

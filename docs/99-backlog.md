@@ -230,23 +230,6 @@ reservation (`POST /api/v1/reservations`), 필요하면 payment 쪽 결제 요�
 
 ---
 
-## 업체 목록 조회 페이징 적용
-
-### 배경
-
-`GET /api/v1/merchants`가 `MerchantService.getAll()` → `merchantRepository.findAll()`로 전체 업체를 한 번에 조회해 반환한다. 예약 목록 조회(`GET /api/v1/reservations/me` 등)는 이미 `PageResponse` 기반 페이징이 적용돼 있는데, 업체 목록만 페이징 없이 남아있어 업체 수가 늘어나면 응답 크기와 쿼리 비용이 그대로 선형으로 커진다.
-
-### 해결 방향
-
-- `MerchantController.getMerchants()`가 `Pageable`을 받아 `MerchantService.getAll()`도 `Page<Merchant>`를 반환하도록 변경
-- 예약 목록 조회에 이미 쓰고 있는 `PageResponse` DTO를 그대로 재사용
-
-### 적용 대상
-
-reservation (`merchant/controller/MerchantController.java`, `merchant/service/MerchantService.java`)
-
----
-
 ## Kafka 메시지 Avro + Schema Registry 전환
 
 ### 배경

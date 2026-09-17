@@ -3,6 +3,7 @@ package com.example.booking.reservation.merchant.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.reservation.admin.dto.AdminReservationPageResponse;
 import com.example.booking.reservation.domain.ReservationStatus;
+import com.example.booking.reservation.dto.PageResponse;
 import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
@@ -12,6 +13,8 @@ import com.example.booking.reservation.merchant.dto.MerchantUpdateRequest;
 import com.example.booking.reservation.merchant.service.MerchantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,10 +56,8 @@ public class MerchantController {
     }
 
     @GetMapping("/api/v1/merchants")
-    public List<MerchantSummaryResponse> getMerchants() {
-        return merchantService.getAll().stream()
-                .map(MerchantSummaryResponse::from)
-                .toList();
+    public PageResponse<MerchantSummaryResponse> getMerchants(@PageableDefault(size = 10) Pageable pageable) {
+        return merchantService.getAll(pageable);
     }
 
     @GetMapping("/api/v1/merchants/{merchantId}")

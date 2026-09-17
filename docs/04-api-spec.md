@@ -306,16 +306,22 @@ Response 200:
 
 ### 전체 업체 목록 조회
 ```
-GET /api/v1/merchants
+GET /api/v1/merchants?page=0&size=10
 
 Response 200:
-[
-  {
-    "id": 1,
-    "name": "한옥 펜션",
-    "type": "PENSION"
-  }
-]
+{
+  "content": [
+    {
+      "id": 1,
+      "name": "한옥 펜션",
+      "type": "PENSION"
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1
+}
 ```
 
 ### 업체 상세 조회
