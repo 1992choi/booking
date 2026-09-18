@@ -177,3 +177,4 @@ docker compose down -v && docker compose up -d
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
 | gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |
 | springdoc-openapi (Swagger UI) | 실행 중인 코드 기준 API 문서/테스트 UI (`/swagger-ui.html`, `/v3/api-docs`) | api, reservation, payment, notification |
+| Virtual Threads (`spring.threads.virtual.enabled`) | Tomcat 요청 처리 스레드를 가상 스레드로 전환(블로킹 I/O가 많은 구조라 스레드 수 제약 완화 효과) | api, reservation, payment, notification |

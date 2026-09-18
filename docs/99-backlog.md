@@ -176,24 +176,6 @@ reservation (Merchant/Resource 소유 서비스)
 
 ---
 
-## Virtual Threads 적용
-
-### 배경
-
-Java 25(가상 스레드가 정식 기능인 버전)를 쓰고 있는데 정작 활성화는 안 돼 있다. Spring Boot 4.0.5에서 `spring.threads.virtual.enabled` 프로퍼티로 지원 확인됨(`spring-boot-autoconfigure` 설정 메타데이터에 존재). 블로킹 I/O(JDBC, RestClient 등)가 많은 이 프로젝트 구조상 가상 스레드 도입 효과를 체감하기 좋은 조건이다.
-
-### 해결 방향
-
-- 서비스별로 `spring.threads.virtual.enabled: true` 설정 후 동작 확인(Tomcat 요청 처리 스레드가 가상 스레드로 전환)
-- HikariCP 커넥션 풀 크기 등 기존에 플랫폼 스레드 기준으로 잡았던 설정이 가상 스레드 환경에서도 적절한지 재검토(가상 스레드는 수가 많아지므로 커넥션 풀 같은 진짜 제한 자원의 병목이 오히려 더 잘 드러남)
-- 부하 테스트로 전/후 비교(간단하게는 동시 요청 처리량 차이 확인 정도)
-
-### 적용 대상
-
-api, reservation, payment, notification (전부 Tomcat + 블로킹 I/O 기반)
-
----
-
 ## Structured Logging (JSON) 적용
 
 ### 배경
@@ -227,6 +209,25 @@ api, reservation, payment, notification (Loki 로깅 대상과 동일)
 ### 적용 대상
 
 reservation (`POST /api/v1/reservations`), 필요하면 payment 쪽 결제 요청 API에도 확장
+
+---
+
+## 업체 목록 조회 type 필터 추가
+
+### 배경
+
+프론트(booking-web)에서 업체 목록을 유형(`PENSION`/`CLASS`/`FACILITY`)별로 필터링해서 보여주는 화면이 필요한데, 지금 `GET /api/v1/merchants`는 `Pageable`만 받고 type 필터가 없다. `MerchantRepository`에도 타입별 조회 메서드가 없어 전체 목록만 가져올 수 있다.
+
+### 해결 방향
+
+- `MerchantRepository`에 `Page<Merchant> findAllByType(MerchantType type, Pageable pageable)` 추가
+- `MerchantService.getAll()`이 nullable `MerchantType type` 파라미터를 받아, 있으면 `findAllByType`, 없으면 기존 `findAll(pageable)`로 분기
+- `MerchantController.getMerchants()`에 `@RequestParam(required = false) MerchantType type` 추가
+- 캐시 키(`#pageable`)에 `type`도 포함시켜야 필터 결과가 섞이지 않음
+
+### 적용 대상
+
+reservation (`merchant/controller/MerchantController.java`, `merchant/service/MerchantService.java`, `merchant/domain/MerchantRepository.java`)
 
 ---
 
