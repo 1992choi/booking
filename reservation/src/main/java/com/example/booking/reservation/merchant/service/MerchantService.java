@@ -12,6 +12,7 @@ import com.example.booking.reservation.merchant.domain.DailyMerchantStats;
 import com.example.booking.reservation.merchant.domain.DailyMerchantStatsRepository;
 import com.example.booking.reservation.merchant.domain.Merchant;
 import com.example.booking.reservation.merchant.domain.MerchantRepository;
+import com.example.booking.reservation.merchant.domain.MerchantType;
 import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
@@ -94,9 +95,11 @@ public class MerchantService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "merchants", key = "#pageable")
-    public PageResponse<MerchantSummaryResponse> getAll(Pageable pageable) {
-        Page<Merchant> merchants = merchantRepository.findAll(pageable);
+    @Cacheable(value = "merchants", key = "{#type, #pageable}")
+    public PageResponse<MerchantSummaryResponse> getAll(MerchantType type, Pageable pageable) {
+        Page<Merchant> merchants = type == null
+                ? merchantRepository.findAll(pageable)
+                : merchantRepository.findAllByType(type, pageable);
 
         return PageResponse.from(merchants.map(MerchantSummaryResponse::from));
     }

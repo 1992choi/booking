@@ -212,25 +212,6 @@ reservation (`POST /api/v1/reservations`), 필요하면 payment 쪽 결제 요�
 
 ---
 
-## 업체 목록 조회 type 필터 추가
-
-### 배경
-
-프론트(booking-web)에서 업체 목록을 유형(`PENSION`/`CLASS`/`FACILITY`)별로 필터링해서 보여주는 화면이 필요한데, 지금 `GET /api/v1/merchants`는 `Pageable`만 받고 type 필터가 없다. `MerchantRepository`에도 타입별 조회 메서드가 없어 전체 목록만 가져올 수 있다.
-
-### 해결 방향
-
-- `MerchantRepository`에 `Page<Merchant> findAllByType(MerchantType type, Pageable pageable)` 추가
-- `MerchantService.getAll()`이 nullable `MerchantType type` 파라미터를 받아, 있으면 `findAllByType`, 없으면 기존 `findAll(pageable)`로 분기
-- `MerchantController.getMerchants()`에 `@RequestParam(required = false) MerchantType type` 추가
-- 캐시 키(`#pageable`)에 `type`도 포함시켜야 필터 결과가 섞이지 않음
-
-### 적용 대상
-
-reservation (`merchant/controller/MerchantController.java`, `merchant/service/MerchantService.java`, `merchant/domain/MerchantRepository.java`)
-
----
-
 ## Kafka 메시지 Avro + Schema Registry 전환
 
 ### 배경

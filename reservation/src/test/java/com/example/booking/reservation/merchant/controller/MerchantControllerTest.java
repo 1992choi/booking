@@ -169,6 +169,36 @@ class MerchantControllerTest {
     }
 
     @Test
+    @DisplayName("type 파라미터로 조회 시 해당 유형의 Merchant만 반환한다")
+    void getMerchants_filterByType() throws Exception {
+        long userId1 = userIdSeq.incrementAndGet();
+        long userId2 = userIdSeq.incrementAndGet();
+
+        given(jwtVerifier.verify(any()))
+                .willReturn(new AuthPrincipal(userId1, Role.USER))
+                .willReturn(new AuthPrincipal(userId2, Role.USER));
+
+        mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer token1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new MerchantCreateRequest("Pension C", "02-3333-3333", MerchantType.PENSION))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/merchants")
+                        .header("Authorization", "Bearer token2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new MerchantCreateRequest("Class D", "02-4444-4444", MerchantType.CLASS))))
+                .andExpect(status().isCreated());
+
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(userId1, Role.USER));
+        mockMvc.perform(get("/api/v1/merchants").param("type", "PENSION"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.name == 'Pension C')]").exists())
+                .andExpect(jsonPath("$.content[?(@.name == 'Class D')]").doesNotExist());
+    }
+
+    @Test
     @DisplayName("단건 Merchant 조회 시 Resource 포함 상세 정보를 반환한다")
     void getMerchant_success() throws Exception {
         String merchantResponse = mockMvc.perform(post("/api/v1/merchants")

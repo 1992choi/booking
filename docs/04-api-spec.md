@@ -306,7 +306,9 @@ Response 200:
 
 ### 전체 업체 목록 조회
 ```
-GET /api/v1/merchants?page=0&size=10
+GET /api/v1/merchants?type=PENSION&page=0&size=10
+
+- type: PENSION/CLASS/FACILITY (생략 시 전체 조회)
 
 Response 200:
 {

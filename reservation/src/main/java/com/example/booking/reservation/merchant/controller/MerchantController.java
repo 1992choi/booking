@@ -4,6 +4,7 @@ import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.reservation.admin.dto.AdminReservationPageResponse;
 import com.example.booking.reservation.domain.ReservationStatus;
 import com.example.booking.reservation.dto.PageResponse;
+import com.example.booking.reservation.merchant.domain.MerchantType;
 import com.example.booking.reservation.merchant.dto.DailyMerchantStatsResponse;
 import com.example.booking.reservation.merchant.dto.MerchantCreateRequest;
 import com.example.booking.reservation.merchant.dto.MerchantDetailResponse;
@@ -56,8 +57,9 @@ public class MerchantController {
     }
 
     @GetMapping("/api/v1/merchants")
-    public PageResponse<MerchantSummaryResponse> getMerchants(@PageableDefault(size = 10) Pageable pageable) {
-        return merchantService.getAll(pageable);
+    public PageResponse<MerchantSummaryResponse> getMerchants(@RequestParam(required = false) MerchantType type,
+                                                               @PageableDefault(size = 10) Pageable pageable) {
+        return merchantService.getAll(type, pageable);
     }
 
     @GetMapping("/api/v1/merchants/{merchantId}")
