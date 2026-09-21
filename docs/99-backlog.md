@@ -176,21 +176,21 @@ reservation (Merchant/Resource 소유 서비스)
 
 ---
 
-## Structured Logging (JSON) 적용
+## 요청 로그에 트레이스 ID 연계 (Loki-Tempo 연계)
 
 ### 배경
 
-로그가 지금은 평문 텍스트로 Loki에 쌓이고 있어서, 특정 필드(예: userId, reservationId) 기준으로 정확히 필터링하려면 텍스트 파싱에 의존해야 한다. Spring Boot 4.0.5는 별도 라이브러리 없이 `logging.structured.format.console`/`logging.structured.format.file`로 JSON 구조화 로그(ecs/gelf/logstash 포맷)를 내장 지원한다(설정 메타데이터에서 확인).
+Structured Logging(JSON) 적용 과정에서 실측해보니, Loki로 나가는 로그에 `mdc_traceId`/`mdc_spanId` 같은 MDC 필드가 전혀 찍히지 않는다(실제 Loki 쿼리로 156줄 확인, 전부 0건). 원인은 `RequestLoggingFilter`가 `Ordered.HIGHEST_PRECEDENCE`로 등록돼 있어서(인증 실패도 로깅하기 위한 의도적 설계, `CoreAutoConfiguration` 참고) 필터 체인의 가장 바깥을 감싸는데, 로그를 남기는 시점이 `chain.doFilter()` 이후의 `finally` 블록이라 Micrometer 트레이싱 필터가 만든 스팬 스코프가 이미 닫힌 뒤다. 그래서 Tempo와 Loki를 둘 다 연동해놨어도 "이 로그가 어느 트레이스에 속하는지" 실제로는 연결이 안 된다.
 
 ### 해결 방향
 
-- `logging.structured.format.console: ecs` 등으로 콘솔 로그를 JSON으로 전환(각 서비스 `logback-spring.xml`이 Boot 기본 `base.xml`을 include하는 구조라 큰 개조 없이 적용 가능할 것으로 보임 — 실제 적용 시 LOKI appender와의 상호작용 확인 필요)
-- `logging.structured.json.include`/`context.include`로 MDC에 있는 값(예: traceId — Tempo 연동 시 이미 MDC에 들어감) 로그에 포함시켜 Loki-Tempo 연계 강화
-- Loki 쿼리에서 JSON 필드 기반 필터링(`| json` 파이프라인)으로 전환
+- 트레이스 컨텍스트(traceId/spanId)를 필터 안에서 직접 꺼내(`Tracer`/`CurrentTraceContext` 주입) 로그 시점에 명시적으로 MDC에 넣거나 로그 메시지에 포함시키는 방법 검토
+- 또는 요청 로깅을 "인증 실패도 잡아야 한다"는 요구사항과 "트레이스 스코프 안에서 로깅해야 한다"는 요구사항으로 분리 — 인증 실패 로깅은 지금처럼 최우선 필터에 남기고, 정상 요청의 상세 로깅만 트레이싱 필터보다 안쪽 순서로 옮기는 절충안도 고려
+- 수정 후 Loki 쿼리(`{app="..."} |= "mdc_traceId"`)로 실제 값이 찍히는지 재검증
 
 ### 적용 대상
 
-api, reservation, payment, notification (Loki 로깅 대상과 동일)
+core (`logging/RequestLoggingFilter.java`, `CoreAutoConfiguration.java`) — api/reservation/payment/notification 전체에 영향
 
 ---
 
