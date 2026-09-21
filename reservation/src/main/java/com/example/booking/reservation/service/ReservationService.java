@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -45,6 +48,7 @@ import java.util.stream.Collectors;
 public class ReservationService {
 
     private static final String LOCK_PREFIX = "reservation:lock:";
+    private static final String IDEMPOTENCY_CACHE = "reservation-idempotency";
 
     private final ReservationRepository reservationRepository;
     private final ResourceRepository resourceRepository;
@@ -54,9 +58,25 @@ public class ReservationService {
     private final MerchantRepository merchantRepository;
     private final RedissonClient redissonClient;
     private final AuditService auditService;
+    private final CacheManager cacheManager;
 
     @Transactional
-    public List<ReservationResponse> create(Long userId, CreateReservationRequest request) {
+    public List<ReservationResponse> create(Long userId, CreateReservationRequest request, String idempotencyKey) {
+        Cache idempotencyCache = idempotencyKey == null ? null : cacheManager.getCache(IDEMPOTENCY_CACHE);
+        String idempotencyCacheKey = userId + ":" + idempotencyKey;
+
+        if (idempotencyCache != null) {
+            Cache.ValueWrapper wrapper = idempotencyCache.get(idempotencyCacheKey);
+            if (wrapper != null) {
+                log.info("멱등 응답 반환 userId={}, idempotencyKey={}", userId, idempotencyKey);
+
+                @SuppressWarnings("unchecked")
+                List<ReservationResponse> cached = (List<ReservationResponse>) wrapper.get();
+
+                return cached;
+            }
+        }
+
         RLock lock = redissonClient.getLock(LOCK_PREFIX + request.resourceId());
 
         boolean acquired;
@@ -94,7 +114,12 @@ public class ReservationService {
                     "resourceId", request.resourceId(),
                     "reservationIds", reservations.stream().map(Reservation::getId).toList()));
 
-            return reservations.stream().map(ReservationResponse::from).toList();
+            List<ReservationResponse> response = reservations.stream().map(ReservationResponse::from).toList();
+            if (idempotencyCache != null) {
+                idempotencyCache.put(idempotencyCacheKey, new ArrayList<>(response));
+            }
+
+            return response;
         } finally {
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();

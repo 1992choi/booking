@@ -91,6 +91,7 @@ reservation/
 
 ### 예약 생성 흐름
 
+0. (선택) 요청에 `Idempotency-Key` 헤더가 있으면 `reservation-idempotency` 캐시(키: `{userId}:{idempotencyKey}`)를 먼저 조회 — 캐시 히트 시 아래 로직을 전부 건너뛰고 저장된 응답을 그대로 반환
 1. `RLock lock = redissonClient.getLock("reservation:lock:" + resourceId)` 로 tryLock(waitTime=3s, leaseTime=5s). 획득 실패 시 409 RSV_002 (LOCK_FAILED)
 2. (락 보유 중) `ResourceRepository` 로 resource 조회 (가격 · maxCapacity snapshot)
 3. `headCount > maxCapacity` → 422 RSV_003
@@ -103,6 +104,7 @@ reservation/
    - `sumHeadCountByAvailableTimeId >= maxCapacity` 이면 `AvailableTime.status` → BLOCKED
    - Kafka `reservation.created` publish
 8. `core`의 `AuditService.record("RESERVATION_CREATED", ...)` 호출 — MongoDB `audit_logs` 컬렉션에 기록 (예약 취소도 동일하게 `RESERVATION_CANCELLED` 기록. 아래 "감사 로그" 참고)
+9. `Idempotency-Key`가 있었다면 응답을 `reservation-idempotency` 캐시에 저장(기본 TTL 10분) 후 반환
 
 ### 주요 쿼리
 
@@ -134,12 +136,13 @@ int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId
 
 ## Redis 캐싱
 
-Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict`) 적용.
+Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict`) 적용. 예약 생성의 `Idempotency-Key` 응답 저장에도 같은 `CacheManager`(Redis, JSON 직렬화)를 재사용한다.
 
-| 캐시 이름 | 키 | 대상 | 무효화 시점 |
-|-----------|----|------|------------|
-| `merchant` | `{merchantId}` | 업체 상세 | 업체 수정 |
-| `merchants` | `all` | 전체 업체 목록 | 업체 등록 · 수정 |
+| 캐시 이름 | 키 | 대상 | 무효화 시점 | TTL |
+|-----------|----|------|------------|-----|
+| `merchant` | `{merchantId}` | 업체 상세 | 업체 수정 | 10분(기본) |
+| `merchants` | `{type, pageable}` | 업체 목록(페이지 · type 필터별) | 업체 등록 · 수정 (전체 무효화) | 10분(기본) |
+| `reservation-idempotency` | `{userId}:{idempotencyKey}` | 예약 생성 응답 | 없음(TTL 만료로만 소멸) | 10분(기본) |
 
 ---
 

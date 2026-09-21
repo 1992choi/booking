@@ -101,7 +101,7 @@ class ReservationConcurrencyTest {
             pool.submit(() -> {
                 try {
                     start.await();
-                    reservationService.create(userId, request);
+                    reservationService.create(userId, request, null);
                     successCount.incrementAndGet();
                 } catch (BusinessException e) {
                     // CONFLICT/LOCK_FAILED 는 정원 초과 시 기대되는 결과

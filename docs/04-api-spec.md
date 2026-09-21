@@ -546,6 +546,7 @@ Response 200:
 ```
 POST /api/v1/reservations
 Authorization: Bearer {jwt}
+Idempotency-Key: {임의의 고유 문자열}  (선택 — 동일 키로 재요청 시 재생성 없이 기존 응답 반환, TTL 10분)
 
 Request:
 {

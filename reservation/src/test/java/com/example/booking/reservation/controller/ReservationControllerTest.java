@@ -26,7 +26,9 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -104,6 +106,31 @@ class ReservationControllerTest {
                 .andExpect(jsonPath("$[0].resourceName").value("별채 A"))
                 .andExpect(jsonPath("$[0].amount").value(150000))
                 .andExpect(jsonPath("$[0].headCount").value(2));
+    }
+
+    @Test
+    @DisplayName("동일한 Idempotency-Key로 재요청 시 예약을 다시 생성하지 않고 기존 응답을 반환한다")
+    void create_idempotencyKey_returnsCachedResponse() throws Exception {
+        CreateReservationRequest request = new CreateReservationRequest(resource.getId(), List.of(slot.getId()), 2);
+        String idempotencyKey = UUID.randomUUID().toString();
+
+        String firstResponse = mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        String secondResponse = mockMvc.perform(post("/api/v1/reservations")
+                        .header("Authorization", "Bearer test-token")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(secondResponse).isEqualTo(firstResponse);
     }
 
     @Test

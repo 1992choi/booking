@@ -194,24 +194,6 @@ core (`logging/RequestLoggingFilter.java`, `CoreAutoConfiguration.java`) — api
 
 ---
 
-## Idempotency Key 패턴
-
-### 배경
-
-예약 생성(`POST /api/v1/reservations`)이나 결제 관련 API가 네트워크 재시도/중복 클릭으로 같은 요청이 두 번 들어와도 지금은 구분할 방법이 없다(Redis 분산 락은 동시 요청 간 경합만 막을 뿐, 같은 클라이언트의 중복 제출 자체를 막지는 않음). Stripe 등에서 흔히 쓰는 `Idempotency-Key` 헤더 패턴으로, 최근 API 설계에서 자주 요구되는 방식이다.
-
-### 해결 방향
-
-- 클라이언트가 `Idempotency-Key` 헤더로 요청마다 고유 키를 보내면, 서버는 (key, 응답) 쌍을 짧은 TTL로 Redis에 저장
-- 동일 키로 재요청이 오면 실제 로직을 다시 실행하지 않고 저장해둔 응답을 그대로 반환
-- reservation은 이미 Redis(Redisson)를 쓰고 있어 인프라 추가 없이 적용 가능
-
-### 적용 대상
-
-reservation (`POST /api/v1/reservations`), 필요하면 payment 쪽 결제 요청 API에도 확장
-
----
-
 ## Kafka 메시지 Avro + Schema Registry 전환
 
 ### 배경
