@@ -27,6 +27,7 @@ public class SecurityConfig {
                         .requestMatchers("/ping").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/v1/internal/**").permitAll()
+                        .requestMatchers("/api/v1/notifications/stream").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(jwtAuthenticationEntryPoint))

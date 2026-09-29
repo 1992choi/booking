@@ -2,7 +2,7 @@
 
 ## 역할
 
-알림 발송 (Mock). `payment.completed` / `reservation.cancelled` 이벤트를 consume 하거나 api 서비스로부터 HTTP 요청을 받아 사용자에게 알림을 발송하고 발송 이력을 저장한다.
+알림 발송 (Mock). `payment.completed` / `reservation.cancelled` 이벤트를 consume 하거나 api 서비스로부터 HTTP 요청을 받아 사용자에게 알림을 발송하고 발송 이력을 저장한다. 발송과 동시에 SSE로 연결된 클라이언트에도 실시간 push 한다.
 
 | 항목 | 값 |
 |------|-----|
@@ -44,7 +44,10 @@ notification/
     │   └── NotificationRepository.java
     ├── event/
     │   ├── PaymentEventConsumer.java
-    │   └── ReservationEventConsumer.java
+    │   ├── ReservationEventConsumer.java
+    │   └── NotificationCreatedDomainEvent.java  (알림 저장 후 발행 — SSE push 트리거)
+    ├── sse/
+    │   └── SseNotificationRegistry.java     (userId ↔ SseEmitter 매핑, AFTER_COMMIT에 push)
     ├── user/
     │   ├── domain/UserSync.java
     │   └── event/UserEventConsumer.java     (user.created/updated/deleted 구독)
@@ -65,6 +68,8 @@ notification/
 
 알림 타입은 `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` 세 가지다. `ADMIN_MESSAGE`는 `reservation_id` 없이 저장된다.
 
+`NotificationService.send()`/`sendAdminMessage()`는 `Notification` 저장 직후 `NotificationCreatedDomainEvent`를 발행한다. `SseNotificationRegistry`가 `@TransactionalEventListener(AFTER_COMMIT)`로 이를 구독해, 저장 트랜잭션이 실제로 커밋된 뒤에만 SSE로 push한다(Kafka 발행과 동일하게 "커밋 후 발행" 규칙을 따름 — 롤백된 알림이 클라이언트에 먼저 보이는 걸 방지).
+
 ---
 
 ## HTTP (Internal)
@@ -75,13 +80,25 @@ notification/
 
 ---
 
+## 실시간 알림 (SSE)
+
+`GET /api/v1/notifications/stream?token={accessToken}` — 연결을 유지하며(`SseEmitter`, 타임아웃 30분) 해당 유저에게 온 알림을 실시간 push. 상세 요청/응답 형식은 `04-api-spec.md` 참고.
+
+- `SseNotificationRegistry`가 `Map<userId, List<SseEmitter>>`로 연결을 관리 — 같은 유저의 여러 탭/기기가 동시에 연결하면 전부에게 push
+- 브라우저 `EventSource`가 커스텀 헤더를 못 보내서 이 엔드포인트만 JWT를 쿼리 파라미터로 받는다 — `SecurityConfig`에서 `permitAll()` 처리하고, 인증은 컨트롤러 안에서 `JwtVerifier.verify(token)`으로 직접 수행
+- 연결이 끊기거나(`onError`/`onTimeout`) 정상 종료(`onCompletion`)되면 등록된 emitter를 목록에서 제거
+- 서버가 알림을 유실 없이 재전송해주는 기능(이벤트 리플레이)은 없음 — 연결돼 있는 동안만 수신, 과거 이력은 `GET /api/v1/notifications/me`로 별도 조회
+
+---
+
 ## 접근 제어 (SecurityConfig)
 
 ```
-/ping                    → permitAll
-/actuator/**             → permitAll
-/api/v1/internal/**      → permitAll (게이트웨이/보안그룹 레벨 차단 전제)
-그 외                     → authenticated
+/ping                        → permitAll
+/actuator/**                 → permitAll
+/api/v1/internal/**          → permitAll (게이트웨이/보안그룹 레벨 차단 전제)
+/api/v1/notifications/stream → permitAll (컨트롤러 내부에서 JwtVerifier로 직접 인증)
+그 외                         → authenticated
 ```
 
 ## Kafka

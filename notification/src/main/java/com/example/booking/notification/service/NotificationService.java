@@ -4,11 +4,14 @@ import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationStatus;
 import com.example.booking.notification.domain.NotificationType;
+import com.example.booking.notification.dto.NotificationResponse;
+import com.example.booking.notification.event.NotificationCreatedDomainEvent;
 import com.example.booking.notification.service.channel.NotificationSender;
 import com.example.booking.notification.user.domain.UserSync;
 import com.example.booking.notification.user.domain.UserSyncRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationSender notificationSender;
     private final UserSyncRepository userSyncRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void send(Long userId, Long reservationId, NotificationType type) {
@@ -54,6 +58,7 @@ public class NotificationService {
         }
 
         notificationRepository.save(notification);
+        eventPublisher.publishEvent(new NotificationCreatedDomainEvent(userId, NotificationResponse.from(notification)));
     }
 
     @Transactional
@@ -82,6 +87,7 @@ public class NotificationService {
         }
 
         notificationRepository.save(notification);
+        eventPublisher.publishEvent(new NotificationCreatedDomainEvent(userId, NotificationResponse.from(notification)));
     }
 
     @Transactional(readOnly = true)

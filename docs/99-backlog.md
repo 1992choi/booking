@@ -213,24 +213,6 @@ api, reservation, payment, notification (Kafka 발행/구독 전체)
 
 ---
 
-## WebSocket/SSE 실시간 알림
-
-### 배경
-
-지금은 결제 완료/예약 취소 등이 Kafka를 통해 `notification`까지만 전달되고, 그 뒤로는 mock 발송(로그만 남김)에서 끝난다. 클라이언트가 예약 상태 변화를 알려면 폴링 외엔 방법이 없다. 이 프로젝트엔 별도 프론트엔드가 없으므로, 최소한의 데모 페이지(`EventSource`/`WebSocket` 브라우저 API로 메시지를 화면에 출력하는 정도)로 동작을 확인하는 것을 전제로 한다.
-
-### 해결 방향
-
-- `notification`에 WebSocket(STOMP) 또는 SSE 엔드포인트 추가, 유저ID ↔ 세션 매핑 관리
-- `payment.completed`/`payment.failed`/`reservation.cancelled` Kafka 컨슈머가 처리 후 해당 유저의 활성 세션에 실시간 push
-- 최소 데모 HTML 페이지에서 로그인 후 연결 → 이벤트 발생 시 새로고침 없이 알림 수신 확인
-
-### 적용 대상
-
-notification
-
----
-
 ## 배치 통계 지표의 Micrometer 노출
 
 ### 배경

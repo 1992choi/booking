@@ -838,6 +838,20 @@ Response 200:
 > channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
 > status: `SENT` / `FAILED`
 
+### 실시간 알림 스트림 (SSE)
+```
+GET /api/v1/notifications/stream?token={accessToken}
+
+Response: Content-Type: text/event-stream (연결 유지, 최대 30분)
+
+event: notification
+data: {"id":1,"reservationId":1,"message":null,"type":"CONFIRMED","channel":"LOG","status":"SENT","sentAt":"2026-05-01T14:00:00"}
+```
+
+> 브라우저 `EventSource`는 커스텀 헤더를 지원하지 않아 JWT를 쿼리 파라미터로 받는다 — 이 엔드포인트만 Spring Security에서 `permitAll()`이고, 인증은 컨트롤러 안에서 `JwtVerifier`로 직접 수행한다.
+> `data`의 페이로드는 `GET /api/v1/notifications/me` 응답의 원소 하나와 동일한 형식(`NotificationResponse`).
+> `NotificationService.send()`/`sendAdminMessage()`가 알림을 저장한 트랜잭션이 커밋된 후(`@TransactionalEventListener(AFTER_COMMIT)`) 연결된 모든 세션(같은 유저의 여러 탭/기기 포함)에 push. 서버 재시작 시 누락된 이벤트를 다시 보내주는 기능은 없음(연결돼 있는 동안만 수신).
+
 ---
 
 ## Mock PG API (pg 서버 — payment 서비스 전용)
