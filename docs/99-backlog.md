@@ -213,24 +213,6 @@ api, reservation, payment, notification (Kafka 발행/구독 전체)
 
 ---
 
-## 배치 통계 지표의 Micrometer 노출
-
-### 배경
-
-`batch`가 업체 일별 통계를 집계하지만 결과가 DB 테이블에만 남고, Prometheus/Grafana로는 노출되지 않는다(`batch`는 actuator 미적용이라 현재 스크랩 대상에서도 빠져 있다). 지금 Prometheus가 보는 지표는 `http_server_requests_seconds_count` 등 요청 처리량/JVM 지표뿐이라, "오늘 예약이 몇 건이었나" 같은 도메인 지표는 대시보드에서 전혀 보이지 않는다.
-
-### 해결 방향
-
-- `batch`에 actuator + micrometer-registry-prometheus 의존성 추가, `docker/prometheus/prometheus.yml` 스크랩 대상에 편입
-- 일별 통계 집계 결과를 `Gauge`로 노출(예: `merchant_daily_reservation_count`, `merchant_daily_revenue`)
-- Grafana에 비즈니스 지표 전용 패널 추가
-
-### 적용 대상
-
-batch (업체 일별 통계 집계 잡)
-
----
-
 ## Caffeine + Redis 다중 레이어 캐싱
 
 ### 배경

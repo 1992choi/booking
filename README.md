@@ -57,7 +57,7 @@ docker compose up -d
 | `booking-mongodb` | 27017 | 인증 없음(개발용). api/reservation의 감사 로그(`db_api_audit`/`db_reservation_audit`) 전용 |
 | `booking-tempo` | 3200, 4317, 4318 | 분산추적 수집기(OTLP gRPC/HTTP). 조회는 Grafana Explore에서 |
 | `booking-loki` | 3100 | 로그 수집기. api/reservation/payment/notification이 `logback-spring.xml`의 Loki4j appender로 JSON 구조화 로그(`{timestamp_ms, logger_name, level, thread_name, message, ...}`)를 직접 push. 조회는 Grafana Explore 또는 `\| json` 파이프라인으로 필드 필터링 |
-| `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (batch/pg/review는 actuator 미적용이라 대상 아님) |
+| `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification/batch의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (pg/review는 actuator 미적용이라 대상 아님) |
 | `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결. `docker/grafana/provisioning/alerting/`로 Slack 알림(5xx 발생 시) 자동 구성 |
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
@@ -119,7 +119,7 @@ docker compose down -v && docker compose up -d
 
 ### 4. 서비스 기동
 
-각 서비스는 별도 포트로 동작. `batch`는 HTTP 를 노출하지 않고 스케줄러로만 동작한다.
+각 서비스는 별도 포트로 동작. `batch`는 REST API는 없고 `@Scheduled`로 Job을 실행하지만, `/actuator/prometheus` 노출을 위해 최소한의 HTTP(actuator 전용)는 띄운다.
 
 | 서비스 | 명령 | 포트 |
 |--------|------|------|
@@ -128,8 +128,8 @@ docker compose down -v && docker compose up -d
 | payment | `./gradlew :payment:bootRun` | 8082 |
 | notification | `./gradlew :notification:bootRun` | 8083 |
 | review | `./gradlew :review:bootRun` | 8084 |
+| batch | `./gradlew :batch:bootRun` | 8085 (actuator 전용, REST API 없음) |
 | pg (Mock PG) | `./gradlew :pg:bootRun` | 8090 (REST), 50051 (gRPC) |
-| batch | `./gradlew :batch:bootRun` | (HTTP 없음, `@Scheduled` 배치 실행) |
 
 ### 5. 로컬 접속 URL
 
@@ -173,7 +173,7 @@ docker compose down -v && docker compose up -d
 | Kotlin + Spring Boot | 업체 리뷰 기능 (학습용) | review |
 | MySQL | 서비스별 DB (database-per-service). batch/review 는 db_reservation 공유 | api, reservation, payment, notification, batch, review |
 | Tempo | 분산 트레이싱 수집(OTLP), Grafana Explore에서 조회 | 전 서비스 |
-| Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`) | api, reservation, payment, notification |
+| Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`). batch는 업체 일별 통계 집계 결과를 `merchant_daily_reservation_count`/`merchant_daily_revenue` 커스텀 Gauge로도 노출 | api, reservation, payment, notification, batch |
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) + Alerting(5xx 발생 시 Slack 알림) | api, reservation, payment, notification |
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
 | gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |

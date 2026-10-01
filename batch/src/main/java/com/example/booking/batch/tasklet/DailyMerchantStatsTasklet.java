@@ -1,5 +1,6 @@
 package com.example.booking.batch.tasklet;
 
+import com.example.booking.batch.metrics.DailyMerchantStatsMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -19,6 +20,7 @@ import java.util.Map;
 public class DailyMerchantStatsTasklet implements Tasklet {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DailyMerchantStatsMetrics metrics;
 
     private static final String SELECT_SQL = """
             SELECT r.merchant_id,
@@ -47,12 +49,13 @@ public class DailyMerchantStatsTasklet implements Tasklet {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(SELECT_SQL, targetDate);
 
         for (Map<String, Object> row : rows) {
-            jdbcTemplate.update(UPSERT_SQL,
-                    targetDate,
-                    row.get("merchant_id"),
-                    row.get("confirmed_count"),
-                    row.get("cancelled_count"),
-                    row.get("total_revenue"));
+            Long merchantId = ((Number) row.get("merchant_id")).longValue();
+            long confirmedCount = ((Number) row.get("confirmed_count")).longValue();
+            long cancelledCount = ((Number) row.get("cancelled_count")).longValue();
+            long totalRevenue = ((Number) row.get("total_revenue")).longValue();
+
+            jdbcTemplate.update(UPSERT_SQL, targetDate, merchantId, confirmedCount, cancelledCount, totalRevenue);
+            metrics.record(merchantId, confirmedCount, cancelledCount, totalRevenue);
         }
 
         log.info("일별 매출 집계 완료 date={}, 가맹점 수={}", targetDate, rows.size());

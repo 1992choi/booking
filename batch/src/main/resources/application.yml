@@ -1,5 +1,5 @@
 server:
-  port: 8084
+  port: 8085
 
 spring:
   application:
@@ -21,6 +21,12 @@ spring:
       initialize-schema: always
     job:
       enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
 
 booking:
   batch:

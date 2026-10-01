@@ -50,7 +50,7 @@
 
 ### batch 모듈 (Spring Batch)
 
-`batch`는 HTTP로 외부에 노출되지 않는 배치 전용 모듈이다. `db_reservation`을 reservation 서비스와 공유하며, `@Scheduled` 트리거로 두 Job을 실행한다: `expirePendingReservationsJob`(매분, `booking.batch.pending-expiry-minutes`가 지난 `PENDING` 예약을 만료 처리) · `dailyMerchantStatsJob`(매일 새벽 1시, 전일자 업체별 예약 통계를 `daily_merchant_stats`에 집계). reservation 서비스에 대한 REST 호출이나 Kafka 구독 없이 DB를 직접 읽고 쓴다.
+`batch`는 REST API가 없는 배치 전용 모듈이다. `db_reservation`을 reservation 서비스와 공유하며, `@Scheduled` 트리거로 두 Job을 실행한다: `expirePendingReservationsJob`(매분, `booking.batch.pending-expiry-minutes`가 지난 `PENDING` 예약을 만료 처리) · `dailyMerchantStatsJob`(매일 새벽 1시, 전일자 업체별 예약 통계를 `daily_merchant_stats`에 집계 + `merchant_daily_reservation_count`/`merchant_daily_revenue` Gauge로 노출). reservation 서비스에 대한 REST 호출이나 Kafka 구독 없이 DB를 직접 읽고 쓴다. Prometheus 스크랩을 위해 `/actuator/prometheus`만 여는 최소한의 HTTP(`:8085`)는 띄운다.
 
 ---
 
@@ -63,7 +63,7 @@ booking/
 ├── reservation       # 서비스 2
 ├── payment           # 서비스 3
 ├── notification      # 서비스 4
-├── batch             # 배치 전용 모듈 — db_reservation 공유, HTTP 미노출
+├── batch             # 배치 전용 모듈 — db_reservation 공유, actuator 전용 HTTP(:8085)만 노출
 ├── pg                # Mock PG 서버 (외부 PG 시뮬레이션)
 └── review            # 학습용 모듈 (Kotlin) — db_reservation 공유
 ```
@@ -95,7 +95,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | reservation | O | X | Spring Boot 앱 |
 | payment | O | X | Spring Boot 앱 |
 | notification | O | X | Spring Boot 앱 |
-| batch | O | X | Spring Batch 앱. HTTP 미노출, `@Scheduled` 로 Job 실행 |
+| batch | O | X | Spring Batch 앱. REST API 없이 `@Scheduled` 로 Job 실행, `/actuator/prometheus`만 노출 |
 | pg | O | X | Mock PG 서버. 실제 PG 연동 시 제거 대상 |
 | review | O | X | Spring Boot 앱 (Kotlin) |
 
@@ -229,7 +229,7 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
    [MSK Kafka]
 ```
 
-> 핵심 4개 서비스만 표시한 예시다. `review`는 같은 방식으로 ECS task + ALB 라우팅을 추가하면 되고(`db_reservation` RDS 공유), `batch`는 ALB 라우팅 없이 ECS Scheduled Task(또는 Lambda)로 별도 운영한다. `pg`는 실제 PG사 연동 시 제거되는 로컬/스테이징 전용 목이므로 AWS 구성에서 제외한다.
+> 핵심 4개 서비스만 표시한 예시다. `review`는 같은 방식으로 ECS task + ALB 라우팅을 추가하면 되고(`db_reservation` RDS 공유), `batch`는 공개 ALB 라우팅 없이 ECS Scheduled Task(또는 Lambda)로 별도 운영한다 — 다만 `/actuator/prometheus`는 VPC 내부에서 Prometheus가 스크랩할 수 있도록 서비스 디스커버리(Cloud Map 등)로만 노출한다. `pg`는 실제 PG사 연동 시 제거되는 로컬/스테이징 전용 목이므로 AWS 구성에서 제외한다.
 
 ---
 
