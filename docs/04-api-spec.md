@@ -829,7 +829,8 @@ Response 200:
     "type": "CONFIRMED",
     "channel": "LOG",
     "status": "SENT",
-    "sentAt": "2026-05-01T14:00:00"
+    "sentAt": "2026-05-01T14:00:00",
+    "readAt": null
   }
 ]
 ```
@@ -837,6 +838,17 @@ Response 200:
 > type: `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` (`ADMIN_MESSAGE`는 `reservationId` 없이 `message` 필드에 본문이 채워짐)
 > channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
 > status: `SENT` / `FAILED`
+> readAt: 읽음 처리 전에는 `null`
+
+### 알림 읽음 처리
+```
+PATCH /api/v1/notifications/{notificationId}/read
+Authorization: Bearer {jwt}
+
+Response 200
+```
+
+> 본인 소유 알림이 아니면 403, 존재하지 않으면 404.
 
 ### 실시간 알림 스트림 (SSE)
 ```
@@ -845,7 +857,7 @@ GET /api/v1/notifications/stream?token={accessToken}
 Response: Content-Type: text/event-stream (연결 유지, 최대 30분)
 
 event: notification
-data: {"id":1,"reservationId":1,"message":null,"type":"CONFIRMED","channel":"LOG","status":"SENT","sentAt":"2026-05-01T14:00:00"}
+data: {"id":1,"reservationId":1,"message":null,"type":"CONFIRMED","channel":"LOG","status":"SENT","sentAt":"2026-05-01T14:00:00","readAt":null}
 ```
 
 > 브라우저 `EventSource`는 커스텀 헤더를 지원하지 않아 JWT를 쿼리 파라미터로 받는다 — 이 엔드포인트만 Spring Security에서 `permitAll()`이고, 인증은 컨트롤러 안에서 `JwtVerifier`로 직접 수행한다.

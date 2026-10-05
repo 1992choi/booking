@@ -1,5 +1,8 @@
 package com.example.booking.notification.service;
 
+import com.example.booking.core.error.BusinessException;
+import com.example.booking.core.error.CommonErrorCode;
+import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationType;
 import com.example.booking.notification.user.domain.UserSync;
@@ -12,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Transactional
@@ -49,6 +53,36 @@ class NotificationServiceTest {
         notificationService.send(1L, 10L, NotificationType.CANCELLED);
 
         assertThat(notificationRepository.findAllByUserIdOrderByCreatedAtDesc(1L)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("본인 알림을 읽음 처리하면 readAt이 채워진다")
+    void markRead_success() {
+        notificationService.send(1L, 10L, NotificationType.CONFIRMED);
+        Notification notification = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(1L).get(0);
+
+        notificationService.markRead(1L, notification.getId());
+
+        assertThat(notificationRepository.findById(notification.getId()).get().getReadAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("다른 유저의 알림을 읽음 처리하면 FORBIDDEN")
+    void markRead_otherUsersNotification_throwsForbidden() {
+        notificationService.send(1L, 10L, NotificationType.CONFIRMED);
+        Notification notification = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(1L).get(0);
+
+        assertThatThrownBy(() -> notificationService.markRead(2L, notification.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 알림을 읽음 처리하면 NOT_FOUND")
+    void markRead_notFound_throwsNotFound() {
+        assertThatThrownBy(() -> notificationService.markRead(1L, 9999L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.NOT_FOUND);
     }
 
 }

@@ -14,7 +14,8 @@ public record NotificationResponse(
         NotificationType type,
         NotificationChannel channel,
         NotificationStatus status,
-        LocalDateTime sentAt
+        LocalDateTime sentAt,
+        LocalDateTime readAt
 ) {
 
     public static NotificationResponse from(Notification notification) {
@@ -25,7 +26,8 @@ public record NotificationResponse(
                 notification.getType(),
                 notification.getChannel(),
                 notification.getStatus(),
-                notification.getSentAt()
+                notification.getSentAt(),
+                notification.getReadAt()
         );
     }
 }

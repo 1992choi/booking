@@ -1,5 +1,7 @@
 package com.example.booking.notification.service;
 
+import com.example.booking.core.error.BusinessException;
+import com.example.booking.core.error.CommonErrorCode;
 import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationStatus;
@@ -93,6 +95,17 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<Notification> getMyNotifications(Long userId) {
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Transactional
+    public void markRead(Long userId, Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+        if (!notification.getUserId().equals(userId)) {
+            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+
+        notification.markRead();
     }
 
 }

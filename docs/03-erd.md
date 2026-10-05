@@ -213,6 +213,7 @@ public abstract class BaseEntity {
 | channel | ENUM | EMAIL / SMS / KAKAO / LOG |
 | status | ENUM | SENT / FAILED |
 | sent_at | DATETIME | |
+| read_at | DATETIME | nullable — 읽음 처리 전에는 NULL |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 

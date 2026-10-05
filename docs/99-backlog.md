@@ -228,3 +228,41 @@ api, reservation, payment, notification (Kafka 발행/구독 전체)
 ### 적용 대상
 
 reservation (업체 조회 캐싱 지점)
+
+---
+
+## 오브젝트 스토리지(S3/MinIO) 도입 + 이미지 업로드
+
+### 배경
+
+프론트 쪽에서 요청이 들어온 항목. 업체(Merchant)에 사진 필드가 없어 홈/업체 상세 화면이 이니셜 아바타로만 표시되고, 리뷰에도 사진 첨부 기능이 없다. 지금 레포에는 파일 업로드 관련 코드가 전혀 없어(멀티파트 처리, 오브젝트 스토리지 연동 모두 미존재) 신규 인프라 도입이 선행돼야 한다.
+
+### 해결 방향
+
+- MinIO(로컬/개발) 또는 S3(운영 가정)를 docker-compose에 추가
+- 업로드는 presigned URL 발급 방식으로: 클라이언트가 서비스에 업로드 URL을 요청 → 발급받은 URL로 스토리지에 직접 PUT → 완료 후 이미지 경로를 엔티티에 저장
+- `Merchant`에 `imageUrl`(또는 복수 이미지면 별도 테이블), `Review`에 이미지 경로 컬럼 추가
+- presigned URL 발급 로직을 공유할지, reservation/review 각자 구현할지 판단 필요(review가 reservation에 Kafka/REST 의존을 두지 않는 현재 원칙상 공유 모듈을 둔다면 core가 유력 후보)
+
+### 적용 대상
+
+reservation (Merchant 이미지), review (리뷰 이미지), core(공유 모듈로 간다면)
+
+---
+
+## 예약 리마인더 알림
+
+### 배경
+
+프론트 쪽에서 요청이 들어온 항목. 현재 알림은 결제완료/취소 등 이벤트 기반으로만 발송되고, 예약 시작 전 시간 기반으로 트리거되는 리마인더가 없다.
+
+### 해결 방향
+
+- `NotificationType`에 `REMINDER` 추가
+- 발송 트리거는 reservation이 자체 `@Scheduled` 스케줄러로 담당 — batch는 "no REST/Kafka" 원칙(`docs/02-architecture.md`)이 있어 신규 이벤트 발행 주체로 적합하지 않음
+- reservation이 예약 시작 시각이 N분/시간 이내로 다가온 `CONFIRMED` 예약을 조회해 신규 이벤트(예: `reservation.reminder`) 발행
+- notification이 해당 이벤트를 구독해 알림 생성
+
+### 적용 대상
+
+reservation (리마인더 대상 조회 + 이벤트 발행), notification (REMINDER 타입 + 구독)

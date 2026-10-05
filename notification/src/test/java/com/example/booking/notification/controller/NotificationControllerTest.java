@@ -3,6 +3,7 @@ package com.example.booking.notification.controller;
 import com.example.booking.core.auth.AuthPrincipal;
 import com.example.booking.core.auth.JwtVerifier;
 import com.example.booking.core.auth.Role;
+import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationType;
 import com.example.booking.notification.service.NotificationService;
@@ -20,9 +21,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -122,5 +125,46 @@ class NotificationControllerTest {
                         .header("Authorization", "Bearer other-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("알림 읽음 처리 성공 시 readAt이 채워진다")
+    void markRead_success() throws Exception {
+        notificationService.send(1L, 10L, NotificationType.CONFIRMED);
+        Notification notification = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(1L).get(0);
+
+        mockMvc.perform(patch("/api/v1/notifications/{notificationId}/read", notification.getId())
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findById(notification.getId()).get().getReadAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("다른 유저의 알림을 읽음 처리하면 403 반환")
+    void markRead_otherUsersNotification_forbidden() throws Exception {
+        notificationService.send(1L, 10L, NotificationType.CONFIRMED);
+        Notification notification = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(1L).get(0);
+
+        given(jwtVerifier.verify(any())).willReturn(new AuthPrincipal(2L, Role.USER));
+
+        mockMvc.perform(patch("/api/v1/notifications/{notificationId}/read", notification.getId())
+                        .header("Authorization", "Bearer other-token"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 알림을 읽음 처리하면 404 반환")
+    void markRead_notFound() throws Exception {
+        mockMvc.perform(patch("/api/v1/notifications/{notificationId}/read", 9999L)
+                        .header("Authorization", "Bearer test-token"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("비인증 요청으로 알림 읽음 처리 시 401 반환")
+    void markRead_unauthorized() throws Exception {
+        mockMvc.perform(patch("/api/v1/notifications/{notificationId}/read", 1L))
+                .andExpect(status().isUnauthorized());
     }
 }

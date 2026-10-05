@@ -70,6 +70,8 @@ notification/
 
 `NotificationService.send()`/`sendAdminMessage()`는 `Notification` 저장 직후 `NotificationCreatedDomainEvent`를 발행한다. `SseNotificationRegistry`가 `@TransactionalEventListener(AFTER_COMMIT)`로 이를 구독해, 저장 트랜잭션이 실제로 커밋된 뒤에만 SSE로 push한다(Kafka 발행과 동일하게 "커밋 후 발행" 규칙을 따름 — 롤백된 알림이 클라이언트에 먼저 보이는 걸 방지).
 
+`PATCH /api/v1/notifications/{id}/read` 로 알림을 읽음 처리하면 `read_at`이 채워진다. 본인 소유가 아닌 알림이면 403, 존재하지 않으면 404.
+
 ---
 
 ## HTTP (Internal)

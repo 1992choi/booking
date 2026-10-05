@@ -54,6 +54,8 @@ public class Notification extends BaseEntity {
 
     private LocalDateTime sentAt;
 
+    private LocalDateTime readAt;
+
     public void markSent() {
         this.status = NotificationStatus.SENT;
         this.sentAt = LocalDateTime.now();
@@ -61,6 +63,10 @@ public class Notification extends BaseEntity {
 
     public void markFailed() {
         this.status = NotificationStatus.FAILED;
+    }
+
+    public void markRead() {
+        this.readAt = LocalDateTime.now();
     }
 
 }
