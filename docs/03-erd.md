@@ -121,6 +121,7 @@ public abstract class BaseEntity {
 | status | ENUM | PENDING / CONFIRMED / CANCELLED |
 | head_count | INT | 인원 수 |
 | amount | BIGINT | **예약 시점의 가격 snapshot** (불변, 청구 기준값) |
+| reminder_sent_at | DATETIME | nullable — 리마인더 발송 전에는 NULL, 발송 후 영구히 채워짐(재발송 없음) |
 | created_at | DATETIME | |
 | updated_at | DATETIME | |
 

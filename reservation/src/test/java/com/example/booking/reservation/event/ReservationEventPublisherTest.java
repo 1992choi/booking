@@ -44,12 +44,14 @@ class ReservationEventPublisherTest {
 
     ReservationCreatedDomainEvent createdEvent;
     ReservationCancelledDomainEvent cancelledEvent;
+    ReservationReminderDomainEvent reminderEvent;
     AvailableTime slot;
 
     @BeforeEach
     void setUp() {
         createdEvent = new ReservationCreatedDomainEvent(1L, 10L, 5L, 150000L, 99L);
         cancelledEvent = new ReservationCancelledDomainEvent(1L, 10L, 99L);
+        reminderEvent = new ReservationReminderDomainEvent(1L, 10L);
         slot = AvailableTime.builder()
                 .resourceId(5L)
                 .startTime(LocalDateTime.of(2026, 6, 1, 14, 0))
@@ -104,5 +106,13 @@ class ReservationEventPublisherTest {
         publisher.onReservationCancelled(cancelledEvent);
 
         verify(kafkaTemplate).send(eq("reservation.cancelled"), any(ReservationCancelledKafkaEvent.class));
+    }
+
+    @Test
+    @DisplayName("예약 리마인더 시 Kafka 이벤트 발행")
+    void onReservationReminder_publishesToKafka() {
+        publisher.onReservationReminder(reminderEvent);
+
+        verify(kafkaTemplate).send(eq("reservation.reminder"), any(ReservationReminderKafkaEvent.class));
     }
 }

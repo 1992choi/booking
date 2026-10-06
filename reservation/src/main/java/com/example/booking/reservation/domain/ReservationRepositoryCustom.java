@@ -18,4 +18,6 @@ public interface ReservationRepositoryCustom {
 
     Page<Reservation> findByResources(List<Long> resourceIds, ReservationStatus status, Pageable pageable);
 
+    List<Reservation> findReminderTargets(LocalDateTime from, LocalDateTime to);
+
 }

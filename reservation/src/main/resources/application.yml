@@ -63,3 +63,6 @@ management:
 booking:
   jwt:
     secret: ${BOOKING_JWT_SECRET:dev-secret-must-be-at-least-32-bytes-long-for-hmac-sha256}
+  reminder:
+    window-minutes: 60
+    cron: "0 * * * * *"

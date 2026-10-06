@@ -107,4 +107,17 @@ public class ReservationRepositoryImpl implements ReservationRepositoryCustom {
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
+    @Override
+    public List<Reservation> findReminderTargets(LocalDateTime from, LocalDateTime to) {
+        return queryFactory
+                .selectFrom(r)
+                .where(
+                        r.status.eq(ReservationStatus.CONFIRMED),
+                        r.startTime.goe(from),
+                        r.startTime.lt(to),
+                        r.reminderSentAt.isNull()
+                )
+                .fetch();
+    }
+
 }

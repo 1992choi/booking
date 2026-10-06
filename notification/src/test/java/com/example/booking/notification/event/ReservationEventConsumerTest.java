@@ -63,4 +63,24 @@ class ReservationEventConsumerTest {
         verify(notificationService, never()).send(any(), any(), any());
     }
 
+    @Test
+    @DisplayName("reservation.reminder 수신 시 REMINDER 알림을 발송한다")
+    void onReservationReminder_sendsReminderNotification() {
+        String message = """
+                {"reservationId":10,"userId":5}
+                """;
+
+        consumer.onReservationReminder(message);
+
+        verify(notificationService).send(5L, 10L, NotificationType.REMINDER);
+    }
+
+    @Test
+    @DisplayName("reservation.reminder 메시지가 잘못된 형식이면 예외 없이 무시한다")
+    void onReservationReminder_malformedMessage_doesNotThrow() {
+        consumer.onReservationReminder("not-a-json");
+
+        verify(notificationService, never()).send(any(), any(), any());
+    }
+
 }

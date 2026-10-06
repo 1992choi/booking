@@ -72,6 +72,8 @@ reservation/
     ├── event/
     │   ├── ReservationEventPublisher.java   (Kafka produce — AFTER_COMMIT)
     │   └── PaymentEventConsumer.java        (Kafka consume — payment.completed/payment.failed)
+    ├── scheduler/
+    │   └── ReservationReminderScheduler.java (매분 — 리마인더 대상 조회 후 발송)
     ├── system/
     │   └── PingController.java
     ├── error/
@@ -131,6 +133,16 @@ public List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, L
 """)
 int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId);
 ```
+
+### 리마인더 발송 흐름
+
+`ReservationReminderScheduler`가 `booking.reminder.cron`(기본: 매분) 주기로 `ReservationService.sendReminders(windowMinutes)`를 호출한다.
+
+1. `findReminderTargets(now, now + windowMinutes)` — `status = CONFIRMED`, `startTime`이 윈도우 안, `reminderSentAt IS NULL`인 예약 조회 (`booking.reminder.window-minutes`, 기본 60분)
+2. 대상마다 `reminderSentAt`을 즉시 채워 같은 예약이 다음 스케줄 실행에서 중복 조회되지 않도록 함
+3. 도메인 이벤트 발행 → `ReservationEventPublisher`가 `AFTER_COMMIT`에 Kafka `reservation.reminder` publish
+
+재확인(윈도우 안에서 알림이 유실됐는지 등)이나 재시도는 없음 — `reminderSentAt`이 한 번 찍히면 해당 예약은 영구히 대상에서 제외된다.
 
 ---
 
@@ -195,6 +207,7 @@ GET /api/v1/resources/*/available-times         → permitAll
 |------|------|-------|
 | reservation.created | 예약 생성 완료 | AFTER_COMMIT |
 | reservation.cancelled | 예약 취소 | AFTER_COMMIT |
+| reservation.reminder | 예약 시작 전 리마인더 (`ReservationReminderScheduler`) | AFTER_COMMIT |
 
 ### consume
 | 토픽 | 처리 |

@@ -143,6 +143,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | `payment.completed` | payment | reservation, notification | paymentId, reservationId, userId |
 | `payment.failed` | payment | reservation | reservationId, userId |
 | `reservation.cancelled` | reservation | notification | reservationId, userId |
+| `reservation.reminder` | reservation | notification | reservationId, userId |
 
 ### 이벤트 페이로드 예시
 

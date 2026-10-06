@@ -12,6 +12,7 @@ import com.example.booking.reservation.dto.ReservationResponse;
 import com.example.booking.reservation.error.ReservationErrorCode;
 import com.example.booking.reservation.event.ReservationCancelledDomainEvent;
 import com.example.booking.reservation.event.ReservationCreatedDomainEvent;
+import com.example.booking.reservation.event.ReservationReminderDomainEvent;
 import com.example.booking.reservation.admin.dto.AdminReservationResponse;
 import com.example.booking.reservation.merchant.domain.Merchant;
 import com.example.booking.reservation.merchant.domain.MerchantRepository;
@@ -253,6 +254,19 @@ public class ReservationService {
                     reservationId, reservation.getUserId(), reservation.getAvailableTimeId()));
             log.warn("결제 실패로 예약 취소 reservationId={}, userId={}", reservationId, reservation.getUserId());
         });
+    }
+
+    @Transactional
+    public void sendReminders(int windowMinutes) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime to = now.plusMinutes(windowMinutes);
+
+        List<Reservation> targets = reservationRepository.findReminderTargets(now, to);
+        targets.forEach(reservation -> {
+            reservation.markReminderSent();
+            eventPublisher.publishEvent(new ReservationReminderDomainEvent(reservation.getId(), reservation.getUserId()));
+        });
+        log.info("예약 리마인더 대상 처리 count={}", targets.size());
     }
 
     private Reservation findOrThrow(Long reservationId) {

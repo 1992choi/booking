@@ -61,12 +61,18 @@ public class Reservation extends BaseEntity {
     @Column(nullable = false)
     private Long amount;
 
+    private LocalDateTime reminderSentAt;
+
     public void cancel() {
         this.status = ReservationStatus.CANCELLED;
     }
 
     public void confirm() {
         this.status = ReservationStatus.CONFIRMED;
+    }
+
+    public void markReminderSent() {
+        this.reminderSentAt = LocalDateTime.now();
     }
 
 }

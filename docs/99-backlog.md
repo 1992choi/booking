@@ -247,22 +247,3 @@ reservation (업체 조회 캐싱 지점)
 ### 적용 대상
 
 reservation (Merchant 이미지), review (리뷰 이미지), core(공유 모듈로 간다면)
-
----
-
-## 예약 리마인더 알림
-
-### 배경
-
-프론트 쪽에서 요청이 들어온 항목. 현재 알림은 결제완료/취소 등 이벤트 기반으로만 발송되고, 예약 시작 전 시간 기반으로 트리거되는 리마인더가 없다.
-
-### 해결 방향
-
-- `NotificationType`에 `REMINDER` 추가
-- 발송 트리거는 reservation이 자체 `@Scheduled` 스케줄러로 담당 — batch는 "no REST/Kafka" 원칙(`docs/02-architecture.md`)이 있어 신규 이벤트 발행 주체로 적합하지 않음
-- reservation이 예약 시작 시각이 N분/시간 이내로 다가온 `CONFIRMED` 예약을 조회해 신규 이벤트(예: `reservation.reminder`) 발행
-- notification이 해당 이벤트를 구독해 알림 생성
-
-### 적용 대상
-
-reservation (리마인더 대상 조회 + 이벤트 발행), notification (REMINDER 타입 + 구독)

@@ -70,4 +70,14 @@ public class ReservationEventPublisher {
         log.info("reservation.cancelled 발행 reservationId={}, userId={}", event.reservationId(), event.userId());
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onReservationReminder(ReservationReminderDomainEvent event) {
+        kafkaTemplate.send("reservation.reminder",
+                new ReservationReminderKafkaEvent(
+                        event.reservationId(),
+                        event.userId()
+                ));
+        log.info("reservation.reminder 발행 reservationId={}, userId={}", event.reservationId(), event.userId());
+    }
+
 }

@@ -835,7 +835,7 @@ Response 200:
 ]
 ```
 
-> type: `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` (`ADMIN_MESSAGE`는 `reservationId` 없이 `message` 필드에 본문이 채워짐)
+> type: `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` / `REMINDER` (`ADMIN_MESSAGE`는 `reservationId` 없이 `message` 필드에 본문이 채워짐)
 > channel: `EMAIL` / `SMS` / `KAKAO` / `LOG`
 > status: `SENT` / `FAILED`
 > readAt: 읽음 처리 전에는 `null`

@@ -28,4 +28,16 @@ public class ReservationEventConsumer {
         }
     }
 
+    @KafkaListener(topics = "reservation.reminder", groupId = "notification-group")
+    public void onReservationReminder(String message) {
+        try {
+            ReservationReminderKafkaEvent event = objectMapper.readValue(message, ReservationReminderKafkaEvent.class);
+
+            notificationService.send(event.userId(), event.reservationId(), NotificationType.REMINDER);
+            log.info("reservation.reminder 처리 완료 reservationId={}, userId={}", event.reservationId(), event.userId());
+        } catch (Exception e) {
+            log.error("reservation.reminder 처리 실패: {}", message, e);
+        }
+    }
+
 }

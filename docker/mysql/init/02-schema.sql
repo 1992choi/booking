@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     status            VARCHAR(50)  NOT NULL,
     head_count        INT          NOT NULL,
     amount            BIGINT       NOT NULL,
+    reminder_sent_at  DATETIME(6),
     created_at        DATETIME(6),
     updated_at        DATETIME(6),
     INDEX idx_reservation_resource_time (resource_id, start_time, end_time),

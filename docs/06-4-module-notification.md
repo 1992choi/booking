@@ -2,7 +2,7 @@
 
 ## 역할
 
-알림 발송 (Mock). `payment.completed` / `reservation.cancelled` 이벤트를 consume 하거나 api 서비스로부터 HTTP 요청을 받아 사용자에게 알림을 발송하고 발송 이력을 저장한다. 발송과 동시에 SSE로 연결된 클라이언트에도 실시간 push 한다.
+알림 발송 (Mock). `payment.completed` / `reservation.cancelled` / `reservation.reminder` 이벤트를 consume 하거나 api 서비스로부터 HTTP 요청을 받아 사용자에게 알림을 발송하고 발송 이력을 저장한다. 발송과 동시에 SSE로 연결된 클라이언트에도 실시간 push 한다.
 
 | 항목 | 값 |
 |------|-----|
@@ -40,7 +40,7 @@ notification/
     ├── domain/
     │   ├── Notification.java
     │   ├── NotificationChannel.java         (enum: EMAIL/SMS/KAKAO/LOG)
-    │   ├── NotificationType.java            (enum: CONFIRMED/CANCELLED/ADMIN_MESSAGE)
+    │   ├── NotificationType.java            (enum: CONFIRMED/CANCELLED/ADMIN_MESSAGE/REMINDER)
     │   └── NotificationRepository.java
     ├── event/
     │   ├── PaymentEventConsumer.java
@@ -66,7 +66,7 @@ notification/
 
 `NotificationSender` 는 인터페이스로 분리돼 있어, 이메일·SMS·카카오 알림톡 등 채널 추가 시 구현체만 추가하면 된다. 현재는 `LogNotificationSender` (로그 출력) 만 구현돼 있다.
 
-알림 타입은 `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` 세 가지다. `ADMIN_MESSAGE`는 `reservation_id` 없이 저장된다.
+알림 타입은 `CONFIRMED` / `CANCELLED` / `ADMIN_MESSAGE` / `REMINDER` 네 가지다. `ADMIN_MESSAGE`는 `reservation_id` 없이 저장된다.
 
 `NotificationService.send()`/`sendAdminMessage()`는 `Notification` 저장 직후 `NotificationCreatedDomainEvent`를 발행한다. `SseNotificationRegistry`가 `@TransactionalEventListener(AFTER_COMMIT)`로 이를 구독해, 저장 트랜잭션이 실제로 커밋된 뒤에만 SSE로 push한다(Kafka 발행과 동일하게 "커밋 후 발행" 규칙을 따름 — 롤백된 알림이 클라이언트에 먼저 보이는 걸 방지).
 
@@ -110,3 +110,4 @@ notification/
 |------|------|
 | payment.completed | 예약 확정 알림 발송 |
 | reservation.cancelled | 예약 취소 알림 발송 |
+| reservation.reminder | 예약 리마인더 알림 발송 |
