@@ -228,22 +228,3 @@ api, reservation, payment, notification (Kafka 발행/구독 전체)
 ### 적용 대상
 
 reservation (업체 조회 캐싱 지점)
-
----
-
-## 오브젝트 스토리지(S3/MinIO) 도입 + 이미지 업로드
-
-### 배경
-
-프론트 쪽에서 요청이 들어온 항목. 업체(Merchant)에 사진 필드가 없어 홈/업체 상세 화면이 이니셜 아바타로만 표시되고, 리뷰에도 사진 첨부 기능이 없다. 지금 레포에는 파일 업로드 관련 코드가 전혀 없어(멀티파트 처리, 오브젝트 스토리지 연동 모두 미존재) 신규 인프라 도입이 선행돼야 한다.
-
-### 해결 방향
-
-- MinIO(로컬/개발) 또는 S3(운영 가정)를 docker-compose에 추가
-- 업로드는 presigned URL 발급 방식으로: 클라이언트가 서비스에 업로드 URL을 요청 → 발급받은 URL로 스토리지에 직접 PUT → 완료 후 이미지 경로를 엔티티에 저장
-- `Merchant`에 `imageUrl`(또는 복수 이미지면 별도 테이블), `Review`에 이미지 경로 컬럼 추가
-- presigned URL 발급 로직을 공유할지, reservation/review 각자 구현할지 판단 필요(review가 reservation에 Kafka/REST 의존을 두지 않는 현재 원칙상 공유 모듈을 둔다면 core가 유력 후보)
-
-### 적용 대상
-
-reservation (Merchant 이미지), review (리뷰 이미지), core(공유 모듈로 간다면)

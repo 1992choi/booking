@@ -156,6 +156,22 @@ Merchant 조회 성능 개선을 위해 Spring Cache (`@Cacheable`, `@CacheEvict
 | `merchants` | `{type, pageable}` | 업체 목록(페이지 · type 필터별) | 업체 등록 · 수정 (전체 무효화) | 10분(기본) |
 | `reservation-idempotency` | `{userId}:{idempotencyKey}` | 예약 생성 응답 | 없음(TTL 만료로만 소멸) | 10분(기본) |
 
+### Caffeine + Redis 다중 레이어 캐싱 (`MerchantService.getById`)
+
+업체 단건 조회(`getById`)는 캐시 히트 시에도 매번 Redis 네트워크 왕복이 발생하는 걸 줄이기 위해 로컬 JVM 메모리(L1, Caffeine) → Redis(L2) → DB 순으로 직접 조회한다. `@Cacheable` 자동 다단 캐싱 대신 서비스 메서드 안에서 명시적으로 조회/적재한다.
+
+```
+getById(merchantId)
+  → L1(Caffeine) 히트 → 즉시 반환
+  → L1 미스 → L2(Redis, "merchant" 캐시) 조회
+      → L2 히트 → L1에 채우고 반환
+      → L2 미스 → DB 조회 → L2 · L1 모두 채우고 반환
+```
+
+- L1은 `MerchantService` 안의 `com.github.benmanes.caffeine.cache.Cache<Long, Merchant>` 필드(최대 1000건, `expireAfterWrite` 1분) — L2(Redis, 10분)보다 TTL을 짧게 둬 다중 인스턴스 간 불일치 폭을 줄인다.
+- 무효화: `update()`가 기존 `@CacheEvict("merchant")`(Redis)에 더해 `merchantLocalCache.invalidate(merchantId)`(L1)도 호출. 단, 이 무효화는 **같은 JVM 인스턴스 안에서만** 유효하다 — 인스턴스가 여러 개면 다른 인스턴스의 L1은 최대 1분(TTL) 동안 구 데이터를 반환할 수 있음(Redis Pub/Sub 기반 크로스 인스턴스 무효화는 미구현, 백로그 참고).
+- `getAll`(업체 목록)은 기존 `@Cacheable(merchants)` 단일 레이어(Redis)를 그대로 유지 — 캐시 키가 `{type, pageable}` 조합이라 Caffeine 같은 단순 맵 캐시로 다루기 번거롭고, `getById`만큼 호출 빈도가 높지 않음.
+
 ---
 
 ## 감사 로그 (MongoDB)

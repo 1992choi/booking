@@ -23,8 +23,11 @@ import com.example.booking.reservation.resource.domain.ResourceRepository;
 import com.example.booking.reservation.service.ReservationService;
 import com.example.booking.reservation.user.domain.UserSync;
 import com.example.booking.reservation.user.domain.UserSyncRepository;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -34,6 +37,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +53,13 @@ public class MerchantService {
     private final ReservationService reservationService;
     private final UserSyncRepository userSyncRepository;
     private final DailyMerchantStatsRepository dailyMerchantStatsRepository;
+    private final CacheManager cacheManager;
+
+    // L1: 로컬 JVM 메모리 캐시. L2(Redis)보다 TTL을 짧게 둬 다중 인스턴스 간 데이터 불일치 폭을 줄인다.
+    private final com.github.benmanes.caffeine.cache.Cache<Long, Merchant> merchantLocalCache = Caffeine.newBuilder()
+            .maximumSize(1000)
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .build();
 
     @Transactional
     @CacheEvict(value = "merchants", allEntries = true)
@@ -70,10 +81,23 @@ public class MerchantService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "merchant", key = "#merchantId")
     public Merchant getById(Long merchantId) {
-        return merchantRepository.findById(merchantId)
-                .orElseThrow(() -> new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND));
+        Merchant local = merchantLocalCache.getIfPresent(merchantId);
+        if (local != null) {
+            return local;
+        }
+
+        Cache redisCache = cacheManager.getCache("merchant");
+        Cache.ValueWrapper wrapper = redisCache.get(merchantId);
+        Merchant merchant = wrapper != null
+                ? (Merchant) wrapper.get()
+                : merchantRepository.findById(merchantId)
+                        .orElseThrow(() -> new BusinessException(ReservationErrorCode.MERCHANT_NOT_FOUND));
+
+        redisCache.put(merchantId, merchant);
+        merchantLocalCache.put(merchantId, merchant);
+
+        return merchant;
     }
 
     @Transactional
@@ -89,6 +113,7 @@ public class MerchantService {
         }
 
         merchant.update(request.name(), request.phone(), request.type());
+        merchantLocalCache.invalidate(merchantId);
         log.info("업체 수정 merchantId={}, userId={}", merchantId, userId);
 
         return merchant;
