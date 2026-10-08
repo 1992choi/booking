@@ -140,24 +140,6 @@ api, reservation, payment, notification, batch/review(db_reservation 공유 — 
 
 ---
 
-## GitHub Actions CI
-
-### 배경
-
-`.github/` 자체가 없어 PR/커밋마다 빌드·테스트가 자동으로 도는 장치가 전혀 없다. 지금은 로컬에서 수동으로 `./gradlew build`/`test`를 돌리는 것에 전적으로 의존한다.
-
-### 해결 방향
-
-- push/PR 트리거로 `./gradlew build` 실행하는 워크플로부터 시작
-- 테스트에 필요한 MySQL/Redis/Kafka/MongoDB는 GitHub Actions의 `services:` 컨테이너로 띄우거나(위 Testcontainers 도입 시 별도 services 설정 없이도 가능해짐)
-- 이후 필요하면 커버리지 리포트, 브랜치 보호 규칙 연동 등으로 확장
-
-### 적용 대상
-
-레포 전체 (`.github/workflows/ci.yml` 신규)
-
----
-
 ## Elasticsearch 검색
 
 ### 배경
@@ -211,20 +193,3 @@ core (`logging/RequestLoggingFilter.java`, `CoreAutoConfiguration.java`) — api
 
 api, reservation, payment, notification (Kafka 발행/구독 전체)
 
----
-
-## Caffeine + Redis 다중 레이어 캐싱
-
-### 배경
-
-지금 업체 조회 캐싱은 Redis 단일 레이어(Spring Cache)만 쓴다. 캐시가 히트해도 매번 로컬→Redis 네트워크 왕복이 발생한다.
-
-### 해결 방향
-
-- `reservation`의 업체 조회 캐싱 지점에 Caffeine(로컬 JVM 메모리, L1)을 앞단에 추가
-- `@Cacheable` 자동 다단 캐싱 대신, 서비스 메서드 안에서 직접 Caffeine 조회 → miss 시 Redis(L2) 조회 → miss 시 DB 조회 후 양쪽 캐시를 채우는 흐름으로 구현(학습 목적상 동작을 명시적으로 다루기 위함)
-- (선택, 난이도 높음) 한 인스턴스에서 업체 정보가 갱신됐을 때 다른 인스턴스의 L1을 무효화하는 문제 — Redis Pub/Sub으로 무효화 신호를 전파하는 방식 검토
-
-### 적용 대상
-
-reservation (업체 조회 캐싱 지점)
