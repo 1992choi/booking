@@ -70,6 +70,16 @@ core/
 
 ---
 
+## 요청 로깅과 트레이스 ID
+
+`RequestLoggingFilter`는 `Ordered.HIGHEST_PRECEDENCE`로 등록돼(`CoreAutoConfiguration`) 필터 체인 가장 바깥을 감싼다 — 인증 실패도 빠짐없이 로깅하기 위한 의도적 설계다. 로그는 `chain.doFilter()` 복귀 후 `finally` 블록에서 남기는데, 이 시점은 Micrometer 트레이싱 필터(`ServerHttpObservationFilter`)가 연 스팬 스코프가 이미 닫힌 뒤다 — `Tracer.currentSpan()`으로는 트레이스 정보를 못 꺼낸다.
+
+대신 `ServerHttpObservationFilter.findObservationContext(request)`로 request 속성에 남아있는 Observation 컨텍스트를 직접 읽는다. 이 속성은 스코프가 닫혀도 요청이 끝날 때까지 request에 그대로 남아있어 타이밍 문제가 없다. 꺼낸 `Span`의 traceId/spanId는 로그 직전에만 `MDC`에 넣고 `finally`에서 바로 제거한다 — Loki로 나가는 JSON 로그에는 `mdc_traceId`/`mdc_spanId` 필드로 노출된다.
+
+트레이싱이 꺼져 있는 서비스(`pg`, `batch` 등 OpenTelemetry 의존성이 없는 모듈)는 Observation 컨텍스트 자체가 없어 조용히 생략되고 트레이스 필드 없이 기존처럼 로깅된다.
+
+---
+
 ## JWT
 
 토큰 **검증**은 `JwtVerifier` (core) 를 모든 서비스가 공유한다. 토큰 **발급**은 api 서비스 `JwtIssuer` 만 담당한다.

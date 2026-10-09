@@ -20,4 +20,5 @@ dependencies {
     compileOnly 'io.opentelemetry:opentelemetry-exporter-otlp'
     compileOnly 'org.springframework.boot:spring-boot-starter-data-mongodb'
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+    testImplementation 'io.micrometer:micrometer-tracing-bridge-otel'
 }
