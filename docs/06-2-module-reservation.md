@@ -233,3 +233,5 @@ GET /api/v1/resources/*/available-times         → permitAll
 | user.created | `UserSync` 로컬 사본 INSERT |
 | user.updated | `UserSync` 로컬 사본 UPDATE (존재할 때만) |
 | user.deleted | `UserSync` 로컬 사본 DELETE |
+
+> 위 5개 토픽 모두 `@RetryableTopic`(3회, 1초 간격) 적용 — 재시도 모두 실패하면 `{topic}-dlt`로 이동. 상세는 `02-architecture.md`의 "Consumer 에러 처리" 참고.

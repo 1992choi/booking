@@ -72,32 +72,6 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## Kafka DLQ / 재시도 전략
-
-### 배경
-
-서비스마다 Kafka consumer 에러 처리가 제각각이다. `payment`만 `DefaultErrorHandler(FixedBackOff(5000ms, Long.MAX_VALUE))`로 무한 재시도를 걸어뒀는데, 포이즌 필(계속 실패하는 메시지) 하나가 해당 파티션 처리를 영원히 막을 수 있다. `reservation`/`notification`은 에러 핸들러 자체가 없어 Spring Kafka 기본값(제한된 재시도 후 스킵)에 맡겨져 있고, 이 경우 실패한 메시지가 별도 흔적 없이 조용히 유실된다.
-
-**더 근본적인 문제(재확인)**: `reservation`/`payment`/`notification`의 `@KafkaListener` 메서드 대부분(`UserEventConsumer` 3곳, `reservation`의 `PaymentEventConsumer`, `notification`의 `PaymentEventConsumer`/`ReservationEventConsumer`)이 리스너 본문 전체를 `try { ... } catch (Exception e) { log.error(...) }`로 감싸고 재던지지 않는다. Spring Kafka의 에러 핸들러(재시도/DLQ)는 리스너가 **예외를 던져야만** 개입하는데, 지금은 예외가 컨슈머 내부에서 소비되고 오프셋은 정상 커밋돼버린다. 즉 **아래 해결 방향(DLT 도입)을 그대로 적용해도 이 catch 블록들 때문에 대부분 컨슈머에서 아무 효과가 없다** — 예외적으로 `payment`의 `ReservationEventConsumer`(reservation.created 처리)만 예외를 잡지 않고 그대로 던져서 정상적으로 에러 핸들러까지 도달한다.
-
-### 해결 방향
-
-- **선행 작업**: 위 컨슈머들의 `catch (Exception e) { log.error(...) }`를 제거(또는 최소한 재던지기)해서 예외가 컨테이너 에러 핸들러까지 전파되도록 수정 — 이게 없으면 DLQ를 붙여도 무의미
-- `@RetryableTopic`(또는 `DefaultErrorHandler` + `DeadLetterPublishingRecoverer`)로 N회 재시도 후 실패 메시지를 `.DLT` 토픽으로 이동
-- 재시도 횟수/backoff는 이벤트 성격에 맞게 서비스별로 조정(예: payment는 결제 승인 실패가 비쌀 수 있으니 더 신중하게)
-- DLT로 넘어간 메시지를 조회/재처리할 수 있는 최소한의 수단 마련(운영 도구 없이 `kafka-console-consumer`로 조회하는 정도부터 시작 가능)
-- (선택, 곁다리 정리) 4개 서비스의 `KafkaConfig`가 수동 `@Bean`으로 `KafkaTemplate`/`ConcurrentKafkaListenerContainerFactory`를 만드는데, 이미 yml에 있는 `spring.kafka.producer/consumer.*` 프로퍼티와 내용이 겹친다 — Boot 자동구성으로 교체하고 payment의 커스텀 에러 핸들러만 `ContainerCustomizer` 빈으로 유지하는 것도 이 작업과 함께 정리하면 좋음
-
-### 적용 대상
-
-| 서비스 | 토픽 | 비고 |
-|--------|------|------|
-| reservation | payment.completed, payment.failed, user.* | catch 제거 + 에러 핸들러 신규 추가 |
-| payment | reservation.created, user.* | user.* 는 catch 제거 필요. reservation.created 는 기존 무한 재시도 → DLT로 교체 |
-| notification | payment.completed, reservation.cancelled, user.* | catch 제거 + 에러 핸들러 신규 추가 |
-
----
-
 ## Testcontainers 도입
 
 ### 배경

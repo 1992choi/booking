@@ -168,6 +168,14 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 
 > Kafka send 는 트랜잭션 커밋 이후 발행되어야 함 (`@TransactionalEventListener(AFTER_COMMIT)` 또는 Outbox 패턴). 그렇지 않으면 DB 롤백 시 유령 이벤트가 흘러간다.
 
+### Consumer 에러 처리 (재시도 + DLT)
+
+`@KafkaListener` 메서드는 예외를 삼키지 않고 그대로 던진다 — 삼키면 오프셋이 정상 커밋돼버려 에러 핸들러가 개입할 기회가 없다. 대부분의 리스너는 `@RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000))`으로 선언돼 있어, 처리 실패 시 `{topic}-retry` 토픽에서 1초 간격으로 재시도하고 3회 모두 실패하면 `{topic}-dlt` 토픽으로 보낸다. `@DltHandler`는 `KafkaHeaders.ORIGINAL_TOPIC` 헤더로 원본 토픽명을 로그에 남기기만 한다(운영 도구 없이 `kafka-console-consumer`로 DLT 토픽을 직접 조회하는 정도부터 시작).
+
+**예외**: `payment`의 `reservation.created` 컨슈머(결제 승인)만 `reservationCreatedContainerFactory`(`DefaultErrorHandler` + `FixedBackOff(5000, Long.MAX_VALUE)`)를 명시적으로 지정해 무한 재시도를 유지한다 — `docs/99-simulations.md`의 "Kafka Consumer Lag" 시뮬레이션(`error@bookit.com`)이 이 동작에 의존하기 때문에 의도적으로 DLT 교체 대상에서 제외했다.
+
+`@RetryableTopic`이 재시도/DLT 토픽에 원본 메시지를 재발행할 때 쓰는 템플릿은 각 서비스의 기존 `kafkaTemplate`(JsonSerializer, 도메인 이벤트 발행용)이 아니라 별도의 `retryKafkaTemplate`(키·값 모두 `StringSerializer`)이다 — 컨슈머 값이 이미 raw JSON 문자열이라 JsonSerializer를 쓰면 다시 감싸(이중 인코딩)버린다.
+
 ---
 
 ## 인증/인가

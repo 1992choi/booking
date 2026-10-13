@@ -54,6 +54,17 @@ public class KafkaConfig {
         return template;
     }
 
+    // @RetryableTopic 이 재시도/DLT 토픽에 원본 메시지(raw JSON 문자열)를 그대로 전달하는 전용 템플릿.
+    // 위 kafkaTemplate은 JsonSerializer라 String 값을 다시 감싸(이중 인코딩) 버린다.
+    @Bean
+    public KafkaTemplate<String, String> retryKafkaTemplate() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(props));
+    }
+
     @Bean
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -65,13 +76,25 @@ public class KafkaConfig {
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
+    // UserEventConsumer 등 일반 리스너용 — 재시도/DLT는 @RetryableTopic이 리스너 단위로 처리한다.
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.getContainerProperties().setObservationEnabled(listenerObservationEnabled);
-        // 5초 간격으로 무한 재시도 — 예외 전파 시 오프셋 미커밋으로 랙 발생
+
+        return factory;
+    }
+
+    // reservation.created(결제 승인) 전용 — 포이즌 메시지라도 DLT로 보내지 않고 5초 간격 무한 재시도한다.
+    // Kafka Consumer Lag 시뮬레이션(docs/99-simulations.md, error@bookit.com)이 이 동작에 의존하므로 그대로 유지.
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> reservationCreatedContainerFactory(
+            ConsumerFactory<String, String> consumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setObservationEnabled(listenerObservationEnabled);
         factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(5000L, Long.MAX_VALUE)));
         return factory;
     }

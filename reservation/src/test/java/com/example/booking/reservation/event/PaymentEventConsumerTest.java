@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -42,22 +43,24 @@ class PaymentEventConsumerTest {
     }
 
     @Test
-    @DisplayName("payment.completed 처리 중 예외가 발생해도 전파되지 않는다")
-    void onPaymentCompleted_swallowsException() {
+    @DisplayName("payment.completed 처리 중 예외가 발생하면 그대로 전파된다 — 에러 핸들러가 재시도/DLT를 처리하도록")
+    void onPaymentCompleted_propagatesException() {
         String message = """
                 {"paymentId":1,"reservationId":10,"userId":5}
                 """;
         willThrow(new RuntimeException("db error")).given(reservationService).confirm(any());
 
-        consumer.onPaymentCompleted(message);
+        assertThatThrownBy(() -> consumer.onPaymentCompleted(message))
+                .isInstanceOf(RuntimeException.class);
 
         verify(reservationService).confirm(10L);
     }
 
     @Test
-    @DisplayName("payment.completed 메시지가 잘못된 형식이면 예외 없이 무시한다")
-    void onPaymentCompleted_malformedMessage_doesNotThrow() {
-        consumer.onPaymentCompleted("not-a-json");
+    @DisplayName("payment.completed 메시지가 잘못된 형식이면 예외가 전파된다")
+    void onPaymentCompleted_malformedMessage_throws() {
+        assertThatThrownBy(() -> consumer.onPaymentCompleted("not-a-json"))
+                .isNotNull();
 
         verify(reservationService, never()).confirm(any());
     }
@@ -75,14 +78,15 @@ class PaymentEventConsumerTest {
     }
 
     @Test
-    @DisplayName("payment.failed 처리 중 예외가 발생해도 전파되지 않는다")
-    void onPaymentFailed_swallowsException() {
+    @DisplayName("payment.failed 처리 중 예외가 발생하면 그대로 전파된다 — 에러 핸들러가 재시도/DLT를 처리하도록")
+    void onPaymentFailed_propagatesException() {
         String message = """
                 {"reservationId":20,"userId":7}
                 """;
         willThrow(new RuntimeException("db error")).given(reservationService).cancelByPaymentFailure(any());
 
-        consumer.onPaymentFailed(message);
+        assertThatThrownBy(() -> consumer.onPaymentFailed(message))
+                .isInstanceOf(RuntimeException.class);
 
         verify(reservationService).cancelByPaymentFailure(20L);
     }

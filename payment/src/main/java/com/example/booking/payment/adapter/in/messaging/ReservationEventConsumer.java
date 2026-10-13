@@ -16,7 +16,7 @@ public class ReservationEventConsumer {
     private final ChargePaymentUseCase chargePaymentUseCase;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "reservation.created", groupId = "payment-group")
+    @KafkaListener(topics = "reservation.created", groupId = "payment-group", containerFactory = "reservationCreatedContainerFactory")
     public void onReservationCreated(String message) {
         ReservationCreatedKafkaEvent event = objectMapper.readValue(message, ReservationCreatedKafkaEvent.class);
 

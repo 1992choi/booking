@@ -130,6 +130,9 @@ pg 서버는 요청의 20% 확률로 실패를 반환한다(REST 402, gRPC `FAIL
 | 토픽 | 처리 |
 |------|------|
 | reservation.created | Mock 결제 처리 |
+| user.created / user.updated / user.deleted | `UserSync` 로컬 사본 INSERT/UPDATE/DELETE |
+
+> `user.*`는 `@RetryableTopic`(3회, 1초 간격) 적용 — 실패 시 `{topic}-dlt`로 이동. `reservation.created`는 예외적으로 무한 재시도 유지(`reservationCreatedContainerFactory`) — `99-simulations.md`의 Kafka Consumer Lag 시뮬레이션이 이 동작에 의존. 상세는 `02-architecture.md`의 "Consumer 에러 처리" 참고.
 
 ### produce
 | 토픽 | 시점 | phase |

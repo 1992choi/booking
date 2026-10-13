@@ -14,6 +14,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -52,9 +53,10 @@ class UserEventConsumerTest {
     }
 
     @Test
-    @DisplayName("user.created 메시지가 잘못된 형식이면 예외 없이 무시한다")
-    void onUserCreated_malformedMessage_doesNotThrow() {
-        consumer.onUserCreated("not-a-json");
+    @DisplayName("user.created 메시지가 잘못된 형식이면 예외가 전파된다")
+    void onUserCreated_malformedMessage_throws() {
+        assertThatThrownBy(() -> consumer.onUserCreated("not-a-json"))
+                .isNotNull();
 
         verify(userSyncRepository, never()).save(any());
     }

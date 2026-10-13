@@ -52,6 +52,17 @@ public class KafkaConfig {
         return template;
     }
 
+    // @RetryableTopic 이 재시도/DLT 토픽에 원본 메시지(raw JSON 문자열)를 그대로 전달하는 전용 템플릿.
+    // 위 kafkaTemplate은 JsonSerializer라 String 값을 다시 감싸(이중 인코딩) 버린다.
+    @Bean
+    public KafkaTemplate<String, String> retryKafkaTemplate() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(props));
+    }
+
     @Bean
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();

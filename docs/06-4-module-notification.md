@@ -111,3 +111,6 @@ notification/
 | payment.completed | 예약 확정 알림 발송 |
 | reservation.cancelled | 예약 취소 알림 발송 |
 | reservation.reminder | 예약 리마인더 알림 발송 |
+| user.created / user.updated / user.deleted | `UserSync` 로컬 사본 INSERT/UPDATE/DELETE |
+
+> 위 토픽 모두 `@RetryableTopic`(3회, 1초 간격) 적용 — 재시도 모두 실패하면 `{topic}-dlt`로 이동. 상세는 `02-architecture.md`의 "Consumer 에러 처리" 참고.
