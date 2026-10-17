@@ -1,21 +1,4 @@
--- db_api
-USE db_api;
-
-CREATE TABLE IF NOT EXISTS users (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    email       VARCHAR(255) NOT NULL UNIQUE,
-    phone       VARCHAR(255) NOT NULL,
-    password    VARCHAR(255) NOT NULL,
-    role        VARCHAR(50)  NOT NULL,
-    created_at  DATETIME(6),
-    updated_at  DATETIME(6)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- db_reservation
-USE db_reservation;
-
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id          BIGINT PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,
     email       VARCHAR(255) NOT NULL,
@@ -24,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at  DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS merchants (
+CREATE TABLE merchants (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id     BIGINT       NOT NULL,
     name        VARCHAR(255) NOT NULL,
@@ -34,7 +17,7 @@ CREATE TABLE IF NOT EXISTS merchants (
     updated_at  DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS resources (
+CREATE TABLE resources (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     merchant_id   BIGINT       NOT NULL,
     name          VARCHAR(255) NOT NULL,
@@ -45,7 +28,7 @@ CREATE TABLE IF NOT EXISTS resources (
     updated_at    DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS available_times (
+CREATE TABLE available_times (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
     resource_id  BIGINT      NOT NULL,
     start_time   DATETIME(6) NOT NULL,
@@ -55,7 +38,7 @@ CREATE TABLE IF NOT EXISTS available_times (
     updated_at   DATETIME(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS reservations (
+CREATE TABLE reservations (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     available_time_id BIGINT       NOT NULL,
     user_id           BIGINT       NOT NULL,
@@ -73,7 +56,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     INDEX idx_reservation_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS reviews (
+CREATE TABLE reviews (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     reservation_id  BIGINT       NOT NULL UNIQUE,
     merchant_id     BIGINT       NOT NULL,
@@ -84,54 +67,13 @@ CREATE TABLE IF NOT EXISTS reviews (
     INDEX idx_review_merchant (merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- db_payment
-USE db_payment;
-
-CREATE TABLE IF NOT EXISTS users (
-    id          BIGINT PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    email       VARCHAR(255) NOT NULL,
-    phone       VARCHAR(255) NOT NULL,
-    created_at  DATETIME(6),
-    updated_at  DATETIME(6)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS payments (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    reservation_id  BIGINT      NOT NULL UNIQUE,
-    user_id         BIGINT      NOT NULL,
-    amount          BIGINT      NOT NULL,
-    status          VARCHAR(50) NOT NULL,
-    paid_at             DATETIME(6),
-    failed_reason       VARCHAR(255),
-    pg_transaction_id   VARCHAR(255),
-    created_at          DATETIME(6),
-    updated_at          DATETIME(6)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- db_notification
-USE db_notification;
-
-CREATE TABLE IF NOT EXISTS users (
-    id          BIGINT PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    email       VARCHAR(255) NOT NULL,
-    phone       VARCHAR(255) NOT NULL,
-    created_at  DATETIME(6),
-    updated_at  DATETIME(6)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS notifications (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT      NOT NULL,
-    reservation_id  BIGINT,
-    message         TEXT,
-    type            VARCHAR(50) NOT NULL,
-    channel         VARCHAR(50) NOT NULL,
-    status          VARCHAR(50) NOT NULL,
-    sent_at         DATETIME(6),
-    read_at         DATETIME(6),
-    created_at      DATETIME(6),
-    updated_at      DATETIME(6),
-    UNIQUE KEY uk_notification_reservation_type (reservation_id, type)
+-- batch 모듈이 매일 새벽 집계해 쓰는 테이블 (docker/mysql/init 쪽에는 없었던 누락분 — Flyway로 이관하며 보강)
+CREATE TABLE daily_merchant_stats (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stat_date        DATE   NOT NULL,
+    merchant_id      BIGINT NOT NULL,
+    confirmed_count  INT    NOT NULL,
+    cancelled_count  INT    NOT NULL,
+    total_revenue    BIGINT NOT NULL,
+    UNIQUE KEY uk_daily_merchant_stats_date_merchant (stat_date, merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -60,7 +60,15 @@ docker compose up -d
 | `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification/batch의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (pg/review는 actuator 미적용이라 대상 아님) |
 | `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결. `docker/grafana/provisioning/alerting/`로 Slack 알림(5xx 발생 시) 자동 구성 |
 
-초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB 자동 생성. 데이터는 `booking-mysql-data` 볼륨에 영속.
+초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB(빈 스키마)가 자동 생성된다. 데이터는 `booking-mysql-data` 볼륨에 영속.
+
+테이블은 더 이상 이 초기화 스크립트가 만들지 않는다 — 각 서비스(`api`/`reservation`/`payment`/`notification`)가 Flyway로 직접 관리하며, 서비스를 처음 기동(`bootRun` 또는 테스트 실행)하는 시점에 `src/main/resources/db/migration/V1__init.sql`을 실행해 자기 DB의 테이블을 만든다. 그래서 완전히 새로 받은 환경이라면 **4개 서비스를 한 번씩 기동(또는 `./gradlew build`로 테스트를 한 번 돌려도 됨)해야 테이블이 생긴 뒤** 아래 시드 데이터를 넣을 수 있다.
+
+시드 데이터(데모/시뮬레이션용 계정 — `docs/99-simulations.md` 참고) 적용:
+```bash
+mysql -h 127.0.0.1 -P 3306 -uroot -proot < docker/mysql/03-seed-data.sql
+```
+`docker-entrypoint-initdb.d`(= `docker/mysql/init/`) 밖에 있어 컨테이너 최초 기동 시 자동 실행되지 않는다 — 테이블이 이미 있어야 하는 스크립트라 수동으로, 그것도 한 번만 실행하면 된다(재실행하면 `UNIQUE` 제약 위반으로 실패).
 
 MongoDB 접속(mongosh):
 ```bash
@@ -110,6 +118,7 @@ docker compose ps
 ```bash
 docker compose down -v && docker compose up -d
 ```
+볼륨을 지웠다면 테이블도 전부 사라진 상태 — 위에서 설명한 대로 4개 서비스를 한 번씩 기동(Flyway가 재생성)한 뒤 시드 데이터를 다시 넣어야 한다.
 
 ### 3. 빌드
 

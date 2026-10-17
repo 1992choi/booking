@@ -10,8 +10,10 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: false
+  flyway:
+    baseline-on-migrate: true
   mongodb:
     uri: mongodb://localhost:27017/db_reservation_audit_test
 

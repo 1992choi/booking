@@ -10,6 +10,8 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
+  flyway:
+    baseline-on-migrate: true
   mongodb:
     uri: mongodb://localhost:27017/db_api_audit_test
 

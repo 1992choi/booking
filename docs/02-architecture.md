@@ -221,6 +221,26 @@ Client ─── (API call) ─→ 각 서비스 ─── JWT 자체 검증
 
 ---
 
+## DB 스키마 관리 (Flyway)
+
+`api`/`reservation`/`payment`/`notification` 4개 서비스는 각자 `src/main/resources/db/migration/V1__init.sql`로 자기 DB의 테이블을 관리한다(`jpa.hibernate.ddl-auto: none` + Flyway 전담, 테스트 프로파일도 동일). `batch`/`review`는 `db_reservation`을 공유만 할 뿐 소유하지 않으므로 Flyway를 두지 않는다 — 스키마는 reservation의 마이그레이션이 전담한다.
+
+`docker/mysql/init/01-create-databases.sql`은 빈 DB 4개만 만든다. 테이블 생성은 각 서비스가 처음 기동(앱 실행 또는 테스트)할 때 Flyway가 수행한다.
+
+```
+docker compose up (DB만 생성, 테이블 없음)
+  → 서비스 최초 기동
+      → Flyway: flyway_schema_history 없음 확인
+          → 스키마 비어있음 → V1__init.sql 실행 (CREATE TABLE ...)
+          → 스키마에 테이블 이미 존재(기존 환경) → baseline-on-migrate로 현재 상태를 버전 1로 베이스라인 처리, V1 재실행 안 함
+```
+
+`spring.flyway.baseline-on-migrate: true`로 설정돼 있어, 기존에 raw SQL 스크립트로 이미 테이블이 만들어진 환경(이 레포를 Flyway 도입 이전부터 써온 로컬 DB)에서도 `CREATE TABLE` 충돌 없이 그대로 적용된다 — Flyway가 "이미 여기까지는 돼 있다"고 베이스라인만 찍고 넘어간다. 이후 스키마 변경은 전부 `V2__*.sql`부터 새 마이그레이션 파일로 추가한다(기존 파일은 절대 수정하지 않음 — Flyway는 체크섬으로 변조를 감지한다).
+
+시드 데이터(`docker/mysql/03-seed-data.sql`)는 Flyway 마이그레이션에 포함하지 않았다 — `db_api.users`를 다른 서비스 DB가 교차 조회(cross-database SELECT)하는 구조라 서비스별 독립 마이그레이션으로 쪼개기 어렵고, 서비스 기동 순서에 의존하게 돼 오히려 더 취약해진다. 대신 4개 서비스를 한 번씩 기동(테이블 생성)한 뒤 수동으로 한 번 실행하는 운영 스크립트로 남겨뒀다. 상세는 `README.md` 참고.
+
+---
+
 ## AWS 인프라 구성 (예시)
 
 ```

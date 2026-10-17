@@ -3,6 +3,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-restclient'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.flywaydb:flyway-mysql'
+    implementation 'org.springframework.boot:spring-boot-flyway'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
     implementation 'com.bucket4j:bucket4j-core:8.10.1'

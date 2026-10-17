@@ -96,24 +96,6 @@ payment.completed → reservation confirm 실패
 
 ---
 
-## Flyway 도입 (DB 마이그레이션)
-
-### 배경
-
-지금 스키마는 `docker/mysql/init`의 raw SQL 스크립트로 초기화되고, 서비스별로 `jpa.hibernate.ddl-auto: none`(운영/기본) 또는 `update`(일부 테스트)로 관리된다. 버전 관리되는 마이그레이션 이력이 없어 스키마 변경 시점과 내용을 코드 히스토리 밖에서는 추적할 수 없고, `ddl-auto: update`는 운영에서 쓰면 위험한 설정이라 테스트에서만 쓰고 있는 상태다.
-
-### 해결 방향
-
-- 서비스별로 `src/main/resources/db/migration/V1__init.sql`부터 시작해 `docker/mysql/init`의 기존 스키마를 마이그레이션 파일로 이관
-- `ddl-auto: none` + Flyway가 스키마를 전담하도록 정리(테스트의 `update`도 걷어내고 동일하게 Flyway로 통일)
-- 이후 스키마 변경은 전부 새 마이그레이션 파일로 추가
-
-### 적용 대상
-
-api, reservation, payment, notification, batch/review(db_reservation 공유 — reservation 마이그레이션에 포함)
-
----
-
 ## Elasticsearch 검색
 
 ### 배경

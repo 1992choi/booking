@@ -2,6 +2,8 @@ dependencies {
     implementation project(':core')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.flywaydb:flyway-mysql'
+    implementation 'org.springframework.boot:spring-boot-flyway'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
