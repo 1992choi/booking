@@ -170,11 +170,19 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 
 ### Consumer 에러 처리 (재시도 + DLT)
 
-`@KafkaListener` 메서드는 예외를 삼키지 않고 그대로 던진다 — 삼키면 오프셋이 정상 커밋돼버려 에러 핸들러가 개입할 기회가 없다. 대부분의 리스너는 `@RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000))`으로 선언돼 있어, 처리 실패 시 `{topic}-retry` 토픽에서 1초 간격으로 재시도하고 3회 모두 실패하면 `{topic}-dlt` 토픽으로 보낸다. `@DltHandler`는 `KafkaHeaders.ORIGINAL_TOPIC` 헤더로 원본 토픽명을 로그에 남기기만 한다(운영 도구 없이 `kafka-console-consumer`로 DLT 토픽을 직접 조회하는 정도부터 시작).
+`@KafkaListener` 메서드는 예외를 삼키지 않고 그대로 던진다 — 삼키면 오프셋이 정상 커밋돼버려 에러 핸들러가 개입할 기회가 없다. 대부분의 리스너는 `@RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000))`으로 선언돼 있어, 처리 실패 시 `{topic}-retry` 토픽에서 1초 간격으로 재시도하고 3회 모두 실패하면 `{topic}-dlt` 토픽으로 보낸다. `@DltHandler`는 `KafkaHeaders.ORIGINAL_TOPIC` 헤더로 원본 토픽명을 로그에 남긴다.
 
 **예외**: `payment`의 `reservation.created` 컨슈머(결제 승인)만 `reservationCreatedContainerFactory`(`DefaultErrorHandler` + `FixedBackOff(5000, Long.MAX_VALUE)`)를 명시적으로 지정해 무한 재시도를 유지한다 — `docs/99-simulations.md`의 "Kafka Consumer Lag" 시뮬레이션(`error@bookit.com`)이 이 동작에 의존하기 때문에 의도적으로 DLT 교체 대상에서 제외했다.
 
 `@RetryableTopic`이 재시도/DLT 토픽에 원본 메시지를 재발행할 때 쓰는 템플릿은 각 서비스의 기존 `kafkaTemplate`(JsonSerializer, 도메인 이벤트 발행용)이 아니라 별도의 `retryKafkaTemplate`(키·값 모두 `StringSerializer`)이다 — 컨슈머 값이 이미 raw JSON 문자열이라 JsonSerializer를 쓰면 다시 감싸(이중 인코딩)버린다.
+
+### DLT 재처리 — notification에만 존재
+
+`@RetryableTopic`은 실패한 메시지를 별도 `-retry` 토픽으로 옮기고 원본 토픽은 계속 다음 메시지를 처리하는 **non-blocking 재시도**다. 그래서 같은 엔티티에 대한 연속된 이벤트(예: `user.created` → `user.updated`, `payment.completed`/`payment.failed`)가 처리 순서를 보장받지 못할 수 있다 — 실패한 메시지가 재시도되는 동안 그 뒤에 온 메시지가 먼저 성공해버릴 수 있기 때문이다.
+
+이 때문에 **DLT에 쌓인 메시지를 원본 토픽으로 재발행하는 기능(`notification`의 `DltReplayService`, `POST /api/v1/internal/dlt/{dltTopic}/replay`)은 순서가 중요하지 않은 notification의 DLT 토픽에만 한정**한다(`user.created-dlt`/`user.updated-dlt`/`user.deleted-dlt`/`payment.completed-dlt`/`reservation.cancelled-dlt`/`reservation.reminder-dlt`). notification은 알림을 한 번 더 보내는 정도의 재배열은 문제가 되지 않지만, reservation/payment의 `user.*`·`payment.completed`/`payment.failed`는 순서가 깨지면 상태가 잘못될 수 있어 재처리 도구를 아직 두지 않았다 — 이 쪽은 blocking 재시도(같은 파티션에서 멈춰서 재시도)로 메커니즘 자체를 바꾸는 방안을 별도로 검토 중이며, 지금은 `kafka-console-consumer`로 직접 조회하는 정도로만 다룬다.
+
+재처리 동작: 호출 시점의 DLT 토픽 끝 오프셋을 스냅샷으로 고정해 그 범위까지만 원본 토픽으로 재발행한다 — 재발행한 메시지가 다시 실패해 같은 DLT 토픽으로 돌아와도 이번 호출에서는 쫓아가지 않는다(안 그러면 영구 실패 메시지가 무한 재처리 루프를 만든다). 전용 컨슈머 그룹(`notification-dlt-replay`)으로 오프셋을 커밋하기 때문에, 다음 호출에선 그 사이에 새로 들어온 메시지만 처리한다.
 
 ---
 

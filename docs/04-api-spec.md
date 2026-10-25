@@ -940,6 +940,7 @@ Response 402 (20% 확률):
 | Endpoint | 호출 서비스 | 용도 |
 |----------|-------------|------|
 | `POST /api/v1/internal/messages` | api | 관리자 메시지 발송 |
+| `POST /api/v1/internal/dlt/{dltTopic}/replay` | 운영 도구(수동 호출) | DLT 토픽 메시지를 원본 토픽으로 재발행 |
 
 ```
 POST /api/v1/internal/messages
@@ -953,3 +954,16 @@ Request:
 
 Response 204 (No Content)
 ```
+
+```
+POST /api/v1/internal/dlt/{dltTopic}/replay
+Host: notification:8083
+
+Response 200:
+{
+  "dltTopic": "user.created-dlt",
+  "replayedCount": 2
+}
+```
+
+> `dltTopic`은 허용된 토픽명(`user.created-dlt`/`user.updated-dlt`/`user.deleted-dlt`/`payment.completed-dlt`/`reservation.cancelled-dlt`/`reservation.reminder-dlt`)만 받는다. 그 외는 400. 호출 시점에 토픽에 있던 메시지만 재발행하며, 재발행 후 다시 실패해 같은 DLT 토픽으로 돌아온 메시지는 이번 호출에서 쫓아가지 않는다(다음 호출에서 처리).

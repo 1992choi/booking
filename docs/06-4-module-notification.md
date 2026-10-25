@@ -79,6 +79,7 @@ notification/
 | Endpoint | 호출 서비스 | 처리 |
 |----------|-------------|------|
 | `POST /api/v1/internal/messages` | api | 관리자 메시지 발송 → `ADMIN_MESSAGE` 이력 저장 |
+| `POST /api/v1/internal/dlt/{dltTopic}/replay` | 운영 도구(수동 호출) | DLT 토픽에 쌓인 메시지를 원본 토픽으로 재발행. `user.created-dlt`/`user.updated-dlt`/`user.deleted-dlt`/`payment.completed-dlt`/`reservation.cancelled-dlt`/`reservation.reminder-dlt`만 허용(그 외는 400) — 순서가 중요하지 않은 토픽에만 한정. 상세는 `02-architecture.md`의 "DLT 재처리" 참고 |
 
 ---
 
