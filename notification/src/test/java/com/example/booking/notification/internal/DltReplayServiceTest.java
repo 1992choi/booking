@@ -20,7 +20,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest
@@ -84,6 +87,18 @@ class DltReplayServiceTest {
 
         assertThat(first).isEqualTo(1);
         assertThat(second).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("재처리할 메시지가 없으면 0을 반환하고 재발행하지 않는다")
+    void replay_noMessages_returnsZeroWithoutSending() {
+        dltReplayService.replay("reservation.cancelled-dlt"); // 이전 테스트/수동 테스트로 남아있을 수 있는 메시지 비우기
+        clearInvocations(retryKafkaTemplate);
+
+        int replayed = dltReplayService.replay("reservation.cancelled-dlt");
+
+        assertThat(replayed).isEqualTo(0);
+        verify(retryKafkaTemplate, never()).send(eq("reservation.cancelled"), any(), any());
     }
 
 }
