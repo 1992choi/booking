@@ -4,6 +4,7 @@ import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationStatus;
 import com.example.booking.notification.domain.NotificationType;
+import com.example.booking.notification.TestcontainersConfiguration;
 import com.example.booking.notification.internal.dto.AdminMessageRequest;
 import com.example.booking.notification.user.domain.UserSync;
 import com.example.booking.notification.user.domain.UserSyncRepository;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class InternalNotificationControllerTest {
 

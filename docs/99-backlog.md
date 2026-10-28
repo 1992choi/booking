@@ -94,6 +94,18 @@ payment.completed → reservation confirm 실패
 | notification | MySQL, Kafka |
 | review | MySQL(reservation과 공유) |
 
+### 진행 상태 (notification 파일럿 — MySQL만 적용, Kafka는 보류, 커밋 안 됨)
+
+6개 항목 중 프로덕션 코드를 안 건드리는 유일한 항목이라 notification부터 파일럿으로 시작. 최종적으로 **MySQL만 Testcontainers로 전환**하고 **Kafka는 기존 docker-compose의 localhost Kafka를 그대로 씀** — 36개 테스트 전부 통과 확인(`./gradlew :notification:test`). 변경사항은 전부 working tree에 uncommitted로 남아있음(`notification/build.gradle`, 신규 `TestcontainersConfiguration.java`, 5개 `@SpringBootTest` 클래스에 `@Import` 추가, `application.yml`에서 `spring.datasource.*`만 제거하고 `spring.kafka.bootstrap-servers: localhost:9092`는 유지).
+
+- **MySQL은 됨**: `org.testcontainers.mysql.MySQLContainer`(2.x부터 패키지 이동 — `org.testcontainers.containers.MySQLContainer`는 전체 `@Deprecated`) + `@ServiceConnection`으로 정상 동작
+- **Kafka는 보류**: 시도 과정에서 두 가지 문제를 만남
+  1. notification은 Boot의 Kafka 자동구성을 안 쓰고 `KafkaConfig`가 `spring.kafka.bootstrap-servers`를 `@Value`로 직접 읽기 때문에 `@ServiceConnection`이 아니라 `DynamicPropertyRegistrar` 빈으로 우회해야 함 — 이 부분 자체는 코드로 해결 가능했음
+  2. **진짜 블로커**: `apache/kafka:3.9.0` 이미지가 Apple Silicon(arm64) 호스트에서 Testcontainers로 띄우면 JVM이 `SIGILL`로 죽음(`docker-compose.yml`의 kafka 서비스가 `platform: linux/amd64`를 박아둔 이유로 추정). `docker rmi` 후 amd64 manifest digest로 명시적으로 pull/tag해서 로컬 이미지를 amd64로 고정하니 이 SIGILL 자체는 해결됨(`docker run --platform linux/amd64 apache/kafka:3.9.0 java -version`은 정상 동작 확인) — 하지만 Testcontainers의 네이티브 `org.testcontainers.kafka.KafkaContainer`로 띄우면 **다른 지점에서 여전히 "Container exited with code 1"**로 실패함(아키텍처 문제는 아닌 것으로 보이나, 정확한 원인은 더 파보지 않고 중단함). 이 정도 깊이의 Testcontainers-Kafka 내부 디버깅은 "간단한 작업" 범위를 넘어선다고 판단해 Kafka는 보류하고 MySQL만 적용하는 쪽으로 정리함
+- **참고**: 디버깅 과정에서 로컬 `apache/kafka:3.9.0` 이미지 태그가 arm64 ↔ amd64로 여러 번 바뀜 — 최종적으로 amd64로 고정된 상태. 이 과정 중 기존 `docker compose up -d`로 띄워둔 `booking-kafka`가 일시적으로 `unhealthy`로 바뀌었는데(healthcheck가 `kafka-broker-api-versions.sh`를 못 찾음), 확인해보니 이 healthcheck는 이미지의 static PATH 설정에 원래부터 해당 스크립트가 없어 실행될 수 없는 구조였음 — 브로커 자체(로그 확인)는 정상 동작 중이라 이미지 재태깅과는 무관한, 이 docker-compose 설정 자체의 기존 결함으로 보임(재현되면 `docker compose restart kafka`로는 안 고쳐짐 — healthcheck 정의를 `/opt/kafka/bin/kafka-broker-api-versions.sh` 전체 경로로 고치거나 PATH에 추가해야 함)
+- **Kafka 재도전 시 참고**: Testcontainers 2.x부터 Gradle artifact id가 `mysql`/`kafka`/`junit-jupiter`에서 `testcontainers-mysql`/`testcontainers-kafka`/`testcontainers-junit-jupiter`로 바뀜(옛 id는 버전이 빈 채로 에러)
+- **남은 선택지**: (1) Testcontainers의 `KafkaContainer` "exited with code 1" 원인을 더 깊이 디버깅해서 Kafka까지 완성, (2) 지금 상태(MySQL만) 그대로 커밋하고 Kafka는 백로그에 남겨둠, (3) api/reservation/payment/review 등 나머지 서비스로 MySQL-Testcontainers 패턴 확대
+
 ---
 
 ## Elasticsearch 검색

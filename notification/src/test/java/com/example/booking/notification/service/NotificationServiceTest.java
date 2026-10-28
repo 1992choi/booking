@@ -2,6 +2,7 @@ package com.example.booking.notification.service;
 
 import com.example.booking.core.error.BusinessException;
 import com.example.booking.core.error.CommonErrorCode;
+import com.example.booking.notification.TestcontainersConfiguration;
 import com.example.booking.notification.domain.Notification;
 import com.example.booking.notification.domain.NotificationRepository;
 import com.example.booking.notification.domain.NotificationType;
@@ -12,12 +13,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class NotificationServiceTest {
 
