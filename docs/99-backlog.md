@@ -177,3 +177,53 @@ api, reservation, payment, notification (Kafka 발행/구독 전체)
 
 batch (Job 실행), notification (SSE 진행률/완료 알림), 데이터 소유 서비스(미정)
 
+---
+
+## AI 사용법 안내 챗봇 (LLM Gateway + 로컬/클라우드 모델)
+
+### 배경
+
+booking-web에 대화형 챗봇 UI를 추가해서, 사용자/관리자가 자연어로 시스템 사용법을 묻거나 자신의 예약·결제 상태를 조회할 수 있게 하고 싶다. 이 프로젝트는 AWS/Azure 같은 클라우드 환경이 없고 전부 로컬 docker-compose로 구성돼 있어서, 관리형 LLM 게이트웨이(Bedrock 등)는 선택지가 아니다. 대신 **실무에서 흔히 쓰는 self-hosted LLM 게이트웨이 패턴을 로컬에 그대로 구축**해서, 단순히 Claude API를 직접 호출하는 것보다 더 실제 운영에 가까운 구성을 학습 목표로 삼는다. 프론트 쪽 설계는 `booking-web/docs/99-backlog.md`에도 대응 항목을 적어둠.
+
+### 해결 방향 — 전체 구조
+
+```
+booking-web (ChatWidget)
+      ↓
+api 서비스 (POST /api/v1/assistant/chat)
+      ↓ (OpenAI 호환 /chat/completions 호출, provider는 "model" 값으로 선택)
+LiteLLM Proxy (신규 docker-compose 서비스)
+      ├── model="claude-..."  → Anthropic Claude API (클라우드)
+      └── model="local-..."   → Ollama (신규 docker-compose 서비스, 로컬 오픈 웨이트 모델)
+```
+
+- **LiteLLM Proxy** 신규 docker-compose 서비스로 추가(self-hosted, OSS) — `config.yaml`에 모델별 provider 매핑을 정의. Anthropic API 키는 LiteLLM 설정에만 보관하고 `api`는 키를 아예 모른다(키 중앙화 — 실무 게이트웨이의 핵심 가치 중 하나)
+- **Ollama** 신규 docker-compose 서비스로 추가, 오픈 웨이트 모델(예: Qwen2.5 또는 Llama 3.1 중 로컬 리소스에 맞는 크기) 1개를 서빙해서 LiteLLM 뒤에 두 번째 provider로 등록 — Apple Silicon 네이티브 arm64를 지원해서 `apache/kafka` 이미지에서 겪은 것 같은 아키텍처 문제는 없을 것으로 예상
+- `api` 서비스는 Anthropic SDK를 직접 의존하지 않고, LiteLLM의 OpenAI 호환 엔드포인트만 호출 — 모델 이름만 바꾸면 Claude ↔ 로컬 모델 전환/fallback이 `api` 코드 변경 없이 가능(LiteLLM의 `fallbacks` 설정으로 처리)
+- LiteLLM이 Prometheus/OTel로 메트릭·로그를 뽑을 수 있어서, 이미 구축된 **Prometheus/Grafana/Loki/Tempo** 스택으로 그대로 흘려보낸다 — 프롬프트/응답 로깅, 레이턴시, 토큰 사용량을 기존 관측 스택에서 관찰하는 것 자체가 이 백로그 항목의 핵심 학습 목표
+
+### 해결 방향 — 1단계: 문서 기반 Q&A (스코프 작게 시작)
+
+- **api 서비스**에 신규 엔드포인트 추가: `POST /api/v1/assistant/chat` (요청 `{ message, history? }`, 응답 `{ reply }`)
+  - api를 선택한 이유: 이미 인증/회원 외에 관리자 메시지 발송(`/internal/messages` → notification RestClient 호출)처럼 범용 엔드포인트를 갖고 있어 자연스러운 위치. 전용 서비스로 분리하는 것도 가능하지만 1단계 스코프에서는 과함
+- `api`가 LiteLLM을 거쳐 모델(Claude 또는 로컬 모델)을 호출. 시스템 프롬프트에 `docs/*.md` 요약(또는 발췌)을 컨텍스트로 정적 삽입 — RAG/임베딩 검색은 1단계에서 생략, 문서가 많아지면 2단계 이후 검토
+- 대화 히스토리는 1단계에서 서버에 영속화하지 않음 — 프론트가 최근 턴들을 매 요청에 함께 보내는 stateless 방식
+- 응답은 1단계에서 blocking(스트리밍 아님) — 프론트는 로딩 스피너로 대응
+
+### 해결 방향 — 2단계: 실데이터 조회 (tool-use)
+
+- tool-use(함수 호출)로 "내 예약 상태 조회", "결제 내역 조회" 등 tool 정의 — 로컬 모델은 Claude보다 tool-use 안정성이 떨어질 수 있어, 2단계는 우선 Claude 경로로 검증 후 로컬 모델에도 적용 검토
+- api가 기존 RestClient 패턴(api → notification 호출과 동일한 방식)으로 reservation/payment의 기존 엔드포인트를 그대로 호출해 tool 결과를 받아옴 — 호출자의 JWT를 그대로 forward해서 각 서비스가 독립적으로 재검증(기존 서비스 간 인증 컨벤션 그대로 재사용, 신규 내부 엔드포인트 불필요)
+- "왜 결제가 실패했어?" 류의 원인 분석형 질문은 이미 구축된 Loki + 트레이스 ID 연계를 활용해 관련 로그를 조회하는 tool을 추가 — 2단계 후순위
+
+### 미정 사항 (실제 구현 시 결정 필요)
+
+- 로컬 모델 선택(크기/리소스 요구사항) — 로컬 머신 사양에 맞춰 결정
+- 대화 기록을 서버에 영속화할지, 한다면 어디에(현재는 생략하고 프론트 로컬 상태로만 유지)
+- Claude API 키를 어떻게 LiteLLM 컨테이너에 주입할지(환경변수 vs `.env`) 및 레이트리밋/비용 제어 설정
+- 전용 서비스로 분리할지 여부 — tool-use 대상이 여러 서비스에 걸치면서 api의 책임 범위가 커지면 재검토
+
+### 적용 대상
+
+api (신규 엔드포인트, LiteLLM 호출로 전환), 신규 docker-compose 서비스(LiteLLM, Ollama), reservation/payment(2단계 tool-use 대상 — 기존 엔드포인트 재사용, 변경 없음)
+
