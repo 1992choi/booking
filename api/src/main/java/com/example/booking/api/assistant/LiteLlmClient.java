@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
@@ -32,12 +33,16 @@ public class LiteLlmClient {
     @Value("${booking.litellm.model:claude}")
     private String model;
 
+    @Value("${booking.litellm.api-key}")
+    private String apiKey;
+
     @Retry(name = "litellm")
     @CircuitBreaker(name = "litellm", fallbackMethod = "fallback")
     public String chat(String message, List<ChatTurn> history) {
         CompletionResponse response = litellmRestClient.post()
                 .uri("/chat/completions")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                 .body(new CompletionRequest(model, buildMessages(message, history)))
                 .retrieve()
                 .body(CompletionResponse.class);

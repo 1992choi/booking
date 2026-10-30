@@ -24,3 +24,4 @@ booking:
     url: http://localhost:8083
   litellm:
     url: http://localhost:4000
+    api-key: sk-local-dev-litellm-master-key

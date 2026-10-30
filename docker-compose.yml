@@ -114,12 +114,15 @@ services:
 
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
+    platform: linux/amd64
     container_name: booking-litellm
     restart: unless-stopped
     depends_on:
       - ollama
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?.env 파일에 ANTHROPIC_API_KEY가 설정되지 않았습니다.}
+      # 외부 노출 없는 로컬 전용 구성이라 고정값 — api 서비스가 이 값을 Authorization 헤더로 보낸다
+      LITELLM_MASTER_KEY: sk-local-dev-litellm-master-key
     volumes:
       - ./docker/litellm/config.yaml:/app/config.yaml
     command: ["--config", "/app/config.yaml", "--port", "4000"]

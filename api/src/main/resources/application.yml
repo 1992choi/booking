@@ -60,6 +60,7 @@ booking:
     url: ${BOOKING_NOTIFICATION_URL:http://localhost:8083}
   litellm:
     url: ${BOOKING_LITELLM_URL:http://localhost:4000}
+    api-key: ${BOOKING_LITELLM_API_KEY:sk-local-dev-litellm-master-key}
 
 resilience4j:
   retry:
