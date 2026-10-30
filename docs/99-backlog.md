@@ -227,3 +227,11 @@ LiteLLM Proxy (신규 docker-compose 서비스)
 
 api (신규 엔드포인트, LiteLLM 호출로 전환), 신규 docker-compose 서비스(LiteLLM, Ollama), reservation/payment(2단계 tool-use 대상 — 기존 엔드포인트 재사용, 변경 없음)
 
+### 진행 상태 (1단계 백엔드 구현 완료, 커밋 안 됨)
+
+- `docker-compose.yml`에 `ollama`/`litellm` 서비스 추가, `docker/litellm/config.yaml`로 `claude`(Anthropic)/`local`(Ollama `qwen2.5:7b`) 모델 등록 + `claude` 실패 시 `local` fallback
+- `api`에 `POST /api/v1/assistant/chat` 구현(`assistant/` 패키지: `LiteLlmClient` + `AssistantController` + dto) — `NotificationClient`와 동일한 RestClient + Resilience4j(`litellm` 인스턴스) 패턴, 시스템 프롬프트는 `assistant/system-prompt.txt` 정적 리소스
+- 테스트 작성 및 통과 확인: `LiteLlmClientTest`(메시지 조립 로직 단위 테스트), `AssistantControllerTest`(성공/검증/인증/서킷오픈 케이스) — `./gradlew :api:test` 전체 통과
+- `docs/04-api-spec.md`, `docs/06-1-module-api.md`, `docs/02-architecture.md`, `README.md` 현행화
+- **아직 안 한 것**: 실제 LiteLLM/Ollama 컨테이너를 띄워서 end-to-end로 검증(지금까지는 `LiteLlmClient`를 목으로 대체한 테스트까지만 확인) — `.env`에 `ANTHROPIC_API_KEY` 설정 + `docker exec booking-ollama ollama pull qwen2.5:7b` 필요. 프론트(`booking-web`)의 `ChatWidget` 구현은 별도 세션/작업으로 남아있음(`booking-web/docs/99-backlog.md` 참고)
+

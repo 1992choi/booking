@@ -22,3 +22,5 @@ booking:
     refresh-token-ttl: P30D
   notification:
     url: http://localhost:8083
+  litellm:
+    url: http://localhost:4000

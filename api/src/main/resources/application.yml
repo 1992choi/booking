@@ -58,6 +58,8 @@ booking:
     refresh-token-ttl: P30D
   notification:
     url: ${BOOKING_NOTIFICATION_URL:http://localhost:8083}
+  litellm:
+    url: ${BOOKING_LITELLM_URL:http://localhost:4000}
 
 resilience4j:
   retry:
@@ -70,9 +72,23 @@ resilience4j:
         ignore-exceptions:
           - org.springframework.web.client.RestClientResponseException
           - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+      litellm:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - org.springframework.web.client.RestClientResponseException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
   circuitbreaker:
     instances:
       notification:
+        sliding-window-size: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        register-health-indicator: true
+      litellm:
         sliding-window-size: 5
         failure-rate-threshold: 60
         wait-duration-in-open-state: 10s

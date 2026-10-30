@@ -33,10 +33,13 @@ skill 파일은 `.claude/skills/`, 설계 산출물은 `.claude/tasks/` 에 위�
 
 ### 2. 인프라 기동
 
-Grafana가 Slack 알림 웹훅을 필요로 하므로, 먼저 `.env`를 만든다.
+Grafana가 Slack 알림 웹훅을, LiteLLM이 Claude 호출용 Anthropic API 키를 필요로 하므로, 먼저 `.env`를 만든다.
 
 ```bash
-echo "SLACK_WEBHOOK_URL=<발급받은 웹훅 URL>" > .env
+cat <<'EOF' > .env
+SLACK_WEBHOOK_URL=<발급받은 웹훅 URL>
+ANTHROPIC_API_KEY=<발급받은 Anthropic API 키>
+EOF
 ```
 
 `SLACK_WEBHOOK_URL` 발급 방법:
@@ -44,6 +47,8 @@ echo "SLACK_WEBHOOK_URL=<발급받은 웹훅 URL>" > .env
 2. 왼쪽 메뉴 **Incoming Webhooks** → 상단 토글 ON
 3. **Add New Webhook to Workspace** → 알림 받을 채널 선택 → **Allow**
 4. 생성된 `https://hooks.slack.com/services/...` URL을 `.env`에 붙여넣기
+
+`ANTHROPIC_API_KEY`는 https://console.anthropic.com/settings/keys 에서 발급.
 
 ```bash
 docker compose up -d
@@ -59,6 +64,13 @@ docker compose up -d
 | `booking-loki` | 3100 | 로그 수집기. api/reservation/payment/notification이 `logback-spring.xml`의 Loki4j appender로 JSON 구조화 로그(`{timestamp_ms, logger_name, level, thread_name, message, ...}`)를 직접 push. 조회는 Grafana Explore 또는 `\| json` 파이프라인으로 필드 필터링 |
 | `booking-prometheus` | 9090 | 메트릭 수집 UI. `docker/prometheus/prometheus.yml`에서 api/reservation/payment/notification/batch의 `/actuator/prometheus`를 `host.docker.internal`로 스크랩 (pg/review는 actuator 미적용이라 대상 아님) |
 | `booking-grafana` | 3000 | 대시보드 UI. 계정 `admin` / `admin`. `docker/grafana/provisioning/datasources/`로 Prometheus/Loki/Tempo 데이터소스 자동 연결. `docker/grafana/provisioning/alerting/`로 Slack 알림(5xx 발생 시) 자동 구성 |
+| `booking-ollama` | 11434 | 로컬 LLM 서빙. 최초 기동 후 모델을 수동으로 받아야 함(아래 참고) |
+| `booking-litellm` | 4000 | LLM Gateway. `docker/litellm/config.yaml`에 `claude`(Anthropic) / `local`(Ollama) 두 모델을 등록, `claude` 실패 시 `local`로 fallback. `api` 서비스가 이 게이트웨이만 호출(Anthropic API 키를 직접 들고 있지 않음) |
+
+Ollama는 이미지에 모델이 내장돼 있지 않아 최초 한 번 받아야 한다:
+```bash
+docker exec booking-ollama ollama pull qwen2.5:7b
+```
 
 초기화 시 `db_api`, `db_reservation`, `db_payment`, `db_notification` 4개 DB(빈 스키마)가 자동 생성된다. 데이터는 `booking-mysql-data` 볼륨에 영속.
 

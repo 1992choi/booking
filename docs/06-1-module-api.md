@@ -10,7 +10,7 @@
 | DB | db_api (MySQL) + db_api_audit (MongoDB, 감사 로그 전용) |
 | 외부 노출 | O |
 | 의존 | core (라이브러리) |
-| 호출하는 서비스 | notification (HTTP — 관리자 메시지 발송) |
+| 호출하는 서비스 | notification (HTTP — 관리자 메시지 발송), LiteLLM (HTTP — AI 어시스턴트 챗봇) |
 
 ---
 
@@ -51,13 +51,17 @@ api/
     ├── notification/
     │   ├── NotificationClient.java         (RestClient 래퍼 — 재시도 + 서킷브레이커 적용)
     │   └── dto/SendAdminMessageRequest.java
+    ├── assistant/
+    │   ├── LiteLlmClient.java              (RestClient 래퍼 — 재시도 + 서킷브레이커 적용)
+    │   ├── controller/AssistantController.java
+    │   └── dto/ (ChatRequest, ChatTurn, ChatResponse)
     ├── internal/
     │   └── controller/InternalController.java (서비스 간 호출 endpoint)
     ├── error/
     │   └── ApiErrorCode.java
     └── config/
         ├── SecurityConfig.java
-        ├── RestClientConfig.java           (notification RestClient 빈)
+        ├── RestClientConfig.java           (notification, litellm RestClient 빈)
         ├── RateLimitConfig.java
         └── KafkaConfig.java
 ```
@@ -130,6 +134,21 @@ MongoDB 연결은 `db_api`(MySQL)와 별개로 `db_api_audit`(MongoDB)를 사용
 | `user.updated` | 정보 수정 완료 | userId, name, email, phone |
 | `user.deleted` | 탈퇴 완료 | userId |
 
+### AI 어시스턴트 (`POST /api/v1/assistant/chat`)
+
+```
+Client → POST /assistant/chat {message, history?}
+       → AssistantController → LiteLlmClient
+                                  ↓ RestClient (재시도 + 서킷브레이커, "litellm" 인스턴스)
+                                  ↓ POST {litellm}/chat/completions (OpenAI 호환)
+                                LiteLLM Gateway
+                                  ├── model=claude → Anthropic Claude API
+                                  └── model=local  → Ollama (로컬 모델)
+       ← {reply}
+```
+
+시스템 프롬프트는 `src/main/resources/assistant/system-prompt.txt`(사용법 안내용 정적 텍스트)를 매 요청마다 메시지 맨 앞에 붙인다. 대화 기록은 서버에 영속화하지 않고, 프론트가 보낸 `history`를 그대로 이어붙여 한 번의 요청으로 전달한다(1단계 스코프). Anthropic API 키는 api가 아니라 LiteLLM 컨테이너에만 존재한다. 자세한 설계는 백엔드 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
+
 ### Internal API
 
 `/api/v1/internal/**` — 외부 노출 금지.
@@ -146,3 +165,4 @@ MongoDB 연결은 `db_api`(MySQL)와 별개로 `db_api_audit`(MongoDB)를 사용
 | API_002 | 401 | 이메일/비밀번호 불일치 |
 | API_003 | 429 | 로그인 요청 횟수 초과 |
 | API_004 | 503 | 알림 서비스 일시 불가 (서킷브레이커 OPEN) |
+| API_005 | 503 | AI 어시스턴트(LiteLLM) 일시 불가 (서킷브레이커 OPEN) |

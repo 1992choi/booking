@@ -57,6 +57,7 @@ http://localhost/api/v1   (로컬: ALB 없이 각 포트 직접)
 | API_002 | 401 | 이메일/비밀번호 불일치 | api |
 | API_003 | 429 | 요청 횟수 초과 | api |
 | API_004 | 503 | 알림 서비스 일시 불가 (서킷 오픈) | api |
+| API_005 | 503 | AI 어시스턴트(LiteLLM) 일시 불가 (서킷 오픈) | api |
 | RSV_001 | 409 | 시간대 중복 | reservation |
 | RSV_002 | 409 | 동시 요청 락 실패 | reservation |
 | RSV_003 | 422 | 인원 초과 (max_capacity) | reservation |
@@ -256,6 +257,36 @@ Error 503 (API_004): 서킷브레이커 OPEN 상태 — notification 서비스 �
 > notification 서비스는 발송 결과를 `notifications` 테이블에 `ADMIN_MESSAGE` 타입으로 저장한다.
 
 > `role` 쿼리 파라미터를 생략하면 전체 유저 반환. `USER`, `MERCHANT`, `ADMIN` 중 하나를 지정하면 해당 역할만 필터링.
+
+---
+
+## AI 어시스턴트 API (api 서비스)
+
+### 사용법 안내 챗봇
+
+```
+POST /api/v1/assistant/chat
+Authorization: Bearer {jwt}
+
+Request:
+{
+  "message": "예약은 어떻게 취소해?",
+  "history": [
+    { "role": "user", "content": "이전 질문" },
+    { "role": "assistant", "content": "이전 답변" }
+  ]
+}
+
+Response 200:
+{
+  "reply": "내 예약 목록(/my/reservations)에서 취소할 수 있어요."
+}
+
+Error 503 (API_005): LiteLLM 게이트웨이 서킷브레이커 OPEN 상태 — AI 어시스턴트 호출 차단됨
+```
+
+> `history`는 선택이며, 이전 대화 턴을 프론트가 매 요청에 함께 보낸다(서버는 대화 기록을 영속화하지 않음 — 1단계 스코프). `role`은 `"user"`/`"assistant"` 중 하나.
+> api 서비스가 LiteLLM 게이트웨이(OpenAI 호환 `POST /chat/completions`)에 위임하며, LiteLLM이 Claude(Anthropic) 또는 로컬 Ollama 모델로 라우팅한다. 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
 
 ---
 

@@ -103,6 +103,29 @@ services:
     ports:
       - "3100:3100"
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: booking-ollama
+    restart: unless-stopped
+    volumes:
+      - booking-ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: booking-litellm
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?.env 파일에 ANTHROPIC_API_KEY가 설정되지 않았습니다.}
+    volumes:
+      - ./docker/litellm/config.yaml:/app/config.yaml
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    ports:
+      - "4000:4000"
+
   grafana:
     image: grafana/grafana:latest
     container_name: booking-grafana
@@ -127,3 +150,4 @@ volumes:
   booking-loki-data:
   booking-tempo-data:
   booking-mongodb-data:
+  booking-ollama-data:

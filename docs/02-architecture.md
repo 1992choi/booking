@@ -52,6 +52,10 @@
 
 `batch`는 REST API가 없는 배치 전용 모듈이다. `db_reservation`을 reservation 서비스와 공유하며, `@Scheduled` 트리거로 두 Job을 실행한다: `expirePendingReservationsJob`(매분, `booking.batch.pending-expiry-minutes`가 지난 `PENDING` 예약을 만료 처리) · `dailyMerchantStatsJob`(매일 새벽 1시, 전일자 업체별 예약 통계를 `daily_merchant_stats`에 집계 + `merchant_daily_reservation_count`/`merchant_daily_revenue` Gauge로 노출). reservation 서비스에 대한 REST 호출이나 Kafka 구독 없이 DB를 직접 읽고 쓴다. Prometheus 스크랩을 위해 `/actuator/prometheus`만 여는 최소한의 HTTP(`:8085`)는 띄운다.
 
+### AI 사용법 안내 챗봇 (LiteLLM Gateway + Ollama)
+
+`api`에 신규 엔드포인트 `POST /api/v1/assistant/chat`을 두고, Anthropic SDK를 직접 의존하지 않고 **LiteLLM**(`:4000`, OpenAI 호환 `/chat/completions`)을 거쳐 모델을 호출한다. LiteLLM 뒤에는 두 모델이 등록돼 있다: `claude`(Anthropic Claude, 클라우드) / `local`(`ollama`(`:11434`)가 서빙하는 오픈 웨이트 모델). `claude` 호출이 실패하면 LiteLLM 설정(`litellm_settings.fallbacks`)에 따라 `local`로 자동 전환된다. Anthropic API 키는 LiteLLM 컨테이너에만 주입되고 `api`는 키를 갖지 않는다. 자세한 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
+
 ---
 
 ## 멀티 모듈 구조 (Gradle)
@@ -121,8 +125,9 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 |-----------|-----------|------|
 | api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
 | payment → pg | `POST /pg/approve`, `POST /pg/cancel` | Mock PG 서버에 거래 승인/취소 요청 (기본값) |
+| api → LiteLLM | `POST /chat/completions` (OpenAI 호환) | AI 사용법 안내 챗봇 — LiteLLM이 Claude(Anthropic)/로컬 Ollama 모델로 라우팅 |
 
-> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환.
+> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환. api → LiteLLM 구간도 동일한 패턴(별도 `litellm` 인스턴스)으로 보호된다.
 
 ### 동기 (gRPC, 선택)
 
