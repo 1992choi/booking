@@ -214,7 +214,16 @@ LiteLLM Proxy (신규 docker-compose 서비스)
 
 - tool-use(함수 호출)로 "내 예약 상태 조회", "결제 내역 조회" 등 tool 정의 — 로컬 모델은 Claude보다 tool-use 안정성이 떨어질 수 있어, 2단계는 우선 Claude 경로로 검증 후 로컬 모델에도 적용 검토
 - api가 기존 RestClient 패턴(api → notification 호출과 동일한 방식)으로 reservation/payment의 기존 엔드포인트를 그대로 호출해 tool 결과를 받아옴 — 호출자의 JWT를 그대로 forward해서 각 서비스가 독립적으로 재검증(기존 서비스 간 인증 컨벤션 그대로 재사용, 신규 내부 엔드포인트 불필요)
-- "왜 결제가 실패했어?" 류의 원인 분석형 질문은 이미 구축된 Loki + 트레이스 ID 연계를 활용해 관련 로그를 조회하는 tool을 추가 — 2단계 후순위
+
+**"왜 예약/결제가 안 됐어?" — 로그 기반 원인 조회 tool (2단계 후순위)**
+
+"예약 눌렀는데 안 됐어" 같은 질문에 로그를 Claude가 자유롭게 읽고 해석하게 하면 hallucination 위험이 크다. 대신 **이미 구축된 유한한 에러코드 체계**(`RSV_001~008`/`PAY_001~004`/`API_001~005`/`REVIEW_001~004`, `04-api-spec.md` 참고)를 그대로 활용해서 범위를 좁힌다:
+
+1. `GlobalExceptionHandler.handleBusiness()`가 모든 비즈니스 예외를 `code=RSV_001` 식으로 이미 로그에 남기고 있음(신규 로깅 불필요, 이미 존재하는 신호)
+2. **1차 확인(DB)**: "내 예약 상태 조회" tool로 해당 시도가 실제로 실패했는지부터 확인(이미 CONFIRMED/PENDING이면 로그 조회 없이 "이미 처리됐다"고 바로 답변)
+3. **2차 확인(로그)**: 진짜 실패가 맞으면 `find_my_recent_error` 같은 tool이 Loki에서 해당 시도 시점의 "Business exception" 로그를 조회해 **`code` 필드만** 추출해서 Claude에게 전달(원본 스택트레이스나 로그 전체 텍스트는 절대 넘기지 않음)
+4. Claude는 그 코드의 정해진 의미(예: `RSV_001` = 다른 사람이 먼저 예약함)를 자연어로 풀어서 답변만 담당 — 로그를 "해석"하는 게 아니라 **정해진 유한 목록 중 하나를 자연스러운 문장으로 바꾸는 것**만 하므로 안전함
+5. **사전 작업 필요**: 지금 로그(`RequestLoggingFilter`/`GlobalExceptionHandler`)에는 `userId`가 안 찍혀있어서, 이 상태로는 "내 실패만" 필터링이 안 됨 — 다른 사용자의 실패가 섞여 보일 위험이 있으므로, 로그 tool을 만들기 전에 **MDC에 userId를 추가로 심는 작업**이 선행돼야 함
 
 ### 미정 사항 (실제 구현 시 결정 필요)
 
@@ -227,11 +236,36 @@ LiteLLM Proxy (신규 docker-compose 서비스)
 
 api (신규 엔드포인트, LiteLLM 호출로 전환), 신규 docker-compose 서비스(LiteLLM, Ollama), reservation/payment(2단계 tool-use 대상 — 기존 엔드포인트 재사용, 변경 없음)
 
-### 진행 상태 (1단계 백엔드 구현 완료, 커밋 안 됨)
+### 진행 상태 (1단계 + 2단계 + ADMIN CS tool 백엔드 구현 완료, 커밋 안 됨)
 
-- `docker-compose.yml`에 `ollama`/`litellm` 서비스 추가, `docker/litellm/config.yaml`로 `claude`(Anthropic)/`local`(Ollama `qwen2.5:7b`) 모델 등록 + `claude` 실패 시 `local` fallback
-- `api`에 `POST /api/v1/assistant/chat` 구현(`assistant/` 패키지: `LiteLlmClient` + `AssistantController` + dto) — `NotificationClient`와 동일한 RestClient + Resilience4j(`litellm` 인스턴스) 패턴, 시스템 프롬프트는 `assistant/system-prompt.txt` 정적 리소스
-- 테스트 작성 및 통과 확인: `LiteLlmClientTest`(메시지 조립 로직 단위 테스트), `AssistantControllerTest`(성공/검증/인증/서킷오픈 케이스) — `./gradlew :api:test` 전체 통과
-- `docs/04-api-spec.md`, `docs/06-1-module-api.md`, `docs/02-architecture.md`, `README.md` 현행화
-- **아직 안 한 것**: 실제 LiteLLM/Ollama 컨테이너를 띄워서 end-to-end로 검증(지금까지는 `LiteLlmClient`를 목으로 대체한 테스트까지만 확인) — `.env`에 `ANTHROPIC_API_KEY` 설정 + `docker exec booking-ollama ollama pull qwen2.5:7b` 필요. 프론트(`booking-web`)의 `ChatWidget` 구현은 별도 세션/작업으로 남아있음(`booking-web/docs/99-backlog.md` 참고)
+**1단계**
+- `docker-compose.yml`에 `ollama`/`litellm` 서비스 추가, `docker/litellm/config.yaml`로 `claude`(Anthropic Haiku 4.5)/`local`(Ollama `qwen2.5:7b`) 모델 등록 + `claude` 실패 시 `local` fallback
+- `litellm`은 arm64 이미지에서 SIGILL로 죽어서(Kafka 때와 동일 class의 문제) `platform: linux/amd64` 고정 + digest로 amd64 강제 pull. 또한 master key 없이는 기동 자체를 거부해서 로컬 전용 고정 키(`LITELLM_MASTER_KEY`) 추가, `LiteLlmClient`가 `Authorization: Bearer`로 전달
+- `api`에 `POST /api/v1/assistant/chat` 구현, 시스템 프롬프트는 `assistant/system-prompt.txt` 정적 리소스
+- 실제 LiteLLM→Claude(Haiku) end-to-end 호출까지 curl로 검증 완료(`.env`에 `ANTHROPIC_API_KEY` 필요)
+
+**2단계 (tool-use)**
+- `AssistantService`가 tool-use 에이전트 루프(최대 3회 반복) 담당, `LiteLlmClient`는 1회 호출만 하는 얇은 래퍼로 역할 축소
+- `get_my_reservations`(`ReservationStatusTool` + `ReservationClient` — JWT forward해서 `GET /reservations/me` 호출), `find_recent_reservation_error`(`ReservationErrorTool` + `LokiLogClient` — Loki LogQL로 `{app="reservation", userId="..."}` 범위의 "Business exception" 로그에서 `code`/`message`만 추출) 두 tool 구현
+- 선행 작업이었던 `core`의 `GlobalExceptionHandler` userId MDC 로깅 추가 완료 — 실제로 Loki에 `userId`가 stream label로 승격되는 것까지 curl로 확인(예상보다 더 간단하게 쿼리 가능해짐)
+- LiteLLM의 OpenAI 호환 tool-calling 포맷이 Claude에 그대로 중계되는지(이번 구현에서 가장 큰 미검증 위험) curl로 직접 검증 완료, 이어서 실제 `api` 엔드포인트를 통한 전체 루프(tool 호출 → 실행 → 결과 반영 → 최종 답변)도 end-to-end로 확인 완료
+- 테스트: `AssistantServiceTest`(메시지 조립 + tool 호출 루프), `AssistantControllerTest`(성공/검증/인증/서킷오픈/호출자 context 전달) — api/reservation/payment/notification 전체 테스트 스위트 통과 확인(core 공유 코드 변경이라 전부 돌려봄)
+- 문서 현행화: `04-api-spec.md`, `06-1-module-api.md`, `02-architecture.md`, `05-module-core.md`
+
+**ADMIN CS tool (범위 확장)**
+- 처음엔 "모든 tool은 파라미터 없이 호출자 본인 범위로만" 설계였는데, "회사에서 쓰는 CS 봇처럼 관리자는 DB/로그에 범위 제한 없이 직접 붙게 해달라"는 요청으로 확장
+- `AssistantTool.adminOnly()`(default false) 추가, `AssistantContext`에 `role` 추가, `AssistantService.availableTools()`가 role로 tool 목록 자체를 필터링(USER/MERCHANT에겐 ADMIN tool의 존재가 LiteLLM에 전달되는 tool 정의 목록에서부터 빠짐)
+- `run_sql`(`AdminSqlClient` + 스키마 미지정 별도 JdbcTemplate, `AdminSqlConfig`) — Claude가 직접 SQL을 작성, SELECT로 시작하지 않으면 실행 전 거부. database-per-service 경계를 의도적으로 넘는 예외
+- `run_logql`(`LokiLogClient.query()` 일반화 — 기존 `findRecentReservationError`도 이 공용 메서드 재사용) — Claude가 직접 LogQL 작성, 범위 제한 없음
+- 두 tool 모두 "ADMIN은 이미 모든 데이터를 볼 수 있으니 범위 제한이 의미 없다"는 판단으로 파라미터에 추가 제약을 걸지 않음(= 관리자 본인 계정이 저장소/로그 전체에 직접 쿼리하는 것과 동일한 권한)
+- 구현 중 실제로 겪은 버그 2개, 둘 다 end-to-end 테스트로만 드러남(목 기반 단위테스트로는 못 잡음):
+  1. Claude가 ADMIN tool이 보이는데도 "정말 ADMIN이신가요?"라고 되묻는 과한 조심성 — system-prompt에 "이 tool이 보인다는 것 자체가 이미 서버에서 ADMIN 확인됐다는 뜻"이라고 명시해서 해결
+  2. `LokiLogClient`가 `UriBuilder` 람다로 쿼리 파라미터를 넣다가 `IllegalArgumentException: Not enough variable values available to expand 'app="api"'` — LogQL의 `{...}` 문법을 Spring이 URI 템플릿 변수로 오인. `.uri(String template, Object... vars)` 형태로 바꿔서 해결(이 버그는 `find_recent_reservation_error`에도 처음부터 있었는데 그동안 실제 호출 경로로 검증한 적이 없어서 몰랐음)
+- 실제 ADMIN 계정으로 `run_sql`(다른 유저 조회) · `run_logql`(서비스 로그 조회) 둘 다 end-to-end 확인, USER 계정으로는 두 tool 다 거부되는 것도 확인
+- 테스트 추가: `AdminSqlClientTest`, `tool/AdminSqlToolTest`, `tool/AdminLogToolTest`, `AssistantServiceTest`에 role 필터링 케이스 추가
+
+**아직 안 한 것**
+- 로컬 Ollama 모델(`local` fallback 경로)은 실제로 pull/검증 안 함
+- 프론트(`booking-web`)의 `ChatWidget` 구현(`booking-web/docs/99-backlog.md` 참고) — ADMIN tool 추가로 화면 쪽은 더 바뀔 거 없음(API 계약 동일)
+- `find_recent_reservation_error`를 진짜 예약 생성 실패(RSV_001 등) 재현으로는 검증 안 함 — api 단독 404 케이스로 메커니즘만 검증
 

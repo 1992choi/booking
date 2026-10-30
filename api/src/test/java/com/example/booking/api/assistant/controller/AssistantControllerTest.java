@@ -1,6 +1,7 @@
 package com.example.booking.api.assistant.controller;
 
-import com.example.booking.api.assistant.LiteLlmClient;
+import com.example.booking.api.assistant.AssistantContext;
+import com.example.booking.api.assistant.AssistantService;
 import com.example.booking.api.assistant.dto.ChatRequest;
 import com.example.booking.api.assistant.dto.ChatTurn;
 import com.example.booking.api.auth.dto.LoginRequest;
@@ -11,6 +12,7 @@ import com.example.booking.api.error.ApiErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -25,6 +27,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -50,7 +53,7 @@ class AssistantControllerTest {
     StringRedisTemplate redisTemplate;
 
     @MockitoBean
-    LiteLlmClient liteLlmClient;
+    AssistantService assistantService;
 
     MockMvc mockMvc;
 
@@ -66,7 +69,7 @@ class AssistantControllerTest {
     @DisplayName("질문을 보내면 어시스턴트 응답을 반환한다")
     void chat_success() throws Exception {
         String token = signupAndLogin("assistant1@example.com");
-        given(liteLlmClient.chat(eq("예약은 어떻게 취소해?"), any())).willReturn("내 예약 목록에서 취소할 수 있어요.");
+        given(assistantService.chat(eq("예약은 어떻게 취소해?"), any(), any())).willReturn("내 예약 목록에서 취소할 수 있어요.");
 
         mockMvc.perform(post("/api/v1/assistant/chat")
                         .header("Authorization", "Bearer " + token)
@@ -81,7 +84,8 @@ class AssistantControllerTest {
     @DisplayName("대화 히스토리를 함께 보내면 그대로 전달한다")
     void chat_withHistory_passesThrough() throws Exception {
         String token = signupAndLogin("assistant2@example.com");
-        given(liteLlmClient.chat(eq("또 알려줘"), eq(List.of(new ChatTurn("user", "아까 질문"))))).willReturn("답변");
+        given(assistantService.chat(eq("또 알려줘"), eq(List.of(new ChatTurn("user", "아까 질문"))), any()))
+                .willReturn("답변");
 
         mockMvc.perform(post("/api/v1/assistant/chat")
                         .header("Authorization", "Bearer " + token)
@@ -106,6 +110,22 @@ class AssistantControllerTest {
     }
 
     @Test
+    @DisplayName("호출자의 userId와 JWT를 context로 전달한다")
+    void chat_passesCallerContext() throws Exception {
+        String token = signupAndLogin("assistant5@example.com");
+        ArgumentCaptor<AssistantContext> captor = ArgumentCaptor.forClass(AssistantContext.class);
+        given(assistantService.chat(any(), any(), captor.capture())).willReturn("답변");
+
+        mockMvc.perform(post("/api/v1/assistant/chat")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ChatRequest("질문", null))))
+                .andExpect(status().isOk());
+
+        assertThat(captor.getValue().jwt()).isEqualTo(token);
+    }
+
+    @Test
     @DisplayName("비인증 요청으로 접근 시 401 반환")
     void chat_unauthorized() throws Exception {
         mockMvc.perform(post("/api/v1/assistant/chat")
@@ -118,7 +138,8 @@ class AssistantControllerTest {
     @DisplayName("LLM 게이트웨이 서킷 오픈 시 503 반환")
     void chat_assistantUnavailable_returnsServiceUnavailable() throws Exception {
         String token = signupAndLogin("assistant4@example.com");
-        given(liteLlmClient.chat(any(), any())).willThrow(new BusinessException(ApiErrorCode.ASSISTANT_UNAVAILABLE));
+        given(assistantService.chat(any(), any(), any()))
+                .willThrow(new BusinessException(ApiErrorCode.ASSISTANT_UNAVAILABLE));
 
         mockMvc.perform(post("/api/v1/assistant/chat")
                         .header("Authorization", "Bearer " + token)

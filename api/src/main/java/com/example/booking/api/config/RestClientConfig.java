@@ -23,7 +23,6 @@ public class RestClientConfig {
     public RestClient litellmRestClient(
             RestClient.Builder restClientBuilder, @Value("${booking.litellm.url}") String litellmUrl) {
 
-        // LLM 응답(특히 로컬 Ollama 모델)은 수 초~수십 초가 걸릴 수 있어 read timeout을 넉넉히 둔다.
         HttpClientSettings settings = HttpClientSettings.defaults()
                 .withTimeouts(Duration.ofSeconds(5), Duration.ofSeconds(60));
 
@@ -31,6 +30,20 @@ public class RestClientConfig {
                 .baseUrl(litellmUrl)
                 .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
                 .build();
+    }
+
+    @Bean
+    public RestClient reservationRestClient(
+            RestClient.Builder restClientBuilder, @Value("${booking.reservation.url}") String reservationUrl) {
+
+        return restClientBuilder.baseUrl(reservationUrl).build();
+    }
+
+    @Bean
+    public RestClient lokiRestClient(
+            RestClient.Builder restClientBuilder, @Value("${booking.loki.url}") String lokiUrl) {
+
+        return restClientBuilder.baseUrl(lokiUrl).build();
     }
 
 }

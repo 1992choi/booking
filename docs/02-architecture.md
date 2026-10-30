@@ -54,7 +54,11 @@
 
 ### AI 사용법 안내 챗봇 (LiteLLM Gateway + Ollama)
 
-`api`에 신규 엔드포인트 `POST /api/v1/assistant/chat`을 두고, Anthropic SDK를 직접 의존하지 않고 **LiteLLM**(`:4000`, OpenAI 호환 `/chat/completions`)을 거쳐 모델을 호출한다. LiteLLM 뒤에는 두 모델이 등록돼 있다: `claude`(Anthropic Claude, 클라우드) / `local`(`ollama`(`:11434`)가 서빙하는 오픈 웨이트 모델). `claude` 호출이 실패하면 LiteLLM 설정(`litellm_settings.fallbacks`)에 따라 `local`로 자동 전환된다. Anthropic API 키는 LiteLLM 컨테이너에만 주입되고 `api`는 키를 갖지 않는다. 자세한 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
+`api`에 신규 엔드포인트 `POST /api/v1/assistant/chat`을 두고, Anthropic SDK를 직접 의존하지 않고 **LiteLLM**(`:4000`, OpenAI 호환 `/chat/completions`)을 거쳐 모델을 호출한다. LiteLLM 뒤에는 두 모델이 등록돼 있다: `claude`(Anthropic Claude, 클라우드) / `local`(`ollama`(`:11434`)가 서빙하는 오픈 웨이트 모델). `claude` 호출이 실패하면 LiteLLM 설정(`litellm_settings.fallbacks`)에 따라 `local`로 자동 전환된다. Anthropic API 키는 LiteLLM 컨테이너에만 주입되고 `api`는 키를 갖지 않는다.
+
+tool-use로 실데이터 조회도 지원한다: `get_my_reservations`(reservation 서비스에 JWT forward), `find_recent_reservation_error`(Loki에서 호출자 userId로 범위를 좁힌 최근 "Business exception" 로그의 `code`만 추출 — 원본 로그 전체는 모델에게 넘기지 않음). 후자를 위해 `core`의 `GlobalExceptionHandler`가 `BusinessException` 로그를 남길 때 MDC에 `userId`를 심어, Loki에서 `{app="...", userId="..."}` 라벨로 바로 필터링할 수 있게 했다(비로그인 요청은 principal이 없어 userId가 안 남음).
+
+호출자가 ADMIN이면 `run_sql`(DB에 SELECT 전용 임의 쿼리)·`run_logql`(Loki에 범위 제한 없는 임의 LogQL)까지 추가로 쓸 수 있다 — `AssistantTool.adminOnly()`가 true인 tool은 USER/MERCHANT 요청에는 LiteLLM에 애초에 전달되지 않아, 모델이 그런 tool의 존재조차 모른다. `run_sql`은 CS 상담 목적의 의도적 예외로 database-per-service 경계(서비스별 DB 분리)를 넘어 `db_reservation`/`db_payment` 등을 직접 조회할 수 있다. 자세한 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
 
 ---
 
@@ -126,8 +130,11 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | api → notification | `POST /api/v1/internal/messages` | 관리자가 특정 유저에게 메시지 발송 |
 | payment → pg | `POST /pg/approve`, `POST /pg/cancel` | Mock PG 서버에 거래 승인/취소 요청 (기본값) |
 | api → LiteLLM | `POST /chat/completions` (OpenAI 호환) | AI 사용법 안내 챗봇 — LiteLLM이 Claude(Anthropic)/로컬 Ollama 모델로 라우팅 |
+| api → reservation | `GET /api/v1/reservations/me` | 챗봇 tool-use — 호출자 JWT를 forward해서 본인 예약 목록 조회 |
+| api → Loki | `GET /loki/api/v1/query_range` | 챗봇 tool-use — 전체 사용자: 호출자 userId로 범위를 좁힌 최근 예약 실패 로그 조회 / ADMIN: 범위 제한 없는 임의 LogQL 조회(`run_logql`) |
+| api → MySQL (db_reservation/db_payment 등, 자체 DB 외) | 직접 JDBC(`AdminSqlConfig`) | 챗봇 tool-use — ADMIN 전용 `run_sql`. database-per-service 경계를 의도적으로 넘는 예외, SELECT만 허용 |
 
-> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환. api → LiteLLM 구간도 동일한 패턴(별도 `litellm` 인스턴스)으로 보호된다.
+> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환. api → LiteLLM 구간도 동일한 패턴(별도 `litellm` 인스턴스)으로 보호된다. api → reservation/Loki(tool-use 호출)는 별도 서킷브레이커 없이, 각 tool이 실패를 잡아 에러 문자열을 Claude에게 돌려주는 방식으로 처리한다 — 어시스턴트 전체가 죽는 대신 "조회에 실패했습니다" 같은 답변으로 이어짐.
 
 ### 동기 (gRPC, 선택)
 

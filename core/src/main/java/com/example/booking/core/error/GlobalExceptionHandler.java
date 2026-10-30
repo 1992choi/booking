@@ -1,9 +1,12 @@
 package com.example.booking.core.error;
 
+import com.example.booking.core.auth.AuthPrincipal;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,9 +17,19 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ProblemDetail> handleBusiness(BusinessException e) {
+    public ResponseEntity<ProblemDetail> handleBusiness(BusinessException e,
+                                                         @AuthenticationPrincipal AuthPrincipal principal) {
         ErrorCode ec = e.getErrorCode();
-        log.warn("Business exception: code={}, status={}, message={}", ec.code(), ec.status(), ec.message());
+
+        if (principal != null) {
+            MDC.put("userId", String.valueOf(principal.userId()));
+        }
+        try {
+            log.warn("Business exception: code={}, status={}, message={}", ec.code(), ec.status(), ec.message());
+        } finally {
+            MDC.remove("userId");
+        }
+
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(ec.status(), ec.message());
         pd.setProperty("code", ec.code());
 

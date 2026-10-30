@@ -68,6 +68,8 @@ core/
 
 에러 코드 전체 목록은 `04-api-spec.md` 참고.
 
+`GlobalExceptionHandler.handleBusiness()`는 `BusinessException` 로그(`code=...`)를 남길 때, 인증된 요청이면 `@AuthenticationPrincipal`로 꺼낸 `userId`를 로그 직전에 MDC에 심고 바로 제거한다(비로그인 요청은 principal이 없어 안 남음) — Loki로 나가는 JSON 로그에서 `userId` 필드(이 설정에서는 스트림 라벨로도 승격됨)로 "이 사용자의 실패만" 조회할 수 있다. `api`의 AI 어시스턴트 챗봇 tool(`docs/99-backlog.md` 참고)이 이 값을 그대로 쓴다.
+
 ---
 
 ## 요청 로깅과 트레이스 ID

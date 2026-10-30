@@ -61,6 +61,12 @@ booking:
   litellm:
     url: ${BOOKING_LITELLM_URL:http://localhost:4000}
     api-key: ${BOOKING_LITELLM_API_KEY:sk-local-dev-litellm-master-key}
+  reservation:
+    url: ${BOOKING_RESERVATION_URL:http://localhost:8081}
+  loki:
+    url: ${BOOKING_LOKI_URL:http://localhost:3100}
+  admin-sql:
+    jdbc-url: ${BOOKING_ADMIN_SQL_URL:jdbc:mysql://localhost:3306/?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true}
 
 resilience4j:
   retry:

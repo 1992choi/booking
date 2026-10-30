@@ -285,8 +285,8 @@ Response 200:
 Error 503 (API_005): LiteLLM 게이트웨이 서킷브레이커 OPEN 상태 — AI 어시스턴트 호출 차단됨
 ```
 
-> `history`는 선택이며, 이전 대화 턴을 프론트가 매 요청에 함께 보낸다(서버는 대화 기록을 영속화하지 않음 — 1단계 스코프). `role`은 `"user"`/`"assistant"` 중 하나.
-> api 서비스가 LiteLLM 게이트웨이(OpenAI 호환 `POST /chat/completions`)에 위임하며, LiteLLM이 Claude(Anthropic) 또는 로컬 Ollama 모델로 라우팅한다. 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
+> `history`는 선택이며, 이전 대화 턴을 프론트가 매 요청에 함께 보낸다(서버는 대화 기록을 영속화하지 않음). `role`은 `"user"`/`"assistant"` 중 하나.
+> api 서비스가 LiteLLM 게이트웨이(OpenAI 호환 `POST /chat/completions`)에 위임하며, LiteLLM이 Claude(Anthropic) 또는 로컬 Ollama 모델로 라우팅한다. 모델이 필요하면 tool-use로 `get_my_reservations`(본인 예약 조회)·`find_recent_reservation_error`(본인의 최근 예약 실패 원인 조회)를 호출해 실데이터 기반으로 답변한다. **호출자가 ADMIN이면** 추가로 `run_sql`(DB에 SELECT 전용 임의 쿼리)·`run_logql`(Loki에 범위 제한 없는 임의 LogQL)도 사용 가능 — CS 상담용, USER/MERCHANT에게는 이 두 tool의 존재 자체가 노출되지 않음. 설계는 `docs/99-backlog.md`의 "AI 사용법 안내 챗봇" 참고.
 
 ---
 

@@ -121,6 +121,36 @@ curl http://localhost:8080/api/v1/test/error500
 ```
 Prometheus가 5xx 증가를 스크랩(최대 15초)한 뒤 Grafana 알럿 룰(`HTTP 5xx 발생`, 1분 주기 평가)이 `firing`으로 전환되면 Slack으로 알림이 온다. `http://localhost:3000/alerting/list`에서 룰 상태를 바로 확인할 수 있다.
 
+**AI 어시스턴트 챗봇 동작 방식**: `POST /api/v1/assistant/chat`에 질문을 보내면 내부적으로 DB를 "검색"하는 게 아니라, Claude에게 그때그때 필요한 텍스트를 쥐여주고 "이어서 자연스럽게 답을 써봐"라고 시키는 것에 가깝다. 두 단계로 나뉜다.
+
+**1) 기본 답변 — 그냥 쥐여준 텍스트를 읽고 답함**
+1. `api`가 `src/main/resources/assistant/system-prompt.txt`(사용법 안내를 사람이 미리 적어둔 고정 텍스트)를 모든 요청에 매번 통째로 붙인다
+2. 이 텍스트 + 사용자의 질문을 LiteLLM(`:4000`, OpenAI 호환 API)에 보냄
+3. LiteLLM은 그 자체로는 아무 지능이 없는 **중계 서버**다 — `docker/litellm/config.yaml`에 적힌 라우팅 규칙대로 Anthropic Claude API(클라우드)나 로컬 Ollama 모델로 요청을 그대로 전달할 뿐
+4. Claude가 system-prompt 내용을 바탕으로 질문에 대한 답을 생성해서 돌려줌
+5. Claude는 대화를 "기억"하지 않는다 — 다음 질문에도 매번 처음부터 같은 system-prompt + 이전 대화 내용을 전부 다시 보내야 한다(그래서 프론트가 `history`를 매번 함께 보냄)
+
+이 단계만으로는 "예약 취소는 어떻게 해?" 같은 **일반적인 사용법**만 답할 수 있다 — system-prompt에 그 사용자 개인의 실시간 데이터(내 예약 상태 등)는 당연히 없기 때문.
+
+**2) 실데이터 조회 — tool-use (Claude가 "직접 찾아보게" 시킴)**
+"내 예약 상태 알려줘"처럼 개인 데이터가 필요한 질문엔, Claude에게 호출 가능한 함수 목록(`tools`)도 같이 알려준다. 흐름:
+1. Claude가 질문을 보고 "이건 직접 답할 수 없고 조회가 필요하다" 판단하면, 텍스트 답 대신 "이 함수를 이 값으로 호출해줘"라는 요청(`tool_calls`)을 돌려줌
+2. `api`(`AssistantService`)가 그 요청을 받아서 실제로 함수를 실행 — 예를 들어 `get_my_reservations`는 reservation 서비스의 `GET /reservations/me`를 호출자의 JWT로 그대로 호출
+3. 실행 결과를 다시 Claude에게 돌려주면, Claude가 그 결과를 보고 최종적으로 사람이 읽을 답을 생성
+4. 필요하면 이 왕복을 몇 번 더 반복할 수 있음(최대 3회)
+
+"예약이 안 됐어" 같은 원인 진단 질문은 `find_recent_reservation_error` tool을 쓰는데, 이건 더 안전하게 설계돼 있다 — Claude에게 서버 로그 전체를 읽게 하는 게 아니라, `api`가 Loki에서 **이미 정해진 유한한 에러 코드**(`code=RSV_001` 등, `core`의 `GlobalExceptionHandler`가 항상 이 형식으로 로깅)만 뽑아서 "이 코드의 뜻 하나만" Claude에게 건넨다. Claude는 그 정해진 뜻을 자연스러운 문장으로 바꾸는 역할만 하므로, 로그를 잘못 해석해서 지어낼 위험이 거의 없다. 이 조회는 호출자 본인의 `userId`로만 범위가 좁혀진다(다른 사용자의 실패 기록은 안 보임).
+
+**3) ADMIN 전용 — CS 상담용 "진짜 직접 조회" tool**
+
+위 두 tool은 전부 파라미터가 없고 범위가 호출자 본인으로 고정돼 있어 안전하지만, 그만큼 "정해진 것만" 답할 수 있다. 사내 CS 봇처럼 "관리자가 다른 사용자의 문제를 조사"하는 용도로는 이 정도로는 부족해서, ADMIN 역할에게만 두 tool을 추가로 열어줬다:
+- `run_sql`: Claude가 **직접 SELECT SQL을 작성**해서 DB를 조회(쓰기 쿼리는 실행 전에 거부). 서비스별로 DB가 분리돼 있어 `db_reservation.reservations`처럼 스키마를 붙여서 조회
+- `run_logql`: Claude가 **직접 LogQL을 작성**해서 Loki를 조회, 범위 제한 없음(어떤 서비스·어떤 사용자·몇 분 전까지든 자유롭게)
+
+핵심은 "USER용 tool 목록"과 "ADMIN용 tool 목록"이 요청마다 다르다는 것이다 — `AssistantService`가 호출자의 role을 보고, ADMIN이 아니면 `run_sql`/`run_logql` 자체를 LiteLLM에 전달하는 tool 목록에서 빼버린다. 그래서 일반 사용자가 질문해도 Claude는 그런 tool이 **존재한다는 사실조차 모른다** — "권한이 없어서 거부"가 아니라 "그런 기능 자체를 모르는" 상태다.
+
+**정리**: `Claude`는 지능(글을 자연스럽게 잇는 능력)을, `LiteLLM`은 그 지능을 어느 provider(클라우드/로컬)에서 가져올지 결정하는 중계를, `api`는 "이 질문엔 어떤 자료가 필요한지" + "이 호출자에게 어떤 tool까지 보여줄지" 판단해서 실제로 그 자료(고정 텍스트든, tool 호출 결과든)를 만들어 Claude에게 넘겨주는 역할을 각각 맡는다.
+
 상태 확인:
 ```bash
 docker compose ps
