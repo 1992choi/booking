@@ -134,6 +134,8 @@ public List<Reservation> findOverlapping(Long resourceId, LocalDateTime start, L
 int sumHeadCountByAvailableTimeId(@Param("availableTimeId") Long availableTimeId);
 ```
 
+> 두 쿼리 모두 `CANCELLED`만 제외하고 `PENDING`/`CONFIRMED`를 동일하게 점유로 집계한다 — 결제 대기 중인 `PENDING` 예약도 정원을 그대로 차지한다(오버셀링 방지를 위한 의도적 설계). 따라서 `PENDING`이 있다는 사실 자체가 차단 사유는 아니고, 그 `headCount` 합이 `maxCapacity`를 넘길 때만 새 예약이 막힌다. 결제가 끝나지 않은 `PENDING`은 `batch`의 `expirePendingReservationsJob`(매분 실행, `booking.batch.pending-expiry-minutes` 기본 10분)이 자동으로 `CANCELLED`로 정리해 점유를 풀어준다 — 이 배치에는 재시도 개념이 없고, 한 번 만료시키면 끝이다.
+
 ### 리마인더 발송 흐름
 
 `ReservationReminderScheduler`가 `booking.reminder.cron`(기본: 매분) 주기로 `ReservationService.sendReminders(windowMinutes)`를 호출한다.

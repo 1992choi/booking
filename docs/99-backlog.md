@@ -94,9 +94,9 @@ payment.completed → reservation confirm 실패
 | notification | MySQL, Kafka |
 | review | MySQL(reservation과 공유) |
 
-### 진행 상태 (notification 파일럿 — MySQL만 적용, Kafka는 보류, 커밋 안 됨)
+### 진행 상태 (notification 파일럿 — MySQL만 적용, Kafka는 보류, 커밋됨: `1bad5d2`)
 
-6개 항목 중 프로덕션 코드를 안 건드리는 유일한 항목이라 notification부터 파일럿으로 시작. 최종적으로 **MySQL만 Testcontainers로 전환**하고 **Kafka는 기존 docker-compose의 localhost Kafka를 그대로 씀** — 36개 테스트 전부 통과 확인(`./gradlew :notification:test`). 변경사항은 전부 working tree에 uncommitted로 남아있음(`notification/build.gradle`, 신규 `TestcontainersConfiguration.java`, 5개 `@SpringBootTest` 클래스에 `@Import` 추가, `application.yml`에서 `spring.datasource.*`만 제거하고 `spring.kafka.bootstrap-servers: localhost:9092`는 유지).
+6개 항목 중 프로덕션 코드를 안 건드리는 유일한 항목이라 notification부터 파일럿으로 시작. 최종적으로 **MySQL만 Testcontainers로 전환**하고 **Kafka는 기존 docker-compose의 localhost Kafka를 그대로 씀** — 36개 테스트 전부 통과 확인(`./gradlew :notification:test`). 변경사항(`notification/build.gradle`, 신규 `TestcontainersConfiguration.java`, 5개 `@SpringBootTest` 클래스에 `@Import` 추가, `application.yml`에서 `spring.datasource.*`만 제거하고 `spring.kafka.bootstrap-servers: localhost:9092`는 유지)은 전부 커밋됐다.
 
 - **MySQL은 됨**: `org.testcontainers.mysql.MySQLContainer`(2.x부터 패키지 이동 — `org.testcontainers.containers.MySQLContainer`는 전체 `@Deprecated`) + `@ServiceConnection`으로 정상 동작
 - **Kafka는 보류**: 시도 과정에서 두 가지 문제를 만남

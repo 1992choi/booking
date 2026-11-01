@@ -67,7 +67,11 @@ api/
     │   │   └── AdminLogTool.java             (run_logql — ADMIN 전용)
     │   └── dto/ (ChatRequest, ChatTurn, ChatResponse, LlmMessage, ToolCall, ToolDefinition)
     ├── internal/
-    │   └── controller/InternalController.java (서비스 간 호출 endpoint)
+    │   ├── controller/InternalController.java (서비스 간 호출 endpoint)
+    │   └── dto/UserSnapshot.java
+    ├── system/
+    │   ├── PingController.java             (GET /ping, ?fail=true 로 강제 BAD_REQUEST 테스트)
+    │   └── ChaosController.java            (GET /api/v1/test/error500 — Grafana 알럿 테스트용 강제 500)
     ├── error/
     │   └── ApiErrorCode.java
     └── config/

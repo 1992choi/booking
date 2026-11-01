@@ -134,7 +134,7 @@ review       ─── core     # Kotlin 이지만 core(Java 라이브러리)는
 | api → Loki | `GET /loki/api/v1/query_range` | 챗봇 tool-use — 전체 사용자: 호출자 userId로 범위를 좁힌 최근 예약 실패 로그 조회 / ADMIN: 범위 제한 없는 임의 LogQL 조회(`run_logql`) |
 | api → MySQL (db_reservation/db_payment 등, 자체 DB 외) | 직접 JDBC(`AdminSqlConfig`) | 챗봇 tool-use — ADMIN 전용 `run_sql`. database-per-service 경계를 의도적으로 넘는 예외, SELECT만 허용 |
 
-> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환. api → LiteLLM 구간도 동일한 패턴(별도 `litellm` 인스턴스)으로 보호된다. api → reservation/Loki(tool-use 호출)는 별도 서킷브레이커 없이, 각 tool이 실패를 잡아 에러 문자열을 Claude에게 돌려주는 방식으로 처리한다 — 어시스턴트 전체가 죽는 대신 "조회에 실패했습니다" 같은 답변으로 이어짐.
+> api → notification 구간에 Resilience4j 재시도(최대 3회, 500ms 간격, 네트워크 예외만 대상) + 서킷브레이커(`notification` 인스턴스: sliding-window-size=5, failure-rate-threshold=60%, wait-duration-in-open-state=10s, permitted-calls-in-half-open=2)가 적용되어 있다. OPEN 시 즉시 503 (`API_004`) 반환. api → LiteLLM 구간도 별도 `litellm` 인스턴스로 보호되며 **서킷브레이커 설정값은 동일**하지만, **재시도 설정은 다르다**(최대 2회, 1s 간격 — LLM 호출은 재시도 비용이 더 크다고 보고 더 적게/느리게 재시도). api → reservation/Loki(tool-use 호출)는 별도 서킷브레이커 없이, 각 tool이 실패를 잡아 에러 문자열을 Claude에게 돌려주는 방식으로 처리한다 — 어시스턴트 전체가 죽는 대신 "조회에 실패했습니다" 같은 답변으로 이어짐.
 
 ### 동기 (gRPC, 선택)
 

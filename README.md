@@ -246,6 +246,9 @@ docker compose down -v && docker compose up -d
 | Tempo | 분산 트레이싱 수집(OTLP), Grafana Explore에서 조회 | 전 서비스 |
 | Prometheus + Micrometer | 메트릭 수집(`/actuator/prometheus`). batch는 업체 일별 통계 집계 결과를 `merchant_daily_reservation_count`/`merchant_daily_revenue` 커스텀 Gauge로도 노출 | api, reservation, payment, notification, batch |
 | Grafana | 메트릭 대시보드 (Prometheus 데이터소스 연동) + Alerting(5xx 발생 시 Slack 알림) | api, reservation, payment, notification |
+| Loki (`loki4j` logback appender) | 로그 집계 — Promtail 없이 각 서비스가 직접 push. AI 어시스턴트 챗봇이 LogQL로 조회(`find_recent_reservation_error`/ADMIN `run_logql`) | api, reservation, payment, notification |
+| LiteLLM | LLM 게이트웨이 — `api`는 OpenAI 호환 `/chat/completions`만 호출, `claude`(Anthropic)/`local`(Ollama) 라우팅 + `claude` 실패 시 자동 fallback | api |
+| Ollama | 로컬 오픈 웨이트 모델(`qwen2.5:7b`) 서빙 — LiteLLM의 fallback 대상 | (신규 docker-compose 서비스, api가 LiteLLM을 통해서만 접근) |
 | MongoDB (Spring Data MongoDB) | 사용자 활동 감사 로그(`audit_logs`) | api, reservation |
 | gRPC + Protocol Buffers | payment → pg 거래 승인/취소 (REST 병행, `booking.pg.protocol`로 전환) | payment, pg |
 | springdoc-openapi (Swagger UI) | 실행 중인 코드 기준 API 문서/테스트 UI (`/swagger-ui.html`, `/v3/api-docs`) | api, reservation, payment, notification |

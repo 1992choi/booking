@@ -95,11 +95,16 @@ Request:
 
 Response 201:
 {
-  "userId": 1,
+  "id": 1,
+  "name": "홍길동",
   "email": "hong@example.com",
-  "name": "홍길동"
+  "phone": "010-1234-5678",
+  "role": "USER",
+  "createdAt": "2026-05-01T10:00:00"
 }
 ```
+
+> 응답은 `UserResponse`를 그대로 반환한다(`GET /api/v1/users/me`와 동일한 형식).
 
 ### 로그인
 ```
@@ -385,8 +390,11 @@ Request:
 Response 200:
 {
   "id": 1,
+  "userId": 10,
   "name": "한옥 펜션 (리뉴얼)",
-  "type": "PENSION"
+  "phone": "010-9999-8888",
+  "type": "PENSION",
+  "createdAt": "2026-05-01T10:00:00"
 }
 
 Error 403: 본인 소유가 아닌 업체 수정 시도
@@ -408,7 +416,9 @@ Response 200:
       "startTime": "2026-05-01T14:00:00",
       "endTime": "2026-05-01T15:00:00",
       "headCount": 2,
-      "amount": 150000
+      "amount": 150000,
+      "userId": 10,
+      "userName": "홍길동"
     }
   ],
   "page": 0,
@@ -421,7 +431,7 @@ Error 403 (AUTH_002): 본인 소유 업체가 아닌 경우
 Error 404 (RSV_006): 업체 없음
 ```
 
-> reservation 서비스가 merchantId 로 resourceId 목록을 조회한 뒤 직접 예약 목록을 반환. 리소스가 없으면 빈 페이지를 반환.
+> reservation 서비스가 merchantId 로 resourceId 목록을 조회한 뒤 직접 예약 목록을 반환. 리소스가 없으면 빈 페이지를 반환. 응답은 `AdminReservationResponse`(관리자 예약 API와 동일한 DTO) — `userName`은 `UserSync`에서 조회해 채운다.
 
 ### 업체 일별 통계 조회
 ```
@@ -462,9 +472,12 @@ Request:
 
 Response 201:
 {
-  "resourceId": 1,
+  "id": 1,
+  "merchantId": 1,
   "name": "별채 A",
-  "price": 150000
+  "description": "2인실 독채",
+  "price": 150000,
+  "maxCapacity": 2
 }
 ```
 
@@ -480,7 +493,7 @@ Request:
 
 Response 201:
 {
-  "availableTimeId": 1,
+  "id": 1,
   "startTime": "2026-05-01T14:00:00",
   "endTime": "2026-05-01T15:00:00",
   "status": "OPEN"
@@ -502,9 +515,12 @@ Request:
 
 Response 200:
 {
-  "resourceId": 1,
+  "id": 1,
+  "merchantId": 1,
   "name": "별채 B",
-  "price": 200000
+  "description": "리모델링 완료",
+  "price": 200000,
+  "maxCapacity": 4
 }
 
 Error 403: 본인 소유가 아닌 resource 수정 시도
@@ -533,7 +549,7 @@ Request:
 
 Response 200:
 {
-  "availableTimeId": 1,
+  "id": 1,
   "startTime": "2026-05-01T15:00:00",
   "endTime": "2026-05-01T16:00:00",
   "status": "OPEN"
@@ -561,7 +577,7 @@ GET /api/v1/resources/{resourceId}/available-times?date=2026-05-01
 Response 200:
 [
   {
-    "availableTimeId": 1,
+    "id": 1,
     "startTime": "2026-05-01T14:00:00",
     "endTime": "2026-05-01T15:00:00",
     "status": "OPEN"
@@ -595,7 +611,8 @@ Response 201 (슬롯당 1개 생성, 배열 반환):
     "startTime": "2026-05-01T14:00:00",
     "endTime": "2026-05-01T15:00:00",
     "headCount": 2,
-    "amount": 150000
+    "amount": 150000,
+    "userId": 10
   }
 ]
 
@@ -623,7 +640,8 @@ Response 200:
   "startTime": "2026-05-01T14:00:00",
   "endTime": "2026-05-01T15:00:00",
   "headCount": 2,
-  "amount": 150000
+  "amount": 150000,
+  "userId": 10
 }
 ```
 
@@ -637,15 +655,14 @@ Response 200:
 {
   "content": [
     {
-      "reservationId": 1,
-      "resourceId": 5,
+      "id": 1,
+      "status": "CONFIRMED",
       "resourceName": "별채 A",
       "startTime": "2026-05-01T14:00:00",
       "endTime": "2026-05-01T15:00:00",
       "headCount": 2,
       "amount": 150000,
-      "status": "CONFIRMED",
-      "createdAt": "2026-04-25T10:30:00"
+      "userId": 10
     }
   ],
   "page": 0,
@@ -655,7 +672,7 @@ Response 200:
 }
 ```
 
-> 목록 항목에는 결제 정보가 포함되지 않음. 결제 상세가 필요하면 `/payments/{reservationId}` 별도 호출.
+> 목록 항목은 `ReservationResponse`(상세 조회·예약 요청과 동일한 DTO) — 결제 정보와 `resourceId`/`createdAt`은 포함되지 않음. 결제 상세가 필요하면 `/payments/{reservationId}` 별도 호출.
 > `resourceName` 은 예약 시점에 reservation 서비스가 로컬 Resource 에서 읽어 snapshot 으로 저장. 이후 Resource.name 이 변경되어도 불변.
 
 ### 예약 취소
@@ -664,8 +681,14 @@ PUT /api/v1/reservations/{reservationId}/cancel
 
 Response 200:
 {
-  "reservationId": 1,
-  "status": "CANCELLED"
+  "id": 1,
+  "status": "CANCELLED",
+  "resourceName": "별채 A",
+  "startTime": "2026-05-01T14:00:00",
+  "endTime": "2026-05-01T15:00:00",
+  "headCount": 2,
+  "amount": 150000,
+  "userId": 10
 }
 ```
 
@@ -679,7 +702,7 @@ GET /api/v1/payments/{reservationId}
 
 Response 200:
 {
-  "paymentId": 1,
+  "id": 1,
   "reservationId": 1,
   "amount": 150000,
   "status": "COMPLETED",
@@ -693,8 +716,11 @@ POST /api/v1/payments/{reservationId}/refund
 
 Response 200:
 {
-  "paymentId": 1,
-  "status": "REFUNDED"
+  "id": 1,
+  "reservationId": 1,
+  "amount": 150000,
+  "status": "REFUNDED",
+  "paidAt": "2026-05-01T13:00:00"
 }
 
 Error 409 (status 가 COMPLETED 가 아닐 때):
@@ -826,8 +852,15 @@ PUT /api/v1/admin/reservations/{reservationId}/confirm
 
 Response 200:
 {
-  "reservationId": 1,
-  "status": "CONFIRMED"
+  "id": 1,
+  "status": "CONFIRMED",
+  "resourceName": "별채 A",
+  "startTime": "2026-05-01T14:00:00",
+  "endTime": "2026-05-01T15:00:00",
+  "headCount": 2,
+  "amount": 150000,
+  "userId": 10,
+  "userName": "홍길동"
 }
 ```
 
@@ -837,10 +870,19 @@ PUT /api/v1/admin/reservations/{reservationId}/cancel
 
 Response 200:
 {
-  "reservationId": 1,
-  "status": "CANCELLED"
+  "id": 1,
+  "status": "CANCELLED",
+  "resourceName": "별채 A",
+  "startTime": "2026-05-01T14:00:00",
+  "endTime": "2026-05-01T15:00:00",
+  "headCount": 2,
+  "amount": 150000,
+  "userId": 10,
+  "userName": "홍길동"
 }
 ```
+
+> 두 엔드포인트 모두 `AdminReservationResponse`를 반환한다(위 "업체별 예약 목록 조회"와 동일한 DTO).
 
 ---
 

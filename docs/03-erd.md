@@ -253,10 +253,13 @@ Reservation (reservation)
 
 ### Reservation Status
 ```
-PENDING → CONFIRMED   (payment.completed 이벤트 수신 시)
-PENDING → CANCELLED   (payment.failed 이벤트 수신 시)
-CONFIRMED → CANCELLED (사용자/관리자 취소 요청 시)
+PENDING → CONFIRMED             (payment.completed 이벤트 수신 시)
+PENDING → CANCELLED             (payment.failed 이벤트 수신 시)
+PENDING → CANCELLED             (batch: booking.batch.pending-expiry-minutes 경과 시 자동 만료, 기본 10분 — 재시도 없음)
+PENDING/CONFIRMED → CANCELLED   (사용자/관리자 취소 요청 시 — `Reservation.cancel()`에 상태 가드 없음, PENDING도 바로 취소 가능)
 ```
+
+> `findOverlapping()`은 `CANCELLED`가 아닌 모든 예약(PENDING 포함)의 `head_count`를 점유량으로 합산한다 — 결제 대기 중인 PENDING도 정원을 차지한다(오버셀링 방지 목적). 자세한 동작은 `06-2-module-reservation.md` 참고.
 
 ### Payment Status
 ```

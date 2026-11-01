@@ -31,7 +31,9 @@ notification/
     │   └── NotificationController.java
     ├── internal/
     │   ├── InternalNotificationController.java (api 서비스 전용 — 관리자 메시지)
-    │   └── dto/AdminMessageRequest.java
+    │   ├── DltReplayController.java            (POST /api/v1/internal/dlt/{dltTopic}/replay)
+    │   ├── DltReplayService.java                (전용 컨슈머 그룹으로 DLT → 원본 토픽 재발행)
+    │   └── dto/AdminMessageRequest.java, DltReplayResponse.java
     ├── service/
     │   ├── NotificationService.java
     │   └── channel/
