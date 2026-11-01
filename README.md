@@ -121,6 +121,17 @@ curl http://localhost:8080/api/v1/test/error500
 ```
 Prometheus가 5xx 증가를 스크랩(최대 15초)한 뒤 Grafana 알럿 룰(`HTTP 5xx 발생`, 1분 주기 평가)이 `firing`으로 전환되면 Slack으로 알림이 온다. `http://localhost:3000/alerting/list`에서 룰 상태를 바로 확인할 수 있다.
 
+**AI 관련 용어/개념**: 아래 동작 방식을 읽기 전에 이 프로젝트에 나오는 AI 관련 용어들을 먼저 정리한다. LLM을 다뤄본 적 없어도 이해할 수 있게 적음.
+
+- **LLM(Large Language Model)**: "다음에 올 단어로 뭐가 자연스러운지"를 예측해서 글을 이어 쓰는 모델. DB에서 정답을 찾아오는 게 아니라, 학습한 패턴을 바탕으로 매번 답을 **새로 생성**한다 — 그래서 같은 질문도 매번 표현이 조금씩 다르고, 모르는 내용은 그럴듯하게 지어낼(hallucination) 수도 있다. 이 프로젝트에서 ADMIN tool에 파라미터 제한을 안 걸어도 USER tool에는 "정해진 코드만 번역"하게 설계한 이유가 바로 이 지어내기 위험을 최소화하기 위함.
+- **Claude**: Anthropic이 만든 LLM 자체. 이 프로젝트에서 실제 "생각하고 글을 쓰는" 역할을 담당하는 유일한 지능. Claude는 서버처럼 상태를 들고 있지 않다 — 호출 한 번은 완전히 독립적이고, 이전 대화를 "기억"하려면 매번 그 내용을 다시 통째로 보내줘야 한다(아래 system prompt/history가 그 역할).
+- **프롬프트(prompt) / system prompt**: LLM에게 보내는 입력 텍스트 전체. 그중 **system prompt**는 "너는 이런 역할이고, 이런 규칙을 지켜라"처럼 매 요청마다 똑같이 앞에 붙이는 고정 지시문이다(`assistant/system-prompt.txt`). 사람이 미리 작성해둔 문서이고, Claude가 스스로 알아낸 게 아니다.
+- **토큰(token)**: LLM이 텍스트를 쪼개는 단위(대략 단어보다 작은 조각). API 비용과 처리 속도가 모두 토큰 수에 비례해서 매겨진다 — 그래서 이 프로젝트는 비용이 가장 낮은 모델(Claude Haiku)을 쓰고, system prompt도 필요한 만큼만 넣는다.
+- **Tool-use(= Function calling)**: LLM이 직접 DB를 조회하거나 API를 호출할 수는 없으니, 대신 "이 함수를 이런 값으로 호출해줘"라는 **요청**만 텍스트로 돌려주는 패턴. 실제 실행(DB 조회, HTTP 호출 등)은 전부 애플리케이션(`api`의 `AssistantService`)이 코드로 수행하고, 그 결과만 다시 Claude에게 보여준다. 즉 Claude는 "무엇이 필요한지 판단"만 하고, "그걸 실제로 가져오는 것"은 하지 못한다.
+- **Ollama**: Claude나 ChatGPT는 "그 회사의 거대한 서버에 있는 모델"을 인터넷 너머로 호출하는 것이다 — 모델 자체는 내가 가진 적도, 들여다본 적도 없고, 그냥 API로 질문만 보내고 답을 받는 구조(=클라우드). **Ollama는 그 반대로, AI 모델 파일을 내 컴퓨터(또는 이 프로젝트처럼 내 docker 컨테이너)에 직접 내려받아서 그 안에서 돌리는 프로그램**이다. 비유하면 Claude/ChatGPT는 "넷플릭스 스트리밍"이고 Ollama는 "영화 파일 다운받아서 내 컴퓨터로 재생"에 가깝다. 이 프로젝트는 Ollama 위에 `qwen2.5:7b`라는 오픈소스 모델 파일 하나를 올려서, 인터넷/API 비용 없이 로컬에서 추론하게 만들어뒀다. 장점은 무료·오프라인이고, 단점은 Claude 같은 상업용 거대 모델보다 품질이 떨어지고 느리다(내 컴퓨터 성능에 그대로 의존).
+- **LiteLLM**: Claude API, Ollama(로컬 모델), OpenAI 등 **AI 제공사마다 API 호출 형식이 전부 다르다**는 게 실무에서 골치 아픈 문제다 — 코드에서 Claude API를 직접 호출하도록 짜놓으면, 나중에 모델을 바꾸거나 둘 다 쓰려고 할 때 호출 코드를 전부 고쳐야 한다. **LiteLLM은 이 여러 제공사 API들을 전부 "OpenAI가 쓰는 형식"이라는 하나의 공통 규격으로 통일해서 중계해주는 오픈소스 프록시 서버**다(이 프로젝트의 `docker/litellm/config.yaml`처럼 설정 파일에 "어떤 모델 이름이 오면 실제로는 Claude로 보낼지, Ollama로 보낼지"만 매핑해두면 됨). 그래서 `api` 서비스 코드는 "LiteLLM에 OpenAI 형식으로 요청한다"는 것 하나만 알고, 실제로 그 요청이 Claude로 가는지 Ollama로 가는지는 LiteLLM 설정만 바꾸면 코드 변경 없이 전환된다. 비유하면 전기 콘센트의 "멀티탭" 같은 역할 — 어느 나라 플러그든 LiteLLM에만 꽂으면 알아서 맞는 전원으로 바꿔주는 것.
+- **Fallback(장애 전환)**: Claude API 호출이 실패(서킷 오픈 등)하면 LiteLLM이 자동으로 로컬 Ollama 모델로 전환해서 응답하는 것. `docker/litellm/config.yaml`의 `fallbacks` 설정으로 처리되고, `api` 코드는 이 전환이 일어났는지조차 모른다 — 그냥 LiteLLM에 요청 하나 보냈는데 답이 왔을 뿐이다.
+
 **AI 어시스턴트 챗봇 동작 방식**: `POST /api/v1/assistant/chat`에 질문을 보내면 내부적으로 DB를 "검색"하는 게 아니라, Claude에게 그때그때 필요한 텍스트를 쥐여주고 "이어서 자연스럽게 답을 써봐"라고 시키는 것에 가깝다. 두 단계로 나뉜다.
 
 **1) 기본 답변 — 그냥 쥐여준 텍스트를 읽고 답함**
@@ -140,6 +151,15 @@ Prometheus가 5xx 증가를 스크랩(최대 15초)한 뒤 Grafana 알럿 룰(`H
 4. 필요하면 이 왕복을 몇 번 더 반복할 수 있음(최대 3회)
 
 "예약이 안 됐어" 같은 원인 진단 질문은 `find_recent_reservation_error` tool을 쓰는데, 이건 더 안전하게 설계돼 있다 — Claude에게 서버 로그 전체를 읽게 하는 게 아니라, `api`가 Loki에서 **이미 정해진 유한한 에러 코드**(`code=RSV_001` 등, `core`의 `GlobalExceptionHandler`가 항상 이 형식으로 로깅)만 뽑아서 "이 코드의 뜻 하나만" Claude에게 건넨다. Claude는 그 정해진 뜻을 자연스러운 문장으로 바꾸는 역할만 하므로, 로그를 잘못 해석해서 지어낼 위험이 거의 없다. 이 조회는 호출자 본인의 `userId`로만 범위가 좁혀진다(다른 사용자의 실패 기록은 안 보임).
+
+"예약이 안 됐어" 질문 하나가 `api`에 도착한 뒤 실제로 거치는 전체 경로:
+1. `POST /api/v1/assistant/chat` 요청이 `AssistantController`에 도착 — JWT에서 역할(role)을 꺼내 `AssistantContext`를 만듦
+2. `AssistantService.chat()`이 role로 tool 목록을 먼저 필터링하고(USER면 ADMIN tool은 목록에서부터 제외), system-prompt + 대화 history + 질문을 합쳐서 LiteLLM에 1차 호출
+3. Claude가 system-prompt의 지시(" `find_recent_reservation_error`는 먼저 `get_my_reservations`로 실제로 없는지 확인한 뒤에만 호출")를 따라 `get_my_reservations` 호출을 요청 → `AssistantService`가 `ReservationStatusTool`을 실행해 reservation 서비스의 `GET /reservations/me`를 호출자 JWT로 그대로 호출
+4. 그 결과를 Claude에게 돌려주는 2차 호출에서, 해당 예약이 실제로 없는 걸 확인한 Claude가 이번엔 `find_recent_reservation_error` 호출을 요청
+5. `AssistantService`가 `ReservationErrorTool` → `LokiLogClient.findRecentReservationError(userId)` 실행 — LogQL `{app="reservation", userId="..."} |= "Business exception"`로 최근 15분 내 로그를 조회하고, 정규식으로 로그 줄에서 `code`/`message`만 추출해 `code=RSV_001, 사유: 이미 예약된 시간대입니다` 한 줄로 정리
+6. 이 한 줄을 받은 3차 호출에서 Claude는 더 이상 tool을 요청하지 않고, 그 코드의 뜻을 자연스러운 한국어 문장으로 바꿔 최종 답을 생성(이 왕복은 `AssistantService`의 `MAX_TOOL_ITERATIONS=3`까지 허용)
+7. `AssistantService`가 그 문장을 반환하면 `AssistantController`가 `{ reply }`로 감싸서 응답
 
 **3) ADMIN 전용 — CS 상담용 "진짜 직접 조회" tool**
 
